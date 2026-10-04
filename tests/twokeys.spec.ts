@@ -24,6 +24,8 @@ test('two players finish a two-keys task together: one shows the pairing code, t
   const code = await page.locator('[class*=invite] strong').innerText();
   const alex = await join(browser, baseURL, code, 'Alex');
   const sam = await join(browser, baseURL, code, 'Sam');
+  // A third player keeps two Crewmates in the round, so it is not an instant Impostor win.
+  const robin = await join(browser, baseURL, code, 'Robin');
   try {
     // Only two-keys tasks, opened from the list.
     for (const game of ['Codebook', 'Number order', 'Fix the wiring', 'Simon says', 'Maze', 'Open waterways', 'Delivery']) {
@@ -64,5 +66,6 @@ test('two players finish a two-keys task together: one shows the pairing code, t
   } finally {
     await alex.context().close();
     await sam.context().close();
+    await robin.context().close();
   }
 });

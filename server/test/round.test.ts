@@ -228,6 +228,22 @@ describe('eliminations', () => {
     expect(ended.result).toEqual({ winner: 'impostor', reason: 'eliminations' });
   });
 
+  it('gives no Impostor win in the app while eliminations are played only physically', async () => {
+    const app = await start();
+    const game = await crew(app);
+    let lobby: Lobby = (await (await app.post('/api/settings/commands', { commandId: randomUUID(), expectedRevision: game.lobby.revision, roundId: null, eliminations: false }, game.cookies[0])).json()).lobby;
+    lobby = (await (await app.post('/api/round/commands', roundInput(lobby, 'start'), game.cookies[0])).json()).lobby;
+    const infos = await Promise.all(game.cookies.map(async cookie => (await (await fetch(`${app.url}/api/role?roundId=${lobby.roundId}`, { headers: { Cookie: cookie } })).json())));
+    const crewIds = await Promise.all(game.cookies.filter((_, index) => infos[index].role === 'crewmate').map(async cookie => (await game.snapshot(cookie)).you.id));
+    // The organiser marks all but one Crewmate out: the round goes on until they end it.
+    for (const playerId of crewIds.slice(1)) {
+      lobby = await game.snapshot();
+      const response = await app.post('/api/corrections', { commandId: randomUUID(), roundId: lobby.roundId, expectedRevision: lobby.revision, action: 'setStatus', playerId, status: 'ghost' }, game.cookies[0]);
+      expect(response.status).toBe(200);
+    }
+    expect((await game.snapshot()).phase).toBe('active');
+  });
+
   it('pauses the round clock across a server restart', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'home-clock-test-'));
     onCleanup(() => rmSync(directory, { recursive: true, force: true }));

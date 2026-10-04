@@ -32,7 +32,8 @@ export function createRules({ db, now, gameFor }: Base) {
     if (db.prepare("SELECT 1 FROM players WHERE game_code = ? AND playing = 1 AND removed = 0 AND role = 'impostor' AND status = 'ghost'").get(game.code)) return { winner: 'crew', reason: 'ejected' };
     if (meltedDown(game)) return { winner: 'impostor', reason: 'reactor' };
     if (game.reactor_ends_ms === null && tasksWon(game)) return { winner: 'crew', reason: 'tasks' };
-    if (impostorWon(game)) return { winner: 'impostor', reason: 'eliminations' };
+    // With eliminations played only physically, the organiser ends the round for an Impostor win.
+    if (game.eliminations && impostorWon(game)) return { winner: 'impostor', reason: 'eliminations' };
     return null;
   }
   // Ends the round on a detected win or, when the organiser confirms victories, stops play

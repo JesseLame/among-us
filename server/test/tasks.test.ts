@@ -78,13 +78,15 @@ describe('stations and tasks', () => {
     const impostor = players.find(player => player.role === 'impostor')!;
     const crewmates = players.filter(player => player !== impostor);
     const [first] = crewmates[0].lobby.you.tasks;
-    expect((await complete(crewmates[1].cookie, first)).status).toBe(404);
+    // Someone else's task is not found, whatever the answer.
+    expect((await post(crewmates[1].cookie, first, [0])).status).toBe(404);
     expect((await (await complete(crewmates[0].cookie, first, first.puzzle.kind === 'codebook' ? '9999' : [0, 0, 0, 0])).json()).error).toBe('WRONG_ANSWER');
     for (const task of impostor.lobby.you.tasks) expect((await complete(impostor.cookie, task)).status).toBe(200);
     expect((await game.snapshot(impostor.cookie)).you.tasks.every(task => task.done)).toBe(true);
     const done = await (await complete(crewmates[0].cookie, first)).json();
     expect(done.lobby.you.tasks[0].done).toBe(true);
-    expect((await complete(crewmates[0].cookie, first)).status).toBe(200);
+    // Retrying a finished task is harmless, whatever the answer (a two-keys code is gone by now).
+    expect((await post(crewmates[0].cookie, first, [0])).status).toBe(200);
 
     // Progress is published on the batch cadence, never immediately, and fake tasks never count.
     app.tick();
@@ -94,7 +96,8 @@ describe('stations and tasks', () => {
 
     const paused: Lobby = (await (await app.post('/api/round/commands', roundInput(await game.snapshot(), 'pause'), game.cookies[0])).json()).lobby;
     const second = crewmates[0].lobby.you.tasks[1];
-    expect((await (await complete(crewmates[0].cookie, second)).json()).error).toBe('INVALID_PHASE');
+    // Posted directly: a delivery's pickup step would be refused too. The phase is checked before the answer.
+    expect((await (await post(crewmates[0].cookie, second, [0])).json()).error).toBe('INVALID_PHASE');
     await app.post('/api/round/commands', roundInput(paused, 'resume'), game.cookies[0]);
 
     const remaining = crewmates.flatMap(player => player.lobby.you.tasks.filter(task => task.id !== first.id).map(task => ({ player, task })));
