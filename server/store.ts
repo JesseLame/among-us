@@ -2,19 +2,21 @@ import Database from 'better-sqlite3';
 import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { dirname } from 'node:path';
 import { mkdirSync } from 'node:fs';
-import type { CompleteTask, Eliminate, ErrorCode, Lobby, PlayerStatus, RoleInfo, Phase, PrintableStation, Role, RoundCommand, RoomCommand, RoundResult, SettingsCommand, StationAccess, StationCommand, Task, TaskPuzzle } from '../shared/protocol.js';
+import type { CallMeeting, CompleteTask, Eliminate, MeetingKind, ErrorCode, Lobby, PlayerStatus, RoleInfo, Phase, PrintableStation, Role, RoundCommand, RoomCommand, RoundResult, SettingsCommand, StationAccess, StationCommand, Task, TaskPuzzle } from '../shared/protocol.js';
 import { codebook, puzzle, shuffle, solved, type Codebook, type TaskKind } from './puzzles.js';
 
 export class GameError extends Error {
   constructor(public code: ErrorCode, public status = 400) { super(code); }
 }
-type Player = { id: string; game_code: string; name: string; organiser: number; playing: number; role: Role | null; removed: number; status: PlayerStatus };
+type Player = { id: string; game_code: string; name: string; organiser: number; playing: number; role: Role | null; removed: number; status: PlayerStatus; emergency_used: number };
+const EMERGENCY_ALLOWANCE = 1;
 type Game = {
   code: string; phase: Phase; round_id: string | null; revision: number; pause_reason: Lobby['pauseReason'];
   winner: RoundResult['winner']; end_reason: RoundResult['reason'] | null;
   tasks_per_player: number; task_goal_percent: number;
   progress_interval: number; progress_shown: number; progress_shown_at: number;
-  station_access: StationAccess; eliminations: number;
+  station_access: StationAccess; eliminations: number; body_reports: number; emergency_meetings: number; discussion_time: number;
+  meeting_kind: MeetingKind | null; meeting_by: string | null; meeting_at: number | null; meeting_ghosts: string | null;
   opening_protection: number; kill_cooldown: number;
   // Active play time: clock_ms plus, while active, the time since clock_at.
   // The play-clock time from which the Impostor may eliminate (protection, then cooldown).
@@ -107,6 +109,19 @@ export function createStore(path: string, now: () => number = Date.now) {
     if (version < 7) {
       db.exec('ALTER TABLE games ADD COLUMN eliminations INTEGER NOT NULL DEFAULT 1; PRAGMA user_version = 7;');
     }
+    if (version < 8) {
+      db.exec(`
+        ALTER TABLE games ADD COLUMN body_reports INTEGER NOT NULL DEFAULT 1;
+        ALTER TABLE games ADD COLUMN emergency_meetings INTEGER NOT NULL DEFAULT 1;
+        ALTER TABLE games ADD COLUMN discussion_time INTEGER NOT NULL DEFAULT 90;
+        ALTER TABLE games ADD COLUMN meeting_kind TEXT;
+        ALTER TABLE games ADD COLUMN meeting_by TEXT;
+        ALTER TABLE games ADD COLUMN meeting_at INTEGER;
+        ALTER TABLE games ADD COLUMN meeting_ghosts TEXT;
+        ALTER TABLE players ADD COLUMN emergency_used INTEGER NOT NULL DEFAULT 0;
+        PRAGMA user_version = 8;
+      `);
+    }
   });
   function addStations(code: string, names: string[]) {
     const insert = db.prepare('INSERT INTO stations (id, game_code, name, position, codebook) VALUES (?, ?, ?, (SELECT COALESCE(MAX(position), -1) + 1 FROM stations WHERE game_code = ?), ?)');
@@ -124,8 +139,8 @@ export function createStore(path: string, now: () => number = Date.now) {
     const player = playerFor(token);
     if (!player) return null;
     const game = gameFor(player.game_code)!;
-    const players = db.prepare('SELECT id, name, organiser, playing, role, removed FROM players WHERE game_code = ? AND (removed = 0 OR ? = 1) ORDER BY joined_at, rowid').all(player.game_code, Number(game.phase === 'ended')) as Player[];
-    const playing = game.phase === 'active' || game.phase === 'paused';
+    const players = db.prepare('SELECT id, name, organiser, playing, role, removed, status FROM players WHERE game_code = ? AND (removed = 0 OR ? = 1) ORDER BY joined_at, rowid').all(player.game_code, Number(game.phase === 'ended')) as Player[];
+    const playing = game.phase === 'active' || game.phase === 'paused' || game.phase === 'meeting';
     const tasks = playing
       ? (db.prepare('SELECT * FROM tasks WHERE player_id = ? AND round_id = ? ORDER BY position').all(player.id, game.round_id) as TaskRow[])
         // The fake flag never leaves the server; fake tasks look identical to real ones.
@@ -135,12 +150,27 @@ export function createStore(path: string, now: () => number = Date.now) {
     return {
       code: player.game_code, phase: game.phase, roundId: game.round_id,
       revision: game.revision, pauseReason: game.pause_reason,
-      players: players.map(p => ({ id: p.id, name: p.name, organiser: Boolean(p.organiser), playing: Boolean(p.playing), ...(p.removed ? { removed: true } : {}) })),
+      players: players.map(p => ({
+        id: p.id, name: p.name, organiser: Boolean(p.organiser), playing: Boolean(p.playing),
+        ...(playing && p.status === 'ghost' ? { out: true } : {}), ...(p.removed ? { removed: true } : {}),
+      })),
       stations: db.prepare('SELECT id, name FROM stations WHERE game_code = ? ORDER BY position').all(game.code) as Lobby['stations'],
-      settings: { stationAccess: game.station_access, eliminations: Boolean(game.eliminations), openingProtection: game.opening_protection, killCooldown: game.kill_cooldown },
+      settings: {
+        stationAccess: game.station_access, eliminations: Boolean(game.eliminations),
+        bodyReports: Boolean(game.body_reports), emergencyMeetings: Boolean(game.emergency_meetings),
+        openingProtection: game.opening_protection, killCooldown: game.kill_cooldown, discussionTime: game.discussion_time,
+      },
+      ...(game.phase === 'meeting' ? { meeting: {
+        kind: game.meeting_kind!, calledBy: game.meeting_by,
+        discussionMs: Math.max(0, game.meeting_at! + game.discussion_time * 1000 - now()),
+        newGhosts: JSON.parse(game.meeting_ghosts ?? '[]') as string[],
+      } } : {}),
       progress: totals && { done: game.phase === 'ended' ? totals.done : Math.min(game.progress_shown, totals.goal), goal: totals.goal },
       // Status is private to its owner: an undiscovered body looks alive to everyone else.
-      you: { id: player.id, organiser: Boolean(player.organiser), playing: Boolean(player.playing), status: playing ? player.status : 'alive', tasks },
+      you: {
+        id: player.id, organiser: Boolean(player.organiser), playing: Boolean(player.playing), status: playing ? player.status : 'alive',
+        emergencyLeft: Math.max(0, EMERGENCY_ALLOWANCE - player.emergency_used), tasks,
+      },
       ...(game.phase === 'ended' ? {
         revealedRoles: players.filter(p => p.playing && p.role).map(p => ({ id: p.id, role: p.role! })),
         result: { winner: game.winner, reason: game.end_reason ?? 'organiser' },
@@ -231,7 +261,7 @@ export function createStore(path: string, now: () => number = Date.now) {
     if (!player) throw new GameError('NO_SESSION', 401);
     const game = gameFor(player.game_code)!;
     if (game.round_id !== roundId) throw new GameError('STALE_COMMAND', 409);
-    if (game.phase !== 'active' && game.phase !== 'paused') throw new GameError('INVALID_PHASE', 409);
+    if (game.phase !== 'active' && game.phase !== 'paused' && game.phase !== 'meeting') throw new GameError('INVALID_PHASE', 409);
     if (!player.playing) throw new GameError('NOT_PLAYING', 409);
     const info: RoleInfo = { roundId, role: player.role! };
     if (player.role === 'impostor' && game.eliminations) {
@@ -290,7 +320,7 @@ export function createStore(path: string, now: () => number = Date.now) {
         roles.forEach(p => assign.run(p.role, p.id));
         roundId = randomUUID(); phase = 'active';
         assignTasks(game, roundId, roles);
-        db.prepare("UPDATE players SET status = 'alive' WHERE game_code = ?").run(game.code);
+        db.prepare("UPDATE players SET status = 'alive', emergency_used = 0 WHERE game_code = ?").run(game.code);
         db.prepare('UPDATE games SET winner = NULL, progress_shown = 0, progress_shown_at = ?, clock_ms = 0, clock_at = ?, eliminate_ready_ms = opening_protection * 1000 WHERE code = ?')
           .run(now(), now(), game.code);
         break;
@@ -303,8 +333,13 @@ export function createStore(path: string, now: () => number = Date.now) {
         if (phase !== 'paused') throw new GameError('INVALID_PHASE', 409);
         db.prepare('UPDATE games SET clock_at = ? WHERE code = ?').run(now(), game.code);
         phase = 'active'; break;
+      case 'endMeeting':
+        // Discussion and the physical vote are over: play (and its clock) continues.
+        if (phase !== 'meeting') throw new GameError('INVALID_PHASE', 409);
+        db.prepare('UPDATE games SET clock_at = ?, meeting_kind = NULL, meeting_by = NULL, meeting_at = NULL, meeting_ghosts = NULL WHERE code = ?').run(now(), game.code);
+        phase = 'active'; break;
       case 'end':
-        if (phase !== 'active' && phase !== 'paused') throw new GameError('INVALID_PHASE', 409);
+        if (phase !== 'active' && phase !== 'paused' && phase !== 'meeting') throw new GameError('INVALID_PHASE', 409);
         phase = 'ended'; endReason = 'organiser'; break;
       case 'reset':
         if (phase !== 'ended') throw new GameError('INVALID_PHASE', 409);
@@ -347,10 +382,12 @@ export function createStore(path: string, now: () => number = Date.now) {
       // completed work still counts.
       db.prepare('DELETE FROM tasks WHERE player_id = ? AND done_at IS NULL').run(target.id);
     }
-    if (game.phase === 'active' || game.phase === 'paused') {
+    if (game.phase === 'active' || game.phase === 'paused' || game.phase === 'meeting') {
       if (target.role === 'impostor') endRound(game.code, null, 'departure');
       else if (tasksWon(game)) endRound(game.code, 'crew', 'tasks');
       else if (impostorWon(game)) endRound(game.code, 'impostor', 'eliminations');
+      // A meeting simply continues without them; its clock is already stopped.
+      else if (game.phase === 'meeting') db.prepare('UPDATE games SET revision = revision + 1 WHERE code = ?').run(game.code);
       else {
         // Pausing stops the play clock where it is.
         db.prepare("UPDATE games SET phase = 'paused', pause_reason = 'organiser', clock_ms = ?, revision = revision + 1 WHERE code = ?").run(elapsed(game), game.code);
@@ -386,9 +423,13 @@ export function createStore(path: string, now: () => number = Date.now) {
     const payload = JSON.stringify(input);
     if (alreadyApplied(input.commandId, organiser.id, payload)) return lobby(token)!;
     if (game.revision !== input.expectedRevision || game.round_id !== input.roundId) throw new GameError('STALE_COMMAND', 409);
+    const flag = (value: boolean | undefined) => value === undefined ? null : Number(value);
     db.prepare(`UPDATE games SET station_access = COALESCE(?, station_access), eliminations = COALESCE(?, eliminations),
-      opening_protection = COALESCE(?, opening_protection), kill_cooldown = COALESCE(?, kill_cooldown), revision = revision + 1 WHERE code = ?`)
-      .run(input.stationAccess ?? null, input.eliminations === undefined ? null : Number(input.eliminations), input.openingProtection ?? null, input.killCooldown ?? null, game.code);
+      body_reports = COALESCE(?, body_reports), emergency_meetings = COALESCE(?, emergency_meetings),
+      opening_protection = COALESCE(?, opening_protection), kill_cooldown = COALESCE(?, kill_cooldown),
+      discussion_time = COALESCE(?, discussion_time), revision = revision + 1 WHERE code = ?`)
+      .run(input.stationAccess ?? null, flag(input.eliminations), flag(input.bodyReports), flag(input.emergencyMeetings),
+        input.openingProtection ?? null, input.killCooldown ?? null, input.discussionTime ?? null, game.code);
     recordCommand(input.commandId, game.code, organiser.id, payload);
     return lobby(token)!;
   });
@@ -399,6 +440,37 @@ export function createStore(path: string, now: () => number = Date.now) {
     return (db.prepare('SELECT id, name, codebook FROM stations WHERE game_code = ? ORDER BY position').all(game.code) as { id: string; name: string; codebook: string }[])
       .map(station => ({ id: station.id, name: station.name, codebook: JSON.parse(station.codebook) as Codebook }));
   }
+
+  // A living player reports a body or calls an emergency meeting; the organiser may
+  // always call one. Play and its clock stop, and every undiscovered body becomes a
+  // ghost whose name is shown to everyone.
+  const startMeeting = db.transaction((token: string | undefined, input: CallMeeting) => {
+    const player = playerFor(token);
+    if (!player) throw new GameError('NO_SESSION', 401);
+    const game = gameFor(player.game_code)!;
+    if (game.round_id !== input.roundId) throw new GameError('STALE_COMMAND', 409);
+    const payload = JSON.stringify(input);
+    if (alreadyApplied(input.commandId, player.id, payload)) return game.code;
+    if (game.phase !== 'active') throw new GameError('INVALID_PHASE', 409);
+    if (input.kind === 'organiser') {
+      if (!player.organiser) throw new GameError('FORBIDDEN', 403);
+    } else {
+      if (!player.playing) throw new GameError('NOT_PLAYING', 409);
+      if (player.status !== 'alive') throw new GameError('NOT_ALIVE', 409);
+      if (input.kind === 'report' && !game.body_reports) throw new GameError('REPORTS_OFF', 409);
+      if (input.kind === 'emergency') {
+        if (!game.emergency_meetings) throw new GameError('EMERGENCY_OFF', 409);
+        if (player.emergency_used >= EMERGENCY_ALLOWANCE) throw new GameError('NO_EMERGENCY_LEFT', 409);
+        db.prepare('UPDATE players SET emergency_used = emergency_used + 1 WHERE id = ?').run(player.id);
+      }
+    }
+    const found = (db.prepare("SELECT id FROM players WHERE game_code = ? AND status = 'body' AND removed = 0").all(game.code) as { id: string }[]).map(p => p.id);
+    db.prepare("UPDATE players SET status = 'ghost' WHERE game_code = ? AND status = 'body'").run(game.code);
+    db.prepare(`UPDATE games SET phase = 'meeting', clock_ms = ?, meeting_kind = ?, meeting_by = ?, meeting_at = ?, meeting_ghosts = ?,
+      revision = revision + 1 WHERE code = ?`).run(elapsed(game), input.kind, input.kind === 'organiser' ? null : player.id, now(), JSON.stringify(found), game.code);
+    recordCommand(input.commandId, game.code, player.id, payload);
+    return game.code;
+  });
 
   // Completing a task changes only the player's own list unless it wins the round.
   // Retrying a completed task is harmless, so no command receipt is needed.
@@ -436,5 +508,5 @@ export function createStore(path: string, now: () => number = Date.now) {
     return changed;
   }
 
-  return { lobby, create, join, role, eliminatePlayer, command, manageRoom, manageStations, changeSettings, printableStations, completeTask, tick, close: () => db.close() };
+  return { lobby, create, join, role, eliminatePlayer, startMeeting, command, manageRoom, manageStations, changeSettings, printableStations, completeTask, tick, close: () => db.close() };
 }

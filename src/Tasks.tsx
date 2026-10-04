@@ -110,6 +110,7 @@ export default function Tasks({ lobby, language, connected, onUpdate, scan, onSc
   return <section className={`${ui.card} ${styles.taskCard}`} aria-labelledby="tasks-title">
     <h2 id="tasks-title" ref={heading} tabIndex={-1}>{t.yourTasks}</h2>
     <p className={ui.note} role="status">{status}</p>
+    {lobby.you.status === 'ghost' && <p className={styles.ghostNote}>{t.ghostNote}</p>}
     {!allDone && onStationScanned && <Button className={ui.primary} isDisabled={!active || !connected} onPress={() => { setScanning(true); setError(null); }}>
       {t.scanStation}<span aria-hidden="true">⌗</span>
     </Button>}

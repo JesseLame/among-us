@@ -23,6 +23,10 @@ When creating a game, the organiser chooses **Just host on this screen** (defaul
 
 **Record eliminations in the app** (organiser controls, any phase, on by default). On: the Impostor records eliminations, victims see the body screen and the app can declare an Impostor win. Off: eliminations happen only with the physical signal; the Impostor's card says so, the server refuses elimination requests, and the organiser ends the round. Bodies already recorded stay.
 
+## Meetings — implemented
+
+**Body reports** and **Emergency meetings** (organiser controls, any phase, both on by default) control the players' Report body and Emergency meeting buttons; when off, the buttons disappear and the server refuses those calls. **Call meeting** is always available to the organiser during play, for example after an out-loud report. During a meeting the organiser ends it with **End meeting and continue**; recording the vote result is not built yet. Discussion time (default 90 s) is stored per room and accepted by the settings command; there is no on-screen control yet.
+
 ## Timer settings — partly implemented
 
 Opening protection and elimination cooldown (default 60 s each, 0–600 s) are stored per room and accepted by the settings command; changes apply to the next timer, not one already running. There are no organiser controls for them on screen yet (stage 4); the browser tests use the command to shorten them.

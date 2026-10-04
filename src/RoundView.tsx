@@ -9,6 +9,7 @@ import RoomControls from './RoomControls';
 import Tasks, { SharedProgress, type Scan } from './Tasks';
 import GameSettings from './Settings';
 import EliminatePanel from './Eliminate';
+import { CallMeetingButtons, MeetingCard } from './Meeting';
 
 type Props = {
   lobby: Lobby; language: Language; connected: boolean; onUpdate: (lobby: Lobby) => void; onExit: (reason: SessionEndReason) => void;
@@ -48,6 +49,17 @@ export function RoundControls({ lobby, language, connected, onUpdate, onExit }: 
     } finally { inFlight.current = false; setBusy(false); }
   }
 
+  // The organiser can always start a meeting, e.g. after someone shouts "Body found!".
+  async function callMeeting() {
+    if (inFlight.current || !connected || !lobby.roundId) return;
+    inFlight.current = true; setBusy(true); setError(null);
+    try {
+      const result = await request('/api/meetings', { commandId: commandId(), roundId: lobby.roundId, kind: 'organiser' });
+      if (result.lobby) onUpdate(result.lobby);
+    } catch (failure) { setError(codeFor(failure)); }
+    finally { inFlight.current = false; setBusy(false); }
+  }
+
   if (!lobby.you.organiser) return <p className={ui.note}>{lobby.phase === 'ended' ? t.waitForNextRound : lobby.phase === 'lobby' ? t.waitForStart : t.organiserHandlesRound}</p>;
   const disabled = busy || !connected;
   const ControlsHeading = lobby.phase === 'lobby' ? 'h3' : 'h2';
@@ -58,9 +70,14 @@ export function RoundControls({ lobby, language, connected, onUpdate, onExit }: 
       <Button className={ui.primary} isDisabled={disabled} onPress={() => void act('start')}>{busy ? t.working : t.startRound}<span aria-hidden="true">→</span></Button>
     </>}
     {lobby.phase === 'active' && <Button className={ui.primary} isDisabled={disabled} onPress={() => void act('pause')}>{busy ? t.working : t.pauseRound}<span aria-hidden="true">Ⅱ</span></Button>}
+    {lobby.phase === 'active' && <Button className={ui.secondary} isDisabled={disabled} onPress={() => void callMeeting()}>{t.callMeeting}<span aria-hidden="true">◎</span></Button>}
+    {lobby.phase === 'meeting' && <>
+      <p className={ui.note}>{t.meetingOrganiserHelp}</p>
+      <Button className={ui.primary} isDisabled={disabled} onPress={() => void act('endMeeting')}>{busy ? t.working : t.endMeeting}<span aria-hidden="true">→</span></Button>
+    </>}
     {lobby.phase === 'paused' && <Button className={ui.primary} isDisabled={disabled} onPress={() => void act('resume')}>{busy ? t.working : t.resumeRound}<span aria-hidden="true">→</span></Button>}
     {lobby.phase === 'ended' && <Button className={ui.primary} isDisabled={disabled} onPress={() => void act('reset')}>{busy ? t.working : t.prepareRound}<span aria-hidden="true">→</span></Button>}
-    {(lobby.phase === 'active' || lobby.phase === 'paused') && <Button className={ui.endButton} isDisabled={disabled} onPress={() => setConfirmEnd(true)}>{t.endRound}</Button>}
+    {(lobby.phase === 'active' || lobby.phase === 'paused' || lobby.phase === 'meeting') && <Button className={ui.endButton} isDisabled={disabled} onPress={() => setConfirmEnd(true)}>{t.endRound}</Button>}
     {!connected && <p className={ui.note} role="status">{t.controlsOffline}</p>}
     {error && !confirmEnd && <p className={ui.error} role="alert">{errorMessages[language][error]}</p>}
     <ModalOverlay className={ui.modalOverlay} isOpen={confirmEnd} onOpenChange={setConfirmEnd} isDismissable={!busy} isKeyboardDismissDisabled={busy}>
@@ -148,16 +165,21 @@ export default function RoundView(props: Props) {
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { heading.current?.focus(); }, [lobby.phase]);
   const winner = lobby.result?.winner;
-  const title = lobby.phase === 'paused' ? t.pausedTitle : lobby.phase === 'ended' ? winner === 'crew' ? t.crewWonTitle : winner === 'impostor' ? t.impostorWonTitle : t.endedTitle : t.roundTitle;
+  const title = lobby.phase === 'meeting' ? t.meetingTitle : lobby.phase === 'paused' ? t.pausedTitle : lobby.phase === 'ended' ? winner === 'crew' ? t.crewWonTitle : winner === 'impostor' ? t.impostorWonTitle : t.endedTitle : t.roundTitle;
   const endedMessage = winner === 'crew' ? t.crewWonMessage : winner === 'impostor' ? t.impostorWonMessage : lobby.result?.reason === 'departure' ? t.departureMessage : t.endedMessage;
   const tasks = <Tasks key={`tasks:${lobby.roundId}:${lobby.phase}`} lobby={lobby} language={language} connected={connected} onUpdate={props.onUpdate} scan={props.scan} onScanHandled={props.onScanHandled} onStationScanned={props.onStationScanned}/>;
 
   // An eliminated player sees that first; everyone else starts with their role card.
+  // A meeting comes first for everyone.
   const body = lobby.you.status === 'body';
+  const meeting = <MeetingCard lobby={lobby} language={language}/>;
+  const calls = <CallMeetingButtons lobby={lobby} language={language} connected={connected} onUpdate={props.onUpdate}/>;
   if (!lobby.you.organiser && lobby.phase !== 'ended') return <main className={styles.playerRound}>
+    {meeting}
     {body && tasks}
     <PrivateRole key={`${lobby.roundId}:${lobby.phase}`} lobby={lobby} language={language} connected={connected} languageControl={props.languageControl}/>
     <SharedProgress lobby={lobby} language={language}/>
+    {calls}
     {!body && tasks}
   </main>;
 
@@ -165,7 +187,8 @@ export default function RoundView(props: Props) {
     <section>
       <p className={styles.eyebrow}>{t.invite} · {lobby.code}</p>
       <h1 ref={heading} tabIndex={-1}>{title}</h1>
-      <p className={styles.intro} role="status">{lobby.phase === 'paused' ? lobby.pauseReason === 'restart' ? t.restartMessage : t.pausedMessage : lobby.phase === 'ended' ? endedMessage : lobby.you.playing ? t.roundMessage : t.hostRoundMessage}</p>
+      {lobby.phase !== 'meeting' && <p className={styles.intro} role="status">{lobby.phase === 'paused' ? lobby.pauseReason === 'restart' ? t.restartMessage : t.pausedMessage : lobby.phase === 'ended' ? endedMessage : lobby.you.playing ? t.roundMessage : t.hostRoundMessage}</p>}
+      {meeting}
       <p className={styles.connection} role="status"><i data-connected={connected}/>{connected ? t.connected : t.reconnecting}</p>
       <SharedProgress lobby={lobby} language={language}/>
       <RoundControls {...props}/>
@@ -183,9 +206,11 @@ export default function RoundView(props: Props) {
       <ul className={styles.roster}>{lobby.players.filter(player => player.playing).map((player, index) => <li key={player.id}>
         <span className={styles.avatar} data-color={index % 4} aria-hidden="true">{player.name.charAt(0).toUpperCase()}</span>
         <span className={styles.playerName}>{player.name}</span>
+        {player.out && <span className={ui.badge}>{t.ghostBadge}</span>}
       </li>)}</ul>
     </section> : <div className={styles.roundColumn}>
       <PrivateRole key={`${lobby.roundId}:${lobby.phase}`} lobby={lobby} language={language} connected={connected}/>
+      {calls}
       {tasks}
     </div>}
   </main>;

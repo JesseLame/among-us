@@ -26,7 +26,7 @@ This is the shared project instruction file. `CLAUDE.md` imports it; keep shared
 
 - Both English and Dutch are required. Add every user-facing string and error translation to both dictionaries in `src/i18n.ts`. Do not translate player names or codes.
 - The server authorises actions and persists accepted changes before responding/broadcasting. Keep revision checks, round identity checks and command retry protections intact.
-- A body (`you.status`) is private to the victim until a meeting; never add player status to shared lobby data, revisions or broadcasts. Elimination details live only in the Impostor's own `/api/role` reply.
+- A body (`you.status`) is private to the victim until a meeting, where it becomes a public ghost (`players[].out`); never add player status to shared lobby data, revisions or broadcasts. Elimination details live only in the Impostor's own `/api/role` reply.
 - Never send other players' secret roles, session credentials or hidden state to a player's or ordinary organiser's view. CSS hiding is not privacy. Role reveal is deliberate and private until the round ends.
 - Preserve players' identities and roles through reconnect. Restore active rounds paused after a server restart; never silently reshuffle roles or resume after a public reveal.
 - Player removal revokes the session. A Crewmate removal during a round pauses it; an Impostor removal ends it without a winner. Keep role-dependent details out of removal previews.

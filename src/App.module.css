@@ -1106,6 +1106,69 @@
   margin: 0 0 var(--space-5);
 }
 
+/* Meetings */
+.meetingCard {
+  padding: var(--layout-card-padding);
+  box-shadow: var(--shadow-card);
+  border: 2px solid var(--color-accent);
+  display: grid;
+  gap: var(--space-3);
+}
+
+.meetingCard h2 {
+  font: 600 var(--text-card-title)/1.2 var(--font-heading);
+  color: var(--color-accent);
+  margin: 0;
+}
+
+.meetingCard p {
+  margin: 0;
+  line-height: var(--leading-help);
+}
+
+.lobby .meetingCard {
+  margin: var(--space-6) 0;
+}
+
+.meetingGhosts strong {
+  overflow-wrap: anywhere;
+}
+
+.meetingTimer strong {
+  font: 700 var(--text-title) var(--font-heading);
+  font-variant-numeric: tabular-nums;
+  display: block;
+}
+
+.meetingVote {
+  font: 600 var(--text-lg)/1.4 var(--font-heading);
+}
+
+.callMeeting {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.callMeeting > button {
+  min-height: var(--control-height);
+  justify-content: center;
+  text-align: center;
+}
+
+.callMeeting > p {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.ghostNote {
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-control);
+  background: var(--color-notice-surface);
+  font-size: var(--text-sm);
+}
+
 /* Eliminated player's screen */
 .bodyCard {
   text-align: center;

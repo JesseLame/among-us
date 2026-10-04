@@ -50,7 +50,7 @@ export default function RoomControls({ lobby, language, connected, onUpdate, onE
   }
 
   const destroying = selection?.input.action === 'destroy';
-  const duringRound = lobby.phase === 'active' || lobby.phase === 'paused';
+  const duringRound = lobby.phase === 'active' || lobby.phase === 'paused' || lobby.phase === 'meeting';
   return <details className={styles.roomControls} onToggle={event => setExpanded(event.currentTarget.open)}>
     <summary>{t.roomManagement}</summary>
     {expanded && <>

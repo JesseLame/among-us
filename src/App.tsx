@@ -43,7 +43,7 @@ export default function App() {
   const scannedRound = useRef<string | null>(null);
   useEffect(() => {
     if (!lobby) return;
-    if (lobby.phase !== 'active' && lobby.phase !== 'paused') setScan(null);
+    if (lobby.phase !== 'active' && lobby.phase !== 'paused' && lobby.phase !== 'meeting') setScan(null);
     else if (scannedRound.current && scannedRound.current !== lobby.roundId) setScan(null);
     if (lobby.roundId) scannedRound.current = lobby.roundId;
   }, [lobby?.phase, lobby?.roundId]);
@@ -54,7 +54,7 @@ export default function App() {
   const playingCount = lobby?.players.filter(player => player.playing).length ?? 0;
   const phoneOriginState = usePhoneOrigin(lobbyCode ?? undefined);
   const phoneOrigin = usableOrigin(phoneOriginState);
-  const privatePlayerScreen = lobby && !lobby.you.organiser && (lobby.phase === 'active' || lobby.phase === 'paused');
+  const privatePlayerScreen = lobby && !lobby.you.organiser && (lobby.phase === 'active' || lobby.phase === 'paused' || lobby.phase === 'meeting');
   const updateLobby = useCallback((next: Lobby) => {
     // Ignore late responses from a removed session or a previously visited room.
     setLobby(current => !current || current.you.id !== next.you.id || current.code !== next.code || current.revision > next.revision ? current : next);

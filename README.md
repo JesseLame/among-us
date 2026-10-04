@@ -14,7 +14,9 @@ Working now: create a lobby, either as a host-only screen (for example a laptop 
 
 **Eliminations (stage 3, second slice):** after opening protection (60 s of active play), the Impostor reveals their role card, gives the physical signal and records the victim there; a cooldown (60 s) follows. Timers count only active play, so pauses and server restarts stop them. The victim's phone switches to a body screen; nobody else, including the organiser, is told. The Impostor wins when at most one living Crewmate remains. The organiser can switch **Record eliminations in the app** off to play eliminations with the physical signal only.
 
-This is **not yet a full game**: reporting bodies, meetings, ghosts, vote entry and most organiser settings/recovery tools still need implementation. No hosting has been purchased or deployment performed.
+**Meetings (stage 3, third slice):** living players can **Report body** or call one **Emergency meeting** per round; the organiser can always **Call meeting**. Everyone's phone shows the meeting, who called it and a 90-second discussion countdown, then a prompt to vote physically. Play, tasks, eliminations and timers stop. Every undiscovered body becomes a ghost, shown to everyone; ghosts may do tasks after the meeting but not talk, vote or call meetings. The organiser ends the meeting to continue. Body reports and emergency meetings each have an organiser on/off switch.
+
+This is **not yet a full game**: recording the vote result and ejecting a player, and most organiser settings/recovery tools, still need implementation. No hosting has been purchased or deployment performed.
 
 Roles stay out of public updates and ordinary organiser views. Each phone fetches only its own role after an explicit reveal, and hides it when focus/visibility is lost, the connection drops, or the phase changes. Ending the round reveals all roles to everyone and prevents resuming that round. After a server restart, active rounds recover paused with the same roles; the organiser decides when to resume. Existing lobby databases are migrated automatically, preserving sessions.
 
@@ -45,7 +47,7 @@ The first version covers joining, secret roles, tasks, eliminations, body report
 
 1. ~~Choose a small puzzle set and initial rooms.~~ Done: number order, wiring and printable codebooks; stations are edited in the lobby.
 2. ~~Build the first phone puzzle and physical-answer puzzle, with assignments, believable fake tasks and shared progress.~~ Done.
-3. ~~Eliminations, bodies and the Impostor win~~ done. Next: body reports, emergency meetings, discussion timer, physical vote entry and ghosts, alongside the corresponding organiser settings and recovery controls.
+3. ~~Eliminations, bodies, the Impostor win, body reports, emergency meetings, discussion timer and ghosts~~ done. Next: physical vote entry and ejection, then the remaining organiser settings and recovery controls.
 4. Build the first playable version, run a practice round and tune it through family playtests.
 5. Use those playtests to decide whether the control room or sabotage would improve the game.
 

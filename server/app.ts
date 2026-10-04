@@ -3,7 +3,7 @@ import { createServer } from 'node:http';
 import { createServer as createSecureServer } from 'node:https';
 import { resolve } from 'node:path';
 import { Server } from 'socket.io';
-import { completeTask, createGame, eliminate, joinGame, roomCommand, roundCommand, settingsCommand, stationCommand, type ClientEvents, type ServerEvents, type SessionEndReason } from '../shared/protocol.js';
+import { callMeeting, completeTask, createGame, eliminate, joinGame, roomCommand, roundCommand, settingsCommand, stationCommand, type ClientEvents, type ServerEvents, type SessionEndReason } from '../shared/protocol.js';
 import { createStore, GameError } from './store.js';
 import { lanAddresses } from './network.js';
 
@@ -116,6 +116,17 @@ export function createApp(options: { databasePath: string; production?: boolean;
       res.json({ lobby: result.lobby });
       if (result.ended) broadcast(result.lobby.code);
       else syncPlayer(result.lobby.you.id);
+    } catch (error) { next(error); }
+  });
+
+  app.post('/api/meetings', (req, res, next) => {
+    try {
+      const parsed = callMeeting.safeParse(req.body);
+      if (!parsed.success) throw new GameError('INVALID_INPUT');
+      const token = sessionToken(req.headers.cookie);
+      const code = store.startMeeting(token, parsed.data);
+      res.json({ lobby: store.lobby(token) });
+      broadcast(code);
     } catch (error) { next(error); }
   });
 
