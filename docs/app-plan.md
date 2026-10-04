@@ -58,7 +58,7 @@ Use WCAG 2.2 AA as the design and testing target, not a claim of conformance bef
 - Permit reduced motion. Keep animations brief and decorative; no flashing alerts.
 - Make camera access optional. Offer room selection or a printed station code, and readable alternatives for physical clues. Players can also ask for organiser assistance.
 - Announce meaningful status changes to assistive technology without reading every countdown tick. Make role reveal an explicit action, including for screen-reader users.
-- Keep interface language in one place so family wording can be changed easily. Support both English and Dutch from the start, selected independently per phone. Persist preferences, set the document language and translate errors as well as screen copy. Typed dictionaries in `src/i18n.ts` enforce matching translation keys.
+- Keep interface language in one place so family wording can be changed easily. Support both English and Dutch from the start, selected independently per phone. Persist preferences, set the document language and translate errors as well as screen copy. Typed dictionaries in `src/i18n/` (one file per language) enforce matching translation keys.
 
 Automated checks find only some accessibility issues. Use [Playwright's accessibility workflow](https://playwright.dev/docs/accessibility-testing/) together with keyboard testing, VoiceOver/TalkBack checks and testing on the family's actual phones.
 

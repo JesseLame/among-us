@@ -57,7 +57,7 @@ Each feature owns its CSS module. `App.module.css` keeps only the decorative geo
 1. ✅ Task base and registries; one folder per game with its own CSS; server `tasks/` modules.
 2. ✅ Move the remaining files into feature folders with `git mv`, and take `Home`, `Lobby`, `RoundControls`, `PrivateRole` and `SharedProgress` out of their current files.
 3. ✅ Split the rest of `App.module.css` into feature modules.
-4. Split i18n into one file per language.
+4. ✅ Split i18n into one file per language.
 5. Split the server into routes, store modules and test files.
 6. Update `AGENTS.md`, `README.md` and `docs/design-system.md`.
 
@@ -68,4 +68,4 @@ Check after each step: `npm run build`, `npm test`, the full `npm run test:e2e`,
 1. Add its puzzle type to `TaskPuzzle` and its kind to `taskKinds` in `shared/protocol.ts`.
 2. Add `server/tasks/<kind>.ts` with `generate` and `check`, and register it in `server/tasks/index.ts`.
 3. Add `src/features/tasks/games/<kind>/` with the component and its CSS module, built on `TaskFrame`, and register it in `registry.tsx`.
-4. Add its EN and NL texts in `src/i18n.ts` and an organiser on/off setting.
+4. Add its EN and NL texts in `src/i18n/en.ts` and `src/i18n/nl.ts`, and an organiser on/off setting.
