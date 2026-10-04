@@ -6,6 +6,7 @@ import { errorMessages, translations, type Language } from './i18n';
 import styles from './App.module.css';
 import { QrCode, usableOrigin, usePhoneOrigin } from './Qr';
 import ui from './styles/ui.module.css';
+import { PreviewNote, usePreview } from './Preview';
 
 type Props = {
   lobby: Lobby; language: Language; connected: boolean;
@@ -22,8 +23,10 @@ export default function RoomControls({ lobby, language, connected, onUpdate, onE
   const inFlight = useRef(false);
   const [rejoin, setRejoin] = useState<{ name: string; code: string } | null>(null);
   const origin = usableOrigin(usePhoneOrigin(lobby.code)) ?? location.origin;
-  useEffect(() => { setSelection(null); setError(null); }, [lobby.revision]);
+  const { preview, check, clear } = usePreview(lobby);
+  useEffect(() => { setSelection(null); setError(null); clear(); }, [lobby.revision]);
   if (!lobby.you.organiser) return null;
+  const duringRound = lobby.phase === 'active' || lobby.phase === 'paused' || lobby.phase === 'meeting';
 
   function choose(player?: Lobby['players'][number]) {
     const base = { commandId: commandId(), code: lobby.code, expectedRevision: lobby.revision, roundId: lobby.roundId };
@@ -31,6 +34,9 @@ export default function RoomControls({ lobby, language, connected, onUpdate, onE
     setSelection(player
       ? { input: { ...base, action: 'remove', playerId: player.id }, name: player.name }
       : { input: { ...base, action: 'destroy' } });
+    // During a round, a removal can end it; preview that without saying why.
+    if (player && duringRound) void check('/api/room/preview', { action: 'remove', playerId: player.id, code: lobby.code });
+    else clear();
   }
 
   // A one-time code (shown as a QR code) puts a player who lost their session back in their place.
@@ -75,7 +81,6 @@ export default function RoomControls({ lobby, language, connected, onUpdate, onE
   }
 
   const destroying = selection?.input.action === 'destroy';
-  const duringRound = lobby.phase === 'active' || lobby.phase === 'paused' || lobby.phase === 'meeting';
   return <details className={styles.roomControls} onToggle={event => setExpanded(event.currentTarget.open)}>
     <summary>{t.roomManagement}</summary>
     {expanded && <>
@@ -109,7 +114,7 @@ export default function RoomControls({ lobby, language, connected, onUpdate, onE
         <Dialog aria-describedby="room-action-description">
           <Heading slot="title">{destroying ? t.deleteRoomTitle : `${t.removePlayerTitle} ${selection?.name}?`}</Heading>
           <p id="room-action-description">{destroying ? t.deleteRoomDescription : duringRound ? t.removeDuringRound : t.removePlayerDescription}</p>
-          {destroying && <p className={styles.roomCode}>{t.code}: {lobby.code}</p>}
+          {destroying ? <p className={styles.roomCode}>{t.code}: {lobby.code}</p> : <PreviewNote preview={preview} lobby={lobby} language={language}/>}
           {error && <p className={ui.error} role="alert">{errorMessages[language][error]}</p>}
           {!connected && <p role="status" className={ui.note}>{t.controlsOffline}</p>}
           <div className={ui.dialogActions}>

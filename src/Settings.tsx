@@ -28,7 +28,7 @@ export default function GameSettings({ lobby, language, connected, onUpdate }: P
     finally { inFlight.current = false; setBusy(false); }
   }
 
-  const { stationAccess, eliminations, bodyReports, emergencyMeetings, phoneVoting } = lobby.settings;
+  const { stationAccess, eliminations, bodyReports, emergencyMeetings, phoneVoting, confirmVictory, changePreviews, changeHistory } = lobby.settings;
   const setting = (label: string, selected: boolean, help: string, onChange: (selected: boolean) => void) => <div className={styles.setting}>
     <Switch className={ui.switch} isSelected={selected} isDisabled={busy || !connected} onChange={onChange}>
       <span className={ui.switchTrack} aria-hidden="true"><span/></span>{label}
@@ -82,6 +82,11 @@ export default function GameSettings({ lobby, language, connected, onUpdate }: P
         {number('emergencyAllowance', t.settingEmergency, t.settingEmergencyHelp, 0, 5, 1)}
         {setting(t.phoneVotingSetting, phoneVoting, phoneVoting ? t.phoneVotingOn : t.phoneVotingOff, on => void change({ phoneVoting: on }))}
         {number('discussionTime', t.settingDiscussion, t.settingDiscussionHelp, 0, 600, 15)}
+      </>)}
+      {group('settings-organiser', t.groupOrganiser, <>
+        {setting(t.confirmVictorySetting, confirmVictory, confirmVictory ? t.confirmVictoryOn : t.confirmVictoryOff, on => void change({ confirmVictory: on }))}
+        {setting(t.changePreviewsSetting, changePreviews, changePreviews ? t.changePreviewsOn : t.changePreviewsOff, on => void change({ changePreviews: on }))}
+        {setting(t.changeHistorySetting, changeHistory, changeHistory ? t.changeHistoryOn : t.changeHistoryOff, on => void change({ changeHistory: on }))}
       </>)}
     </div>
     {error && <p className={ui.error} role="alert">{errorMessages[language][error]}</p>}

@@ -115,6 +115,22 @@ export function createApp(options: { databasePath: string; production?: boolean;
     } catch (error) { next(error); }
   });
 
+  // What a correction or a player removal would do, without applying it (organiser only).
+  app.post('/api/corrections/preview', (req, res, next) => {
+    try {
+      const parsed = correction.safeParse(req.body);
+      if (!parsed.success) throw new GameError('INVALID_INPUT');
+      res.json({ preview: store.previewCorrection(sessionToken(req.headers.cookie), parsed.data) });
+    } catch (error) { next(error); }
+  });
+  app.post('/api/room/preview', (req, res, next) => {
+    try {
+      const parsed = roomCommand.safeParse(req.body);
+      if (!parsed.success) throw new GameError('INVALID_INPUT');
+      res.json({ preview: store.previewRemoval(sessionToken(req.headers.cookie), parsed.data) });
+    } catch (error) { next(error); }
+  });
+
   app.post('/api/round/commands', (req, res, next) => {
     try {
       const parsed = roundCommand.safeParse(req.body);

@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { dirname } from 'node:path';
 import { mkdirSync } from 'node:fs';
-import type { CallMeeting, CastVote, Correction, CompleteTask, Eliminate, MeetingCommand, MeetingKind, MeetingStage, ErrorCode, Lobby, PlayerStatus, RoleInfo, Phase, PrintableStation, Role, RoundCommand, RoomCommand, RoundResult, SettingsCommand, StationAccess, StationCommand, Task, TaskPuzzle } from '../shared/protocol.js';
+import type { CallMeeting, CastVote, ChangePreview, Correction, HistoryEntry, CompleteTask, Eliminate, MeetingCommand, MeetingKind, MeetingStage, ErrorCode, Lobby, PlayerStatus, RoleInfo, Phase, PrintableStation, Role, RoundCommand, RoomCommand, RoundResult, SettingsCommand, StationAccess, StationCommand, Task, TaskPuzzle } from '../shared/protocol.js';
 import { codebook, puzzle, shuffle, solved, type Codebook, type TaskKind } from './puzzles.js';
 
 export class GameError extends Error {
@@ -23,7 +23,17 @@ type Game = {
   // Active play time: clock_ms plus, while active, the time since clock_at.
   // The play-clock time from which the Impostor may eliminate (protection, then cooldown).
   clock_ms: number; clock_at: number; eliminate_ready_ms: number;
+  confirm_victory: number; change_previews: number; change_history: number;
+  // The win the app detected while waiting for the organiser to confirm it (pause_reason 'victory').
+  proposed_winner: 'crew' | 'impostor' | null; proposed_reason: RoundResult['reason'] | null;
 };
+type Win = { winner: 'crew' | 'impostor'; reason: RoundResult['reason'] };
+// `undo` holds what is needed to revert a correction; it never leaves the server.
+type ChangeRow = { id: number; at: number; action: HistoryEntry['action']; detail: string; undo: string | null; undone: number };
+const TASK_COLUMNS = 'id, game_code, round_id, player_id, station_id, fake, puzzle, position, done_at';
+type FullTask = TaskRow & { game_code: string; round_id: string; position: number };
+// Thrown to roll back a preview after measuring its effect.
+class DryRun extends Error { constructor(public preview: ChangePreview) { super('DRY_RUN'); } }
 type TaskRow = { id: string; player_id: string; station_id: string; fake: number; puzzle: string; done_at: number | null };
 const MAX_STATIONS = 8;
 const TASK_KINDS: TaskKind[] = ['codebook', 'order', 'wires'];
@@ -152,6 +162,20 @@ export function createStore(path: string, now: () => number = Date.now) {
         PRAGMA user_version = 12;
       `);
     }
+    if (version < 13) {
+      db.exec(`
+        ALTER TABLE games ADD COLUMN confirm_victory INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE games ADD COLUMN change_previews INTEGER NOT NULL DEFAULT 1;
+        ALTER TABLE games ADD COLUMN change_history INTEGER NOT NULL DEFAULT 1;
+        ALTER TABLE games ADD COLUMN proposed_winner TEXT;
+        ALTER TABLE games ADD COLUMN proposed_reason TEXT;
+        CREATE TABLE changes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT, game_code TEXT NOT NULL REFERENCES games(code), round_id TEXT NOT NULL,
+          at INTEGER NOT NULL, action TEXT NOT NULL, detail TEXT NOT NULL, undo TEXT, undone INTEGER NOT NULL DEFAULT 0
+        );
+        PRAGMA user_version = 13;
+      `);
+    }
   });
   function addStations(code: string, names: string[]) {
     const insert = db.prepare('INSERT INTO stations (id, game_code, name, position, codebook) VALUES (?, ?, ?, (SELECT COALESCE(MAX(position), -1) + 1 FROM stations WHERE game_code = ?), ?)');
@@ -191,7 +215,11 @@ export function createStore(path: string, now: () => number = Date.now) {
         openingProtection: game.opening_protection, killCooldown: game.kill_cooldown, discussionTime: game.discussion_time,
         emergencyAllowance: game.emergency_allowance, progressInterval: game.progress_interval,
         tasksPerPlayer: game.tasks_per_player, taskGoalPercent: game.task_goal_percent,
+        confirmVictory: Boolean(game.confirm_victory), changePreviews: Boolean(game.change_previews), changeHistory: Boolean(game.change_history),
       },
+      // The proposed winning team and the change history are for the organiser only.
+      ...(player.organiser && game.pause_reason === 'victory' && game.proposed_winner ? { proposedResult: { winner: game.proposed_winner, reason: game.proposed_reason ?? 'organiser' } } : {}),
+      ...(player.organiser && game.change_history && playing ? { history: history(game) } : {}),
       ...(game.phase === 'meeting' ? { meeting: {
         kind: game.meeting_kind!, calledBy: game.meeting_by, stage: game.meeting_stage ?? 'discussion',
         discussionMs: game.meeting_at && game.meeting_discussion ? Math.max(0, game.meeting_at + game.meeting_discussion * 1000 - now()) : null,
@@ -232,7 +260,46 @@ export function createStore(path: string, now: () => number = Date.now) {
   const impostorWon = (game: Game) => (db.prepare("SELECT COUNT(*) AS living FROM players WHERE game_code = ? AND playing = 1 AND removed = 0 AND role = 'crewmate' AND status = 'alive'")
     .get(game.code) as { living: number }).living <= 1;
   function endRound(code: string, winner: RoundResult['winner'], reason: RoundResult['reason']) {
-    db.prepare("UPDATE games SET phase = 'ended', pause_reason = NULL, winner = ?, end_reason = ?, revision = revision + 1 WHERE code = ?").run(winner, reason, code);
+    db.prepare("UPDATE games SET phase = 'ended', pause_reason = NULL, proposed_winner = NULL, proposed_reason = NULL, winner = ?, end_reason = ?, revision = revision + 1 WHERE code = ?").run(winner, reason, code);
+  }
+  // A caught Impostor (a ghost after an ejection or correction) wins for the crew first.
+  function winFor(game: Game): Win | null {
+    if (db.prepare("SELECT 1 FROM players WHERE game_code = ? AND playing = 1 AND removed = 0 AND role = 'impostor' AND status = 'ghost'").get(game.code)) return { winner: 'crew', reason: 'ejected' };
+    if (tasksWon(game)) return { winner: 'crew', reason: 'tasks' };
+    if (impostorWon(game)) return { winner: 'impostor', reason: 'eliminations' };
+    return null;
+  }
+  // Ends the round on a detected win or, when the organiser confirms victories, stops play
+  // (and any meeting) until they confirm it. Returns whether either happened. A waiting
+  // result that no longer holds, for example after a correction, is withdrawn.
+  function settle(code: string) {
+    const game = gameFor(code)!;
+    const win = winFor(game);
+    if (!win) {
+      if (game.pause_reason === 'victory') {
+        db.prepare("UPDATE games SET pause_reason = 'organiser', proposed_winner = NULL, proposed_reason = NULL, revision = revision + 1 WHERE code = ?").run(code);
+      }
+      return false;
+    }
+    if (!game.confirm_victory) { endRound(code, win.winner, win.reason); return true; }
+    db.prepare(`UPDATE games SET phase = 'paused', pause_reason = 'victory', proposed_winner = ?, proposed_reason = ?, clock_ms = ?,
+      meeting_kind = NULL, meeting_by = NULL, meeting_at = NULL, meeting_ghosts = NULL, meeting_stage = NULL, meeting_votes = NULL, meeting_result = NULL,
+      revision = revision + 1 WHERE code = ?`).run(win.winner, win.reason, elapsed(game), code);
+    return true;
+  }
+
+  function logChange(game: Game, action: HistoryEntry['action'], detail: Partial<HistoryEntry>, undo: unknown = null) {
+    db.prepare('INSERT INTO changes (game_code, round_id, at, action, detail, undo) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(game.code, game.round_id, now(), action, JSON.stringify(detail), undo === null ? null : JSON.stringify(undo));
+  }
+  // Only the latest change that is still in effect can be undone, and only if it is a correction.
+  function history(game: Game): HistoryEntry[] {
+    const rows = db.prepare('SELECT * FROM changes WHERE game_code = ? AND round_id = ? ORDER BY id DESC').all(game.code, game.round_id) as ChangeRow[];
+    const latest = rows.find(row => !row.undone);
+    return rows.map(row => ({
+      ...JSON.parse(row.detail) as Partial<HistoryEntry>, id: row.id, at: row.at, action: row.action,
+      undone: Boolean(row.undone), canUndo: row === latest && row.undo !== null,
+    }));
   }
 
   function assignTasks(game: Game, roundId: string, players: { id: string; role: Role }[]) {
@@ -333,8 +400,7 @@ export function createStore(path: string, now: () => number = Date.now) {
     db.prepare("UPDATE players SET status = 'body' WHERE id = ?").run(target.id);
     db.prepare('UPDATE games SET eliminate_ready_ms = ? WHERE code = ?').run(at + game.kill_cooldown * 1000, game.code);
     recordCommand(input.commandId, game.code, player.id, payload);
-    const ended = impostorWon(game);
-    if (ended) endRound(game.code, 'impostor', 'eliminations');
+    const ended = settle(game.code);
     return { code: game.code, victim: target.id, ended };
   });
 
@@ -373,7 +439,8 @@ export function createStore(path: string, now: () => number = Date.now) {
         db.prepare('UPDATE games SET clock_ms = ? WHERE code = ?').run(elapsed(game), game.code);
         phase = 'paused'; pauseReason = 'organiser'; break;
       case 'resume':
-        if (phase !== 'paused') throw new GameError('INVALID_PHASE', 409);
+        // A detected win must be confirmed or rejected first.
+        if (phase !== 'paused' || game.pause_reason === 'victory') throw new GameError('INVALID_PHASE', 409);
         db.prepare('UPDATE games SET clock_at = ? WHERE code = ?').run(now(), game.code);
         phase = 'active'; break;
       case 'endMeeting':
@@ -386,16 +453,27 @@ export function createStore(path: string, now: () => number = Date.now) {
         if (phase !== 'active' && phase !== 'paused' && phase !== 'meeting') throw new GameError('INVALID_PHASE', 409);
         db.prepare('UPDATE games SET winner = ? WHERE code = ?').run(input.winner ?? null, game.code);
         phase = 'ended'; endReason = 'organiser'; break;
+      case 'confirmResult':
+        if (phase !== 'paused' || game.pause_reason !== 'victory' || !game.proposed_winner) throw new GameError('INVALID_PHASE', 409);
+        db.prepare('UPDATE games SET winner = ? WHERE code = ?').run(game.proposed_winner, game.code);
+        phase = 'ended'; endReason = game.proposed_reason; break;
+      // Play stays paused so the organiser can correct the cause; resuming checks again.
+      case 'rejectResult':
+        if (phase !== 'paused' || game.pause_reason !== 'victory') throw new GameError('INVALID_PHASE', 409);
+        pauseReason = 'organiser'; break;
       case 'reset':
         if (phase !== 'ended') throw new GameError('INVALID_PHASE', 409);
         phase = 'lobby'; roundId = null;
+        db.prepare('DELETE FROM changes WHERE game_code = ?').run(game.code);
         db.prepare('DELETE FROM tasks WHERE game_code = ?').run(game.code);
         db.prepare('DELETE FROM players WHERE game_code = ? AND removed = 1').run(game.code);
         db.prepare('UPDATE players SET role = NULL WHERE game_code = ?').run(game.code);
         break;
     }
-    db.prepare('UPDATE games SET phase = ?, round_id = ?, pause_reason = ?, end_reason = ?, revision = revision + 1 WHERE code = ?')
+    db.prepare('UPDATE games SET phase = ?, round_id = ?, pause_reason = ?, end_reason = ?, proposed_winner = NULL, proposed_reason = NULL, revision = revision + 1 WHERE code = ?')
       .run(phase, roundId, pauseReason, endReason, game.code);
+    // Resuming into a state that is still won stops again for confirmation (or ends it).
+    if (input.action === 'resume') settle(game.code);
     recordCommand(input.commandId, game.code, player.id, payload);
     return lobby(token)!;
   });
@@ -408,6 +486,7 @@ export function createStore(path: string, now: () => number = Date.now) {
     if (game.revision !== input.expectedRevision || game.round_id !== input.roundId) throw new GameError('STALE_COMMAND', 409);
     if (input.action === 'destroy') {
       db.prepare('DELETE FROM command_receipts WHERE game_code = ?').run(game.code);
+      db.prepare('DELETE FROM changes WHERE game_code = ?').run(game.code);
       db.prepare('DELETE FROM tasks WHERE game_code = ?').run(game.code);
       db.prepare('DELETE FROM stations WHERE game_code = ?').run(game.code);
       db.prepare('DELETE FROM players WHERE game_code = ?').run(game.code);
@@ -451,9 +530,10 @@ export function createStore(path: string, now: () => number = Date.now) {
       db.prepare('DELETE FROM tasks WHERE player_id = ? AND done_at IS NULL').run(target.id);
     }
     if (game.phase === 'active' || game.phase === 'paused' || game.phase === 'meeting') {
+      logChange(game, 'removePlayer', { player: target.name });
+      // A departure is not a win, so it never waits for confirmation.
       if (target.role === 'impostor') endRound(game.code, null, 'departure');
-      else if (tasksWon(game)) endRound(game.code, 'crew', 'tasks');
-      else if (impostorWon(game)) endRound(game.code, 'impostor', 'eliminations');
+      else if (settle(game.code)) { /* Ended, or stopped for the organiser to confirm the result. */ }
       // A meeting simply continues without them; its clock is already stopped.
       else if (game.phase === 'meeting') db.prepare('UPDATE games SET revision = revision + 1 WHERE code = ?').run(game.code);
       else {
@@ -498,10 +578,12 @@ export function createStore(path: string, now: () => number = Date.now) {
       opening_protection = COALESCE(?, opening_protection), kill_cooldown = COALESCE(?, kill_cooldown),
       discussion_time = COALESCE(?, discussion_time), emergency_allowance = COALESCE(?, emergency_allowance),
       progress_interval = COALESCE(?, progress_interval), tasks_per_player = COALESCE(?, tasks_per_player),
-      task_goal_percent = COALESCE(?, task_goal_percent), revision = revision + 1 WHERE code = ?`)
+      task_goal_percent = COALESCE(?, task_goal_percent), confirm_victory = COALESCE(?, confirm_victory),
+      change_previews = COALESCE(?, change_previews), change_history = COALESCE(?, change_history), revision = revision + 1 WHERE code = ?`)
       .run(input.stationAccess ?? null, flag(input.eliminations), flag(input.bodyReports), flag(input.emergencyMeetings), flag(input.phoneVoting),
         input.openingProtection ?? null, input.killCooldown ?? null, input.discussionTime ?? null, input.emergencyAllowance ?? null,
-        input.progressInterval ?? null, input.tasksPerPlayer ?? null, input.taskGoalPercent ?? null, game.code);
+        input.progressInterval ?? null, input.tasksPerPlayer ?? null, input.taskGoalPercent ?? null,
+        flag(input.confirmVictory), flag(input.changePreviews), flag(input.changeHistory), game.code);
     recordCommand(input.commandId, game.code, organiser.id, payload);
     return lobby(token)!;
   });
@@ -548,10 +630,8 @@ export function createStore(path: string, now: () => number = Date.now) {
   function eject(game: Game, ejected: string | null, tally: { target: string; voters: string[] }[] | null) {
     db.prepare("UPDATE games SET meeting_stage = 'result', meeting_result = ? WHERE code = ?").run(JSON.stringify({ ejected, tally }), game.code);
     if (!ejected) return;
-    const target = db.prepare('SELECT role FROM players WHERE id = ?').get(ejected) as { role: Role };
     db.prepare("UPDATE players SET status = 'ghost' WHERE id = ?").run(ejected);
-    if (target.role === 'impostor') endRound(game.code, 'crew', 'ejected');
-    else if (impostorWon(game)) endRound(game.code, 'impostor', 'eliminations');
+    settle(game.code);
   }
 
   // The organiser starts the gathered meeting, opens and closes phone voting, or records
@@ -573,7 +653,7 @@ export function createStore(path: string, now: () => number = Date.now) {
         const found = [...new Set([...bodies, ...input.out])].filter(id => mark.run(id, game.code).changes > 0);
         db.prepare("UPDATE games SET meeting_stage = 'discussion', meeting_at = ?, meeting_discussion = discussion_time, meeting_ghosts = ? WHERE code = ?")
           .run(now(), JSON.stringify(found), game.code);
-        if (impostorWon(game)) endRound(game.code, 'impostor', 'eliminations');
+        settle(game.code);
         break;
       }
       case 'openVote':
@@ -623,46 +703,144 @@ export function createStore(path: string, now: () => number = Date.now) {
   });
 
   // Organiser corrections. Each is applied to the whole room and returns no detail
-  // about the hidden state it touched; win conditions are checked afterwards.
+  // about the hidden state it touched; win conditions are checked afterwards. Each is
+  // logged with what is needed to undo it, which stays on the server.
   const correct = db.transaction((token: string | undefined, input: Correction) => {
     const { player: organiser, game } = organiserFor(token);
     const payload = JSON.stringify(input);
     if (alreadyApplied(input.commandId, organiser.id, payload)) return game.code;
     if (game.round_id !== input.roundId || game.revision !== input.expectedRevision) throw new GameError('STALE_COMMAND', 409);
     if (game.phase !== 'active' && game.phase !== 'paused' && game.phase !== 'meeting') throw new GameError('INVALID_PHASE', 409);
+    const stations = db.prepare('SELECT id, name FROM stations WHERE game_code = ? ORDER BY position').all(game.code) as { id: string; name: string }[];
+    const stationNamed = (id: string) => {
+      const station = stations.find(entry => entry.id === id);
+      if (!station) throw new GameError('INVALID_INPUT');
+      return station.name;
+    };
+    const unfinished = (stationId: string) => db.prepare(`SELECT ${TASK_COLUMNS} FROM tasks WHERE station_id = ? AND round_id = ? AND done_at IS NULL`)
+      .all(stationId, game.round_id) as FullTask[];
     switch (input.action) {
-      case 'creditStation':
+      case 'creditStation': {
+        const station = stationNamed(input.stationId);
+        const at = now();
+        const credited = unfinished(input.stationId).map(task => task.id);
+        db.prepare('UPDATE tasks SET done_at = ? WHERE station_id = ? AND round_id = ? AND done_at IS NULL').run(at, input.stationId, game.round_id);
+        logChange(game, 'creditStation', { station }, { tasks: credited, at });
+        break;
+      }
       case 'removeStationTasks': {
-        if (!db.prepare('SELECT 1 FROM stations WHERE id = ? AND game_code = ?').get(input.stationId, game.code)) throw new GameError('INVALID_INPUT');
-        if (input.action === 'creditStation') {
-          db.prepare('UPDATE tasks SET done_at = ? WHERE station_id = ? AND round_id = ? AND done_at IS NULL').run(now(), input.stationId, game.round_id);
-        } else {
-          db.prepare('DELETE FROM tasks WHERE station_id = ? AND round_id = ? AND done_at IS NULL').run(input.stationId, game.round_id);
-        }
+        const station = stationNamed(input.stationId);
+        const removed = unfinished(input.stationId);
+        db.prepare('DELETE FROM tasks WHERE station_id = ? AND round_id = ? AND done_at IS NULL').run(input.stationId, game.round_id);
+        logChange(game, 'removeStationTasks', { station }, { tasks: removed });
+        break;
+      }
+      case 'replaceStationTasks': {
+        // Fake tasks are replaced the same way, so the change reveals nothing.
+        const station = stationNamed(input.stationId);
+        const target = input.targetStationId ? stationNamed(input.targetStationId) : undefined;
+        const others = stations.filter(entry => entry.id !== input.stationId).map(entry => entry.id);
+        const old = unfinished(input.stationId);
+        db.prepare('DELETE FROM tasks WHERE station_id = ? AND round_id = ? AND done_at IS NULL').run(input.stationId, game.round_id);
+        const insert = db.prepare('INSERT INTO tasks (id, game_code, round_id, player_id, station_id, fake, puzzle, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+        const pairs = old.map(task => {
+          const stationId = input.targetStationId ?? (others.length ? others[randomInt(others.length)] : input.stationId);
+          const replacement = randomUUID();
+          insert.run(replacement, game.code, game.round_id, task.player_id, stationId, task.fake, JSON.stringify(puzzle(TASK_KINDS[randomInt(TASK_KINDS.length)])), task.position);
+          return { old: task, replacement };
+        });
+        logChange(game, 'replaceStationTasks', { station, ...(target ? { target } : {}) }, { pairs });
         break;
       }
       case 'setStatus': {
         const target = db.prepare('SELECT * FROM players WHERE id = ? AND game_code = ? AND playing = 1 AND removed = 0').get(input.playerId, game.code) as Player | undefined;
         if (!target) throw new GameError('PLAYER_NOT_FOUND', 404);
         // Marking the Impostor out records a catch the app missed: the crew wins.
-        if (input.status === 'ghost' && target.role === 'impostor') {
-          endRound(game.code, 'crew', 'ejected');
-          recordCommand(input.commandId, game.code, organiser.id, payload);
-          return game.code;
-        }
         db.prepare('UPDATE players SET status = ? WHERE id = ?').run(input.status, target.id);
+        logChange(game, 'setStatus', { player: target.name, status: input.status }, { player: target.id, from: target.status, to: input.status });
         break;
       }
-      case 'restoreEmergency':
+      case 'restoreEmergency': {
+        const used = db.prepare('SELECT id, emergency_used FROM players WHERE game_code = ? AND emergency_used > 0').all(game.code) as { id: string; emergency_used: number }[];
         db.prepare('UPDATE players SET emergency_used = 0 WHERE game_code = ?').run(game.code);
+        logChange(game, 'restoreEmergency', {}, { used: used.map(player => [player.id, player.emergency_used]) });
+        break;
+      }
+      case 'undo':
+        undo(game, input.changeId);
         break;
     }
-    if (tasksWon(game)) endRound(game.code, 'crew', 'tasks');
-    else if (impostorWon(game)) endRound(game.code, 'impostor', 'eliminations');
-    else db.prepare('UPDATE games SET revision = revision + 1 WHERE code = ?').run(game.code);
+    if (!settle(game.code)) db.prepare('UPDATE games SET revision = revision + 1 WHERE code = ?').run(game.code);
     recordCommand(input.commandId, game.code, organiser.id, payload);
     return game.code;
   });
+
+  // Reverts the latest change still in effect. Each step only touches what the correction
+  // itself changed and has not changed since: a credited task is reopened only if it still
+  // has the credit's time, a replacement only if nobody completed it yet, a player state only
+  // if it is still the one the correction set.
+  function undo(game: Game, changeId: number) {
+    if (!game.change_history) throw new GameError('UNDO_UNAVAILABLE', 409);
+    const row = db.prepare('SELECT * FROM changes WHERE game_code = ? AND round_id = ? AND undone = 0 ORDER BY id DESC LIMIT 1').get(game.code, game.round_id) as ChangeRow | undefined;
+    if (!row || row.id !== changeId || !row.undo) throw new GameError('UNDO_UNAVAILABLE', 409);
+    const data = JSON.parse(row.undo);
+    const restore = (task: FullTask) => {
+      // Tasks of a player who has since left stay gone, like their other unfinished tasks.
+      if (!db.prepare('SELECT 1 FROM players WHERE id = ? AND removed = 0').get(task.player_id)) return;
+      db.prepare(`INSERT INTO tasks (${TASK_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(task.id, task.game_code, task.round_id, task.player_id, task.station_id, task.fake, task.puzzle, task.position, task.done_at);
+    };
+    switch (row.action) {
+      case 'creditStation': {
+        const reopen = db.prepare('UPDATE tasks SET done_at = NULL WHERE id = ? AND done_at = ?');
+        for (const id of data.tasks as string[]) reopen.run(id, data.at);
+        break;
+      }
+      case 'removeStationTasks':
+        (data.tasks as FullTask[]).forEach(restore);
+        break;
+      case 'replaceStationTasks':
+        for (const pair of data.pairs as { old: FullTask; replacement: string }[]) {
+          if (db.prepare('DELETE FROM tasks WHERE id = ? AND done_at IS NULL').run(pair.replacement).changes) restore(pair.old);
+        }
+        break;
+      case 'setStatus':
+        db.prepare('UPDATE players SET status = ? WHERE id = ? AND status = ?').run(data.from, data.player, data.to);
+        break;
+      case 'restoreEmergency': {
+        const add = db.prepare('UPDATE players SET emergency_used = emergency_used + ? WHERE id = ?');
+        for (const [id, used] of data.used as [string, number][]) add.run(used, id);
+        break;
+      }
+    }
+    db.prepare('UPDATE changes SET undone = 1 WHERE id = ?').run(row.id);
+  }
+
+  // Previews run the real change inside a transaction that is always rolled back, so a
+  // preview and the change itself cannot disagree. The answer says only whether the round
+  // would end (or stop for confirmation) and the resulting task goal.
+  function dryRun(token: string | undefined, apply: () => string): ChangePreview {
+    const { game } = organiserFor(token);
+    if (!game.change_previews) throw new GameError('PREVIEWS_OFF', 409);
+    const attempt = db.transaction(() => {
+      const after = gameFor(apply());
+      throw new DryRun({
+        outcome: !after || after.phase === 'ended' ? 'ends' : after.pause_reason === 'victory' ? 'proposes' : 'continues',
+        goal: after?.round_id ? progress(after).goal : null,
+      });
+    });
+    try { attempt(); }
+    catch (error) {
+      if (error instanceof DryRun) return error.preview;
+      throw error;
+    }
+    throw new Error('Preview did not finish');
+  }
+  const previewCorrection = (token: string | undefined, input: Correction) => dryRun(token, () => correct(token, input));
+  const previewRemoval = (token: string | undefined, input: RoomCommand) => {
+    if (input.action !== 'remove') throw new GameError('INVALID_INPUT');
+    return dryRun(token, () => manageRoom(token, input).code);
+  };
 
   // A player who lost their session (phone died, browser closed) takes their place again
   // with a one-time code from the organiser. Their old session stops working.
@@ -689,8 +867,8 @@ export function createStore(path: string, now: () => number = Date.now) {
     const station = db.prepare('SELECT codebook FROM stations WHERE id = ?').get(task.station_id) as { codebook: string } | undefined;
     if (!solved(JSON.parse(task.puzzle) as TaskPuzzle, input.answer, station && JSON.parse(station.codebook) as Codebook)) throw new GameError('WRONG_ANSWER', 422);
     db.prepare('UPDATE tasks SET done_at = ? WHERE id = ?').run(now(), task.id);
-    const ended = !task.fake && tasksWon(game);
-    if (ended) endRound(game.code, 'crew', 'tasks');
+    // A fake task never changes the result, so it never stops the round either.
+    const ended = !task.fake && settle(game.code);
     return { lobby: lobby(token)!, ended };
   });
 
@@ -710,5 +888,5 @@ export function createStore(path: string, now: () => number = Date.now) {
     return changed;
   }
 
-  return { lobby, create, join, role, eliminatePlayer, startMeeting, runMeeting, vote, correct, rejoinPlayer, command, manageRoom, manageStations, changeSettings, printableStations, completeTask, tick, close: () => db.close() };
+  return { lobby, create, join, role, eliminatePlayer, startMeeting, runMeeting, vote, correct, previewCorrection, previewRemoval, rejoinPlayer, command, manageRoom, manageStations, changeSettings, printableStations, completeTask, tick, close: () => db.close() };
 }

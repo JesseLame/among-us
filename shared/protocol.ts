@@ -7,13 +7,14 @@ export const language = z.enum(['en', 'nl']);
 export const createGame = z.object({ name: playerName, language: language.optional(), playing: z.boolean().optional() });
 export const joinGame = z.object({ name: playerName, code: gameCode });
 
-export const errors = ['INVALID_INPUT', 'GAME_NOT_FOUND', 'GAME_FULL', 'NAME_TAKEN', 'NO_SESSION', 'SERVER_ERROR', 'CONNECTION_ERROR', 'ALREADY_JOINED', 'FORBIDDEN', 'NOT_ENOUGH_PLAYERS', 'ROUND_IN_PROGRESS', 'STALE_COMMAND', 'INVALID_PHASE', 'PLAYER_NOT_FOUND', 'CANNOT_REMOVE_ORGANISER', 'NO_STATIONS', 'TOO_MANY_STATIONS', 'STATION_EXISTS', 'TASK_NOT_FOUND', 'WRONG_ANSWER', 'NOT_PLAYING', 'NOT_READY', 'NOT_ALIVE', 'ELIMINATIONS_OFF', 'REPORTS_OFF', 'EMERGENCY_OFF', 'NO_EMERGENCY_LEFT', 'VOTING_CLOSED', 'PHONE_VOTING_OFF', 'REJOIN_EXPIRED'] as const;
+export const errors = ['INVALID_INPUT', 'GAME_NOT_FOUND', 'GAME_FULL', 'NAME_TAKEN', 'NO_SESSION', 'SERVER_ERROR', 'CONNECTION_ERROR', 'ALREADY_JOINED', 'FORBIDDEN', 'NOT_ENOUGH_PLAYERS', 'ROUND_IN_PROGRESS', 'STALE_COMMAND', 'INVALID_PHASE', 'PLAYER_NOT_FOUND', 'CANNOT_REMOVE_ORGANISER', 'NO_STATIONS', 'TOO_MANY_STATIONS', 'STATION_EXISTS', 'TASK_NOT_FOUND', 'WRONG_ANSWER', 'NOT_PLAYING', 'NOT_READY', 'NOT_ALIVE', 'ELIMINATIONS_OFF', 'REPORTS_OFF', 'EMERGENCY_OFF', 'NO_EMERGENCY_LEFT', 'VOTING_CLOSED', 'PHONE_VOTING_OFF', 'REJOIN_EXPIRED', 'UNDO_UNAVAILABLE', 'PREVIEWS_OFF'] as const;
 export type ErrorCode = typeof errors[number];
 export type Role = 'crewmate' | 'impostor';
 export type Phase = 'lobby' | 'active' | 'paused' | 'meeting' | 'ended';
 export const roundCommand = z.object({
   commandId: z.uuid(),
-  action: z.enum(['start', 'pause', 'resume', 'endMeeting', 'end', 'reset']),
+  // confirmResult/rejectResult: answer the result the app proposes when the organiser confirms victories.
+  action: z.enum(['start', 'pause', 'resume', 'endMeeting', 'end', 'reset', 'confirmResult', 'rejectResult']),
   // Only for 'end': the organiser may declare a winner; otherwise the round ends without one.
   winner: z.enum(['crew', 'impostor']).nullable().optional(),
   expectedRevision: z.number().int().nonnegative(),
@@ -51,6 +52,9 @@ export const settingsCommand = roundCommand.omit({ action: true }).extend({
   // These two change the next round only and can be set in the lobby.
   tasksPerPlayer: z.number().int().min(1).max(8).optional(), taskGoalPercent: z.number().int().min(10).max(100).optional(),
   openingProtection: seconds.optional(), killCooldown: seconds.optional(),
+  // Organiser help: confirm a detected win before it ends the round, preview a change's
+  // effect before applying it, and keep a change history with undo.
+  confirmVictory: z.boolean().optional(), changePreviews: z.boolean().optional(), changeHistory: z.boolean().optional(),
 });
 export type SettingsCommand = z.infer<typeof settingsCommand>;
 
@@ -102,10 +106,24 @@ const correctionBase = z.object({ commandId: z.uuid(), roundId: z.uuid(), expect
 export const correction = z.discriminatedUnion('action', [
   correctionBase.extend({ action: z.literal('creditStation'), stationId: z.uuid() }),
   correctionBase.extend({ action: z.literal('removeStationTasks'), stationId: z.uuid() }),
+  // Every unfinished task at the station gets a new puzzle, at the chosen station or spread
+  // over the other stations, so everyone keeps the same number of tasks.
+  correctionBase.extend({ action: z.literal('replaceStationTasks'), stationId: z.uuid(), targetStationId: z.uuid().nullable() }),
   correctionBase.extend({ action: z.literal('setStatus'), playerId: z.uuid(), status: z.enum(['alive', 'ghost']) }),
   correctionBase.extend({ action: z.literal('restoreEmergency') }),
+  // Reverts the latest correction in the change history, where that is still consistent.
+  correctionBase.extend({ action: z.literal('undo'), changeId: z.number().int().positive() }),
 ]);
 export type Correction = z.infer<typeof correction>;
+// What a correction or player removal would do, without applying it. `ends`: the round ends;
+// `proposes`: play stops for the organiser to confirm a result. Never says which team or why.
+export type ChangePreview = { outcome: 'continues' | 'ends' | 'proposes'; goal: number | null };
+// A redacted organiser change history entry: what the organiser did, never hidden state.
+export type HistoryEntry = {
+  id: number; at: number; undone: boolean; canUndo: boolean;
+  action: Exclude<Correction['action'], 'undo'> | 'removePlayer';
+  station?: string; target?: string; player?: string; status?: 'alive' | 'ghost';
+};
 export const rejoin = z.object({ code: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{8}$/) });
 export const castVote = z.object({ roundId: z.uuid(), target: z.union([z.uuid(), z.literal('skip')]) });
 export type CastVote = z.infer<typeof castVote>;
@@ -124,7 +142,8 @@ export type Lobby = {
   phase: Phase;
   roundId: string | null;
   revision: number;
-  pauseReason: 'organiser' | 'restart' | null;
+  // victory: the app detected a win and waits for the organiser to confirm it.
+  pauseReason: 'organiser' | 'restart' | 'victory' | null;
   revealedRoles?: { id: string; role: Role }[];
   // `out`: a ghost, public once found at a meeting. Undiscovered bodies are never marked.
   players: { id: string; name: string; organiser: boolean; playing: boolean; test?: boolean; out?: boolean; removed?: boolean }[];
@@ -134,7 +153,12 @@ export type Lobby = {
     stationAccess: StationAccess; eliminations: boolean; bodyReports: boolean; emergencyMeetings: boolean; phoneVoting: boolean;
     openingProtection: number; killCooldown: number; discussionTime: number;
     emergencyAllowance: number; progressInterval: number; tasksPerPlayer: number; taskGoalPercent: number;
+    confirmVictory: boolean; changePreviews: boolean; changeHistory: boolean;
   };
+  // Organiser only: the result the app detected, waiting for confirmation (pauseReason 'victory').
+  proposedResult?: { winner: 'crew' | 'impostor'; reason: RoundResult['reason'] };
+  // Organiser only, with the change history on: this round's changes, newest first.
+  history?: HistoryEntry[];
   // Public while a meeting is on: who called it, the discussion time left when this
   // snapshot was made, and who was found out (bodies turned into ghosts) at its start.
   // A meeting first gathers everyone, then the organiser starts the discussion, then the

@@ -13,7 +13,7 @@ The organiser has a **Room management / Kamerbeheer** panel in the lobby and dur
 - These are server-authorised actions tied to the current room and revision. An old confirmation cannot remove someone or delete a different/newer room. Retried player removals apply once.
 - Removal revokes a session, not the person's ability to join. They can join as a new player with the code while the lobby is open. Lost-session recovery and organiser transfer remain unimplemented.
 
-Removing a Crewmate during a round now removes their unfinished tasks from the shared goal (completed work still counts) and rechecks the task victory. The confirmation previews for this are still to be built.
+Removing a Crewmate during a round now removes their unfinished tasks from the shared goal (completed work still counts) and rechecks the task victory. With **Preview fixes** on, the confirmation says whether the removal would end the round and what the task goal becomes.
 
 ## Host-only organiser — implemented
 
@@ -94,13 +94,27 @@ Each control must say whether it affects the current round, an active timer or t
 - Preview changes that could immediately end the round. Confirm the change and its consequence together; routine adjustments should not require repeated confirmations. Previews must not disclose a secret role or the winning team before the change is applied.
 - Keep a small organiser change history without secret roles or hidden-state details. Allow undoing the latest correction where consistent; do not silently resume a round after roles have been revealed.
 
-## Corrections and recovery — implemented (first part)
+## Corrections and recovery — implemented
 
 - **Fix a problem** (organiser controls, during a round): give everyone credit for, or remove, all unfinished tasks at a station (real and fake alike); mark a player back in the game or out (ghost), from a list that never shows current states; restore everyone's emergency meetings. Each needs a confirmation and rechecks the win conditions. Marking the Impostor out counts as catching them (crew wins).
 - **End round** lets the organiser choose no winner, a crew win or an Impostor win.
 - **Rejoin** (Room management, any phase): shows a one-time QR code and link, valid for 10 minutes, that puts a phone back in a player's place with the same role and tasks; the old session stops working.
 
-Still to build: replacing a broken task with a new one, organiser-confirmed victory mode, previews of changes that would end the round, and a change history with undo.
+- **Replace with new tasks** (Fix a problem): every unfinished task at the chosen station, real and fake alike, gets a new random puzzle, either spread over the other stations or at a station the organiser picks. Task counts and the goal stay the same.
+
+## Organiser help — implemented
+
+Three switches in **Settings → Organiser help**, each saved with the room and usable in any phase:
+
+| Setting | Default | On | Off |
+| --- | --- | --- | --- |
+| Confirm wins before they end the round | Off | A detected win (task goal, Impostor out, too few Crewmates) pauses the round and clears any meeting. Players see “The organiser is checking the result”; only the organiser sees the proposed team and reason. **Confirm and reveal roles** ends it; **Not right, keep paused** leaves it paused for corrections. Resuming rechecks, and a correction or undo that removes the cause withdraws the proposal. | The round ends as soon as a win is detected, as before. |
+| Preview fixes | On | Each Fix a problem confirmation and each player removal during a round runs the change in a rolled-back transaction and says whether the round would continue, end, or stop for confirmation, plus the new task goal. It never says which team or why, but the organiser who also plays may infer something from it. | Confirmations only describe possible effects. |
+| Change history and undo | On | Fix a problem lists this round's fixes and player removals with times, without hidden states. **Undo** reverts the latest fix still in effect: credited tasks reopen, removed or replaced tasks return (unless a replacement was already completed), a player state returns only if nothing changed it since, and used emergency meetings are counted again. Removals are logged but cannot be undone and block undoing earlier fixes. A round that has ended cannot be undone. | No list and no undo. Changes are still recorded on the server. |
+
+A departing Impostor still ends the round without a winner immediately; that is not a win, so it never waits for confirmation.
+
+Still to build: adjusting or resetting an active timer, changing the task goal mid-round, organiser-recorded eliminations and hiding shared progress.
 
 ## Rescue a round
 

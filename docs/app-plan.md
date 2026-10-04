@@ -112,7 +112,7 @@ Test game rules with a controllable clock, including pause/resume, simultaneous 
 
 Stage 3 progress: tasks are done — stations, printable materials (station QR codes, codebooks, join poster, markers), two phone puzzles, fake tasks, batched shared progress and the task victory. Station QR codes and an in-app scanner from stage 5 are in place (live scanning needs HTTPS, available locally via `npm run play:https`); real-phone scanning still needs checking. Eliminations (opening protection, cooldown, private bodies) and the Impostor win are done too. Body reports, emergency and organiser meetings, discussion countdown and ghosts are done. Physical vote entry, optional phone voting and ejection are done, so a full round is playable.
 
-Stage 4 progress: station credit/removal, player state corrections, emergency restore, declared winners and rejoin codes are done. Task replacement, organiser-confirmed victory, change previews and history remain.
+Stage 4 progress: station credit/removal/replacement, player state corrections, emergency restore, declared winners, rejoin codes, organiser-confirmed victory, change previews and a change history with undo are done. Not built: adjusting an active timer, changing the task goal mid-round, organiser-recorded eliminations and hiding shared progress.
 
 Keep organiser controls present from stage 1 and implement their behaviour alongside each relevant rule; stage 4 completes the matrix. Stages 1–3 are development milestones, not a finished version without the promised flexibility.
 

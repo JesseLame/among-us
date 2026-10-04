@@ -75,7 +75,14 @@ export function RoundControls({ lobby, language, connected, onUpdate, onExit }: 
     {lobby.phase === 'active' && <Button className={ui.primary} isDisabled={disabled} onPress={() => void act('pause')}>{busy ? t.working : t.pauseRound}<span aria-hidden="true">Ⅱ</span></Button>}
     {lobby.phase === 'active' && <Button className={ui.secondary} isDisabled={disabled} onPress={() => void callMeeting()}>{t.callMeeting}<span aria-hidden="true">◎</span></Button>}
     {lobby.phase === 'meeting' && lobby.meeting && <MeetingControls lobby={lobby} language={language} connected={connected} onUpdate={onUpdate} ending={busy} onEndMeeting={() => void act('endMeeting')}/>}
-    {lobby.phase === 'paused' && <Button className={ui.primary} isDisabled={disabled} onPress={() => void act('resume')}>{busy ? t.working : t.resumeRound}<span aria-hidden="true">→</span></Button>}
+    {lobby.phase === 'paused' && lobby.pauseReason === 'victory' && lobby.proposedResult && <section className={styles.proposal} aria-labelledby="proposal-title">
+      <h3 id="proposal-title">{t.proposedTitle}: {lobby.proposedResult.winner === 'crew' ? t.crewWins : t.impostorWins}</h3>
+      <p>{lobby.proposedResult.winner === 'impostor' ? t.proposedImpostor : lobby.proposedResult.reason === 'tasks' ? t.proposedCrewTasks : t.proposedCrewEjected}</p>
+      <p className={ui.note}>{t.proposedHelp}</p>
+      <Button className={ui.primary} isDisabled={disabled} onPress={() => void act('confirmResult')}>{busy ? t.working : t.confirmResult}<span aria-hidden="true">→</span></Button>
+      <Button className={ui.secondary} isDisabled={disabled} onPress={() => void act('rejectResult')}>{t.rejectResult}</Button>
+    </section>}
+    {lobby.phase === 'paused' && lobby.pauseReason !== 'victory' && <Button className={ui.primary} isDisabled={disabled} onPress={() => void act('resume')}>{busy ? t.working : t.resumeRound}<span aria-hidden="true">→</span></Button>}
     {lobby.phase === 'ended' && <Button className={ui.primary} isDisabled={disabled} onPress={() => void act('reset')}>{busy ? t.working : t.prepareRound}<span aria-hidden="true">→</span></Button>}
     {(lobby.phase === 'active' || lobby.phase === 'paused' || lobby.phase === 'meeting') && <Button className={ui.endButton} isDisabled={disabled} onPress={() => setConfirmEnd(true)}>{t.endRound}</Button>}
     {!connected && <p className={ui.note} role="status">{t.controlsOffline}</p>}
@@ -150,7 +157,7 @@ function PrivateRole({ lobby, language, connected, languageControl }: Pick<Props
 
   return <section className={`${ui.card} ${styles.roleCard}`} aria-labelledby="private-role-title">
     <p className={styles.eyebrow}>{t.onlyYou}</p>
-    {!lobby.you.organiser && (lobby.phase === 'paused' || !connected) && <p className={ui.note} role="status">{!connected ? t.reconnecting : t.roundPaused}</p>}
+    {!lobby.you.organiser && (lobby.phase === 'paused' || !connected) && <p className={ui.note} role="status">{!connected ? t.reconnecting : lobby.pauseReason === 'victory' ? t.checkingResult : t.roundPaused}</p>}
     <div className={styles.roleSymbol} aria-hidden="true">{role ? role === 'impostor' ? '?' : '✳' : '◇'}</div>
     <RoleHeading id="private-role-title" ref={heading} tabIndex={-1} className={styles.roleHeading}>{t.yourRole}</RoleHeading>
     <div role="status" className={styles.roleContent}>
@@ -195,7 +202,7 @@ export default function RoundView(props: Props) {
     <section>
       <p className={styles.eyebrow}>{t.invite} · {lobby.code}</p>
       <h1 ref={heading} tabIndex={-1}>{title}</h1>
-      {lobby.phase !== 'meeting' && <p className={styles.intro} role="status">{lobby.phase === 'paused' ? lobby.pauseReason === 'restart' ? t.restartMessage : t.pausedMessage : lobby.phase === 'ended' ? endedMessage : lobby.you.playing ? t.roundMessage : t.hostRoundMessage}</p>}
+      {lobby.phase !== 'meeting' && <p className={styles.intro} role="status">{lobby.phase === 'paused' ? lobby.pauseReason === 'restart' ? t.restartMessage : lobby.pauseReason === 'victory' ? t.checkingResult : t.pausedMessage : lobby.phase === 'ended' ? endedMessage : lobby.you.playing ? t.roundMessage : t.hostRoundMessage}</p>}
       {meeting}
       <p className={styles.connection} role="status"><i data-connected={connected}/>{connected ? t.connected : t.reconnecting}</p>
       <SharedProgress lobby={lobby} language={language}/>
