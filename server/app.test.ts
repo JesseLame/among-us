@@ -221,7 +221,7 @@ describe('private roles and round lifecycle', () => {
     expect(lobby.roundId).toBeNull();
     const originalSession = (await (await fetch(`${app.url}/api/session`, { headers: { Cookie: 'home_session=old-session' } })).json()).lobby;
     expect(originalSession.you).toEqual({ id: 'original', organiser: true, playing: true, status: 'alive', emergencyLeft: 1, tasks: [] });
-    expect(originalSession.settings).toEqual({ stationAccess: 'qr', eliminations: true, bodyReports: true, emergencyMeetings: true, phoneVoting: false, openingProtection: 60, killCooldown: 60, discussionTime: 90, emergencyAllowance: 1, progressInterval: 30, tasksPerPlayer: 4, taskGoalPercent: 80, confirmVictory: false, changePreviews: true, changeHistory: true });
+    expect(originalSession.settings).toEqual({ stationAccess: 'qr', eliminations: true, bodyReports: true, emergencyMeetings: true, phoneVoting: false, openingProtection: 60, killCooldown: 60, discussionTime: 90, emergencyAllowance: 1, progressInterval: 30, tasksPerPlayer: 4, taskGoalPercent: 80, confirmVictory: false, changePreviews: true, changeHistory: true, simonTasks: true });
     expect(originalSession.stations.map((station: { name: string }) => station.name)).toEqual(['Kitchen', 'Living room', 'Hallway', 'Study']);
   });
 });
@@ -335,6 +335,7 @@ function answerFor(task: Task, stations: PrintableStation[]) {
   const { puzzle } = task;
   if (puzzle.kind === 'order') return [...puzzle.numbers].sort((a, b) => a - b);
   if (puzzle.kind === 'wires') return puzzle.left.map(colour => puzzle.right.indexOf(colour));
+  if (puzzle.kind === 'simon') return puzzle.sequence;
   const book = stations.find(station => station.id === task.stationId)!.codebook;
   return puzzle.symbols.map(symbol => book[symbol]).join('');
 }
@@ -370,7 +371,7 @@ describe('stations and tasks', () => {
     lobby = (await (await app.post('/api/round/commands', roundInput(lobby, 'start'), host)).json()).lobby;
     expect((await (await app.post('/api/stations/commands', stationInput(lobby, { action: 'add', name: 'Tuin' }), host)).json()).error).toBe('INVALID_PHASE');
     // Station access defaults to QR-only; only the organiser can change it, also mid-round.
-    expect(lobby.settings).toEqual({ stationAccess: 'qr', eliminations: true, bodyReports: true, emergencyMeetings: true, phoneVoting: false, openingProtection: 60, killCooldown: 60, discussionTime: 90, emergencyAllowance: 1, progressInterval: 30, tasksPerPlayer: 4, taskGoalPercent: 80, confirmVictory: false, changePreviews: true, changeHistory: true });
+    expect(lobby.settings).toEqual({ stationAccess: 'qr', eliminations: true, bodyReports: true, emergencyMeetings: true, phoneVoting: false, openingProtection: 60, killCooldown: 60, discussionTime: 90, emergencyAllowance: 1, progressInterval: 30, tasksPerPlayer: 4, taskGoalPercent: 80, confirmVictory: false, changePreviews: true, changeHistory: true, simonTasks: true });
     const settings = { commandId: randomUUID(), expectedRevision: lobby.revision, roundId: lobby.roundId, stationAccess: 'manual' };
     expect((await app.post('/api/settings/commands', settings, guest)).status).toBe(403);
     expect((await app.post('/api/settings/commands', { ...settings, stationAccess: 'anything' }, host)).status).toBe(400);
@@ -877,7 +878,10 @@ describe('organiser corrections and recovery', () => {
     const revision = (await game.snapshot()).revision;
     expect(await preview('/api/corrections/preview', { action: 'setStatus', playerId: impostor, status: 'ghost' })).toEqual({ preview: { outcome: 'ends', goal: lobby.progress!.goal } });
     expect(await preview('/api/corrections/preview', { action: 'setStatus', playerId: crewmate, status: 'ghost' })).toEqual({ preview: { outcome: 'continues', goal: lobby.progress!.goal } });
-    expect((await preview('/api/room/preview', { action: 'remove', playerId: impostor })).preview.outcome).toBe('ends');
+    // Roles are random: when the organiser is the Impostor they cannot remove themselves.
+    const removeImpostor = await preview('/api/room/preview', { action: 'remove', playerId: impostor });
+    if (impostor === ids[0]) expect(removeImpostor.error).toBe('CANNOT_REMOVE_ORGANISER');
+    else expect(removeImpostor.preview.outcome).toBe('ends');
     expect((await preview('/api/room/preview', { action: 'remove', playerId: crewmate })).preview.goal).toBeLessThan(lobby.progress!.goal);
     const removeStation = await preview('/api/corrections/preview', { action: 'removeStationTasks', stationId: busiest.id });
     expect(removeStation.preview.goal).toBeLessThan(lobby.progress!.goal);
@@ -945,7 +949,7 @@ describe('organiser corrections and recovery', () => {
 describe('practice page', () => {
   it('serves every task game without a session and checks answers with the task rules', async () => {
     const app = await start();
-    for (const kind of ['order', 'wires', 'codebook']) {
+    for (const kind of ['order', 'wires', 'codebook', 'simon']) {
       const practice = await (await fetch(`${app.url}/api/practice/${kind}`)).json() as { puzzle: { kind: string }; codebook?: Record<string, number> };
       expect(practice.puzzle.kind).toBe(kind);
       expect(Boolean(practice.codebook)).toBe(kind === 'codebook');
@@ -962,7 +966,38 @@ describe('practice page', () => {
     const book = await (await fetch(`${app.url}/api/practice/codebook`)).json() as { id: string; puzzle: { symbols: string[] }; codebook: Record<string, number> };
     const code = book.puzzle.symbols.map(symbol => book.codebook[symbol]).join('');
     expect(await (await app.post('/api/practice/check', { id: book.id, answer: code })).json()).toEqual({ solved: true });
+    const simon = await (await fetch(`${app.url}/api/practice/simon`)).json() as { id: string; puzzle: { sequence: number[] } };
+    expect(simon.puzzle.sequence).toHaveLength(5);
+    expect(simon.puzzle.sequence.every(pad => pad >= 0 && pad <= 3)).toBe(true);
+    expect((await (await app.post('/api/practice/check', { id: simon.id, answer: simon.puzzle.sequence.slice(0, 4) })).json()).error).toBe('WRONG_ANSWER');
+    expect(await (await app.post('/api/practice/check', { id: simon.id, answer: simon.puzzle.sequence })).json()).toEqual({ solved: true });
     // Practice never creates a room or session.
     expect((await (await fetch(`${app.url}/api/session`)).json()).lobby).toBeNull();
+  });
+});
+
+describe('Simon says tasks', () => {
+  it('hands out Simon says by default and none once the organiser switches it off', async () => {
+    const app = await start();
+    const game = await crew(app);
+    expect(game.lobby.settings.simonTasks).toBe(true);
+    const kinds = async () => (await Promise.all(game.cookies.map(async cookie => (await game.snapshot(cookie)).you.tasks))).flat().map(task => task.puzzle.kind);
+    let lobby: Lobby = (await (await app.post('/api/round/commands', roundInput(game.lobby, 'start'), game.cookies[0])).json()).lobby;
+    // Four tasks each: one of every game, fake tasks included.
+    const handedOut = await kinds();
+    expect(handedOut.filter(kind => kind === 'simon')).toHaveLength(game.cookies.length);
+    const simon = (await game.snapshot(game.cookies[1])).you.tasks.find(task => task.puzzle.kind === 'simon')!;
+    expect((await (await app.post('/api/tasks/complete', { roundId: lobby.roundId, taskId: simon.id, answer: [9] }, game.cookies[1])).json()).error).toBe('WRONG_ANSWER');
+    const sequence = (simon.puzzle as { sequence: number[] }).sequence;
+    expect((await app.post('/api/tasks/complete', { roundId: lobby.roundId, taskId: simon.id, answer: sequence }, game.cookies[1])).status).toBe(200);
+
+    lobby = (await (await app.post('/api/round/commands', roundInput(await game.snapshot(), 'end'), game.cookies[0])).json()).lobby;
+    lobby = (await (await app.post('/api/round/commands', roundInput(lobby, 'reset'), game.cookies[0])).json()).lobby;
+    lobby = (await (await app.post('/api/settings/commands', { commandId: randomUUID(), expectedRevision: lobby.revision, roundId: lobby.roundId, simonTasks: false }, game.cookies[0])).json()).lobby;
+    expect(lobby.settings.simonTasks).toBe(false);
+    await app.post('/api/round/commands', roundInput(lobby, 'start'), game.cookies[0]);
+    const later = await kinds();
+    expect(later.length).toBeGreaterThan(0);
+    expect(later).not.toContain('simon');
   });
 });

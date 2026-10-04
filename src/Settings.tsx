@@ -28,7 +28,7 @@ export default function GameSettings({ lobby, language, connected, onUpdate }: P
     finally { inFlight.current = false; setBusy(false); }
   }
 
-  const { stationAccess, eliminations, bodyReports, emergencyMeetings, phoneVoting, confirmVictory, changePreviews, changeHistory } = lobby.settings;
+  const { stationAccess, eliminations, bodyReports, emergencyMeetings, phoneVoting, confirmVictory, changePreviews, changeHistory, simonTasks } = lobby.settings;
   const setting = (label: string, selected: boolean, help: string, onChange: (selected: boolean) => void) => <div className={styles.setting}>
     <Switch className={ui.switch} isSelected={selected} isDisabled={busy || !connected} onChange={onChange}>
       <span className={ui.switchTrack} aria-hidden="true"><span/></span>{label}
@@ -67,6 +67,7 @@ export default function GameSettings({ lobby, language, connected, onUpdate }: P
       {group('settings-tasks', t.groupTasks, <>
         {setting(t.manualAccess, stationAccess === 'manual', stationAccess === 'manual' ? t.manualAccessOn : t.manualAccessOff,
           manual => void change({ stationAccess: manual ? 'manual' : 'qr' }))}
+        {setting(t.simonTasksSetting, simonTasks, simonTasks ? t.simonTasksOn : t.simonTasksOff, on => void change({ simonTasks: on }))}
         {number('tasksPerPlayer', t.settingTasks, t.settingNextRoundHelp, 1, 8, 1, true)}
         {number('taskGoalPercent', t.settingGoal, t.settingNextRoundHelp, 10, 100, 5, true)}
         {number('progressInterval', t.settingProgress, t.settingProgressHelp, 5, 300, 5)}

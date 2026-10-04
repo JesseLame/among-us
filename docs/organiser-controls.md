@@ -45,6 +45,8 @@ In the lobby, **Room management → Add test player** adds "Test 1", "Test 2"…
 | Task goal (% of real tasks) | 80 % | 10–100 | next round; lobby only |
 | Progress update interval | 30 s | 5–300 | immediately |
 
+**Simon says tasks** (switch, on by default) decides whether Simon says is among the task games. It applies whenever tasks are handed out: at the next round start, and when replacing a station's tasks.
+
 Task count and goal can only change in the lobby, so a change cannot end a running round. Timer changes never alter a timer already running.
 
 ## Station access — implemented

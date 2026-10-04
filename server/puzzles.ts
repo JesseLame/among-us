@@ -17,6 +17,9 @@ export function codebook(): Codebook {
   return Object.fromEntries(symbols.map(symbol => [symbol, randomInt(10)])) as Codebook;
 }
 
+// Simon says: the full sequence is shown and repeated step by step, 1 pad, then 2, … up to 5.
+const SIMON_LENGTH = 5;
+
 export function puzzle(kind: TaskKind): TaskPuzzle {
   switch (kind) {
     case 'order': {
@@ -30,6 +33,8 @@ export function puzzle(kind: TaskKind): TaskPuzzle {
     }
     case 'codebook':
       return { kind, symbols: shuffle(symbols).slice(0, 4) };
+    case 'simon':
+      return { kind, sequence: Array.from({ length: SIMON_LENGTH }, () => randomInt(4)) };
   }
 }
 
@@ -43,6 +48,8 @@ export function solved(task: TaskPuzzle, answer: CompleteTask['answer'], book: C
       return Array.isArray(answer) && answer.length === task.left.length
         && new Set(answer).size === answer.length
         && answer.every((right, left) => task.right[right] === task.left[left]);
+    case 'simon':
+      return Array.isArray(answer) && answer.length === task.sequence.length && answer.every((pad, index) => pad === task.sequence[index]);
     case 'codebook':
       return typeof answer === 'string' && Boolean(book) && answer === task.symbols.map(symbol => book![symbol]).join('');
   }

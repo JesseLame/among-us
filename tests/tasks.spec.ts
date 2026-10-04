@@ -49,7 +49,7 @@ test('organiser edits stations and prints sheets; a player completes phone and c
 
     const lobby: Lobby = (await (await context.request.get('/api/session')).json()).lobby;
     const name = (task: Task) => lobby.stations.find(station => station.id === task.stationId)!.name;
-    const kinds = { order: 'Number order', wires: 'Fix the wiring', codebook: 'Codebook' };
+    const kinds = { order: 'Number order', wires: 'Fix the wiring', codebook: 'Codebook', simon: 'Simon says' };
 
     // In-app scanner: a photo of an unrelated QR code is rejected, a station code opens its task.
     const scanned = lobby.you.tasks.find(task => lobby.you.tasks.filter(other => other.stationId === task.stationId).length === 1)!;
@@ -128,8 +128,21 @@ test('organiser edits stations and prints sheets; a player completes phone and c
       for (const colour of rest) await plugs.getByRole('button', { name: label(colour), exact: true }).dragTo(sockets.getByRole('button', { name: label(colour), exact: true }));
       await expect(guest.getByText('Task complete.')).toBeVisible();
     }
-    await expect(guest.getByText('✓ Done')).toHaveCount(3);
+    const simon = lobby.you.tasks.find(task => task.puzzle.kind === 'simon');
+    if (simon && simon.puzzle.kind === 'simon') {
+      await guest.getByRole('button', { name: `Open: Simon says, ${name(simon)}` }).click();
+      await expect(guest.getByRole('heading', { name: 'Simon says' })).toBeFocused();
+      await guest.getByRole('button', { name: 'Start' }).click();
+      const pads = guest.locator('[class*=simonPads]');
+      for (let stage = 1; stage <= simon.puzzle.sequence.length; stage++) {
+        await expect(guest.getByRole('status').filter({ hasText: `Your turn: 0 / ${stage}` })).toBeVisible({ timeout: 8000 });
+        for (const pad of simon.puzzle.sequence.slice(0, stage)) await pads.getByRole('button', { name: ['Green', 'Red', 'Yellow', 'Blue'][pad], exact: true }).click();
+      }
+      await expect(guest.getByRole('listitem').filter({ hasText: 'Simon says' }).getByText('✓ Done')).toBeVisible();
+    }
+    // Four tasks, one of each game.
+    await expect(guest.getByText('✓ Done')).toHaveCount(4);
     await guest.reload();
-    await expect(guest.getByText('✓ Done')).toHaveCount(3);
+    await expect(guest.getByText('✓ Done')).toHaveCount(4);
   } finally { await context.close(); }
 });

@@ -30,3 +30,21 @@ export function playMeetingAlarm() {
   oscillator.start(start);
   oscillator.stop(end + 0.02);
 }
+
+// Simon says: one soft tone per pad, rising from the first pad to the fourth.
+const PAD_TONES = [330, 392, 494, 587];
+export function playPadTone(pad: number, seconds = 0.3) {
+  if (!context || context.state !== 'running') return;
+  const start = context.currentTime + 0.01;
+  const gain = context.createGain();
+  gain.connect(context.destination);
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(0.15, start + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + seconds);
+  const oscillator = context.createOscillator();
+  oscillator.type = 'sine';
+  oscillator.frequency.value = PAD_TONES[pad] ?? PAD_TONES[0];
+  oscillator.connect(gain);
+  oscillator.start(start);
+  oscillator.stop(start + seconds + 0.02);
+}

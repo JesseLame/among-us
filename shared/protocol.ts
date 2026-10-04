@@ -55,6 +55,8 @@ export const settingsCommand = roundCommand.omit({ action: true }).extend({
   // Organiser help: confirm a detected win before it ends the round, preview a change's
   // effect before applying it, and keep a change history with undo.
   confirmVictory: z.boolean().optional(), changePreviews: z.boolean().optional(), changeHistory: z.boolean().optional(),
+  // Task games: used whenever tasks are handed out or replaced.
+  simonTasks: z.boolean().optional(),
 });
 export type SettingsCommand = z.infer<typeof settingsCommand>;
 
@@ -81,13 +83,16 @@ export const wireColours = ['red', 'blue', 'yellow', 'green', 'purple', 'orange'
 export type WireColour = typeof wireColours[number];
 // Every task game. Adding a game: its puzzle type below, generation and checking in
 // server/puzzles.ts, a component in src/Tasks.tsx (PuzzleView) and its EN/NL texts.
-// The practice page (/practice) lists every kind automatically.
-export const taskKinds = ['codebook', 'order', 'wires'] as const;
+// The practice page (/practice) lists every kind automatically. A new game also needs an
+// organiser on/off setting (see simonTasks).
+export const taskKinds = ['codebook', 'order', 'wires', 'simon'] as const;
 export type TaskKind = typeof taskKinds[number];
 export type TaskPuzzle =
   | { kind: 'order'; numbers: number[] }
   | { kind: 'wires'; left: WireColour[]; right: WireColour[] }
-  | { kind: 'codebook'; symbols: SymbolId[] };
+  | { kind: 'codebook'; symbols: SymbolId[] }
+  // Four coloured pads (0–3); repeat a growing part of the sequence until it is complete.
+  | { kind: 'simon'; sequence: number[] };
 export type Task = { id: string; stationId: string; done: boolean; puzzle: TaskPuzzle };
 export type Station = { id: string; name: string };
 export type PrintableStation = Station & { codebook: Record<SymbolId, number> };
@@ -161,7 +166,7 @@ export type Lobby = {
     stationAccess: StationAccess; eliminations: boolean; bodyReports: boolean; emergencyMeetings: boolean; phoneVoting: boolean;
     openingProtection: number; killCooldown: number; discussionTime: number;
     emergencyAllowance: number; progressInterval: number; tasksPerPlayer: number; taskGoalPercent: number;
-    confirmVictory: boolean; changePreviews: boolean; changeHistory: boolean;
+    confirmVictory: boolean; changePreviews: boolean; changeHistory: boolean; simonTasks: boolean;
   };
   // Organiser only: the result the app detected, waiting for confirmation (pauseReason 'victory').
   proposedResult?: { winner: 'crew' | 'impostor'; reason: RoundResult['reason'] };

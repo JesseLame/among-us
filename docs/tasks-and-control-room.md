@@ -19,9 +19,10 @@ Manual room selection is available when scanning fails or the organiser prefers 
 | --- | --- | --- |
 | Number order | Phone | Six numbered lights are scattered over a panel; switch them on from smallest to largest and a line joins them. A wrong tap makes the lights flicker off and restarts without penalty. |
 | Fix the wiring | Phone | Drag each of four wires to the socket of the same colour; a cable follows the finger and a wrong socket shakes. Tapping a wire then its socket, or the keyboard, works too. Colour names are always shown, not only swatches. |
+| Simon says | Phone | Four coloured pads, each with its own shape. After **Start** the phone lights a sequence with a soft tone per pad; the player repeats it. Each round adds one pad, up to five. A wrong pad flickers and replays the same round. The organiser can switch it off (**Simon says tasks**, on by default); tasks already handed out stay. |
 | Codebook | Physical answer | Each station has a printed sheet of 12 symbols, each with a digit. The task shows a safe with four symbol slots; the player keys in the digits on the keypad (or keyboard) to open it. A wrong code shakes and clears the display. Players share one sheet but get different symbols. |
 
-Solved puzzles stay on screen briefly in their finished state before returning to the task list.
+Every game can be tried without a room at `/practice` (see the README). Solved puzzles stay on screen briefly in their finished state before returning to the task list.
 
 Each player receives four tasks (one of each kind plus one extra) spread across the stations. The organiser prints the materials from **Print materials** in the organiser controls: a join poster, one A4 sheet per station (QR code plus codebook) and cut-out body/ghost markers. A sheet stays valid until that station is removed or the room is deleted, so reprint only after adding a station. Scanning a station's QR code with the phone camera opens the app at that station: the only open task there opens directly, otherwise that station's tasks are listed first.
 

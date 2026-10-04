@@ -1930,6 +1930,103 @@
   margin: 0;
 }
 
+/* Simon says: four pads in a 2×2 panel; a lit pad glows in its own colour. */
+.simonBoard {
+  display: grid;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 300px;
+  margin: 0 auto;
+  padding: var(--space-4);
+  border-radius: var(--radius-card);
+  background: var(--color-puzzle-board);
+}
+
+/* Before the first round the pads wait under a Start button. */
+.simonBoard[data-phase='ready'] .simonPad {
+  opacity: .45;
+}
+
+.simonPads .simonStart {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  width: auto;
+  box-shadow: var(--shadow-card);
+}
+
+.simonPads {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.simonPad {
+  --pad: var(--color-wire-green);
+  aspect-ratio: 1;
+  min-height: 88px;
+  border: 3px solid var(--pad);
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--pad) 35%, var(--color-puzzle-panel));
+  color: var(--color-on-primary);
+  font-size: 36px;
+  cursor: pointer;
+  transition: background var(--motion-fast), box-shadow var(--motion-fast), transform var(--motion-fast);
+}
+
+.simonPad[data-pad='red'] { --pad: var(--color-wire-red); }
+.simonPad[data-pad='yellow'] { --pad: var(--color-wire-yellow); }
+.simonPad[data-pad='blue'] { --pad: var(--color-wire-blue); }
+
+.simonPad span {
+  opacity: .55;
+}
+
+.simonPad[data-lit] {
+  background: var(--pad);
+  box-shadow: 0 0 22px var(--pad);
+  transform: scale(.97);
+}
+
+.simonPad[data-lit] span {
+  opacity: 1;
+}
+
+.simonPad[aria-disabled] {
+  cursor: default;
+}
+
+.simonPad:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
+.simonPad:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+.simonBoard[data-wrong] .simonPads {
+  animation: lights-flicker 160ms steps(2) 3;
+}
+
+.simonBoard[data-complete] {
+  box-shadow: 0 0 0 3px var(--color-puzzle-lit);
+}
+
+.simonBoard[data-complete] .simonPad {
+  background: var(--pad);
+}
+
+.simonBoard .simonRound {
+  margin: 0;
+  text-align: center;
+  color: var(--color-on-primary);
+  font: 600 var(--text-sm) var(--font-heading);
+  letter-spacing: 1px;
+}
+
 /* Practice page (/practice): every task game, playable without a room. */
 .practice {
   display: grid;

@@ -5,12 +5,14 @@ test.use({ viewport: { width: 375, height: 812 } });
 
 test('practice page plays every task game without a room, in both languages', async ({ page }) => {
   const solvedNote = page.getByText('Solved! The server accepted this answer.');
+  // The Next puzzle button fades to its solved colour; check contrast once it has.
+  const settled = () => page.evaluate(() => Promise.all(document.getAnimations().map(animation => animation.finished)));
   await page.goto('/');
   await page.getByText('EN', { exact: true }).click();
   await page.getByRole('link', { name: 'Practise the task games' }).click();
   await expect(page.getByRole('heading', { name: 'Try the task games' })).toBeVisible();
   const games = page.getByRole('navigation', { name: 'Task games' }).getByRole('button');
-  await expect(games).toHaveText(['Codebook', 'Number order', 'Fix the wiring']);
+  await expect(games).toHaveText(['Codebook', 'Number order', 'Fix the wiring', 'Simon says']);
 
   // Codebook: read the practice sheet and key in the numbers.
   await expect(page.getByRole('heading', { name: 'Codebook', level: 2 })).toBeVisible();
@@ -23,6 +25,7 @@ test('practice page plays every task game without a room, in both languages', as
   }
   await page.getByRole('button', { name: 'Check code' }).click();
   await expect(solvedNote).toBeVisible();
+  await settled();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 
   // Number order: tap the lights from low to high.
@@ -47,6 +50,25 @@ test('practice page plays every task game without a room, in both languages', as
     await page.getByRole('group', { name: 'Sockets' }).getByRole('button', { name: colour, exact: true }).click();
   }
   await expect(solvedNote).toBeVisible();
+
+  // Simon says: watch each round, then repeat it. A wrong pad replays the same round.
+  const loaded = page.waitForResponse(response => response.url().endsWith('/api/practice/simon'));
+  await games.getByText('Simon says').click();
+  const { puzzle } = await (await loaded).json() as { puzzle: { sequence: number[] } };
+  const pads = ['Green', 'Red', 'Yellow', 'Blue'];
+  const board = page.locator('[class*=simonPads]');
+  const yourTurn = page.getByRole('status').filter({ hasText: 'Your turn' });
+  await page.getByRole('button', { name: 'Start' }).click();
+  await expect(yourTurn).toHaveText('Your turn: 0 / 1', { timeout: 5000 });
+  await board.getByRole('button', { name: pads[(puzzle.sequence[0] + 1) % 4], exact: true }).click();
+  await expect(page.getByText('Wrong pad. Watch again.')).toBeVisible();
+  for (let stage = 1; stage <= puzzle.sequence.length; stage++) {
+    await expect(yourTurn).toHaveText(`Your turn: 0 / ${stage}`, { timeout: 8000 });
+    for (const pad of puzzle.sequence.slice(0, stage)) await board.getByRole('button', { name: pads[pad], exact: true }).click();
+  }
+  await expect(solvedNote).toBeVisible();
+  await settled();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 
   // Deep links and Dutch.
   await page.goto('/practice?game=wires');

@@ -24,7 +24,7 @@ type Game = {
   // Active play time: clock_ms plus, while active, the time since clock_at.
   // The play-clock time from which the Impostor may eliminate (protection, then cooldown).
   clock_ms: number; clock_at: number; eliminate_ready_ms: number;
-  confirm_victory: number; change_previews: number; change_history: number;
+  confirm_victory: number; change_previews: number; change_history: number; simon_tasks: number;
   // The win the app detected while waiting for the organiser to confirm it (pause_reason 'victory').
   proposed_winner: 'crew' | 'impostor' | null; proposed_reason: RoundResult['reason'] | null;
 };
@@ -37,7 +37,8 @@ type FullTask = TaskRow & { game_code: string; round_id: string; position: numbe
 class DryRun extends Error { constructor(public preview: ChangePreview) { super('DRY_RUN'); } }
 type TaskRow = { id: string; player_id: string; station_id: string; fake: number; puzzle: string; done_at: number | null };
 const MAX_STATIONS = 8;
-const TASK_KINDS: TaskKind[] = [...taskKinds];
+// The task games handed out in this room: all of them, minus those the organiser switched off.
+const taskKindsFor = (game: Game): TaskKind[] => taskKinds.filter(kind => kind !== 'simon' || game.simon_tasks);
 const DEFAULT_STATIONS = {
   en: ['Kitchen', 'Living room', 'Hallway', 'Study'],
   nl: ['Keuken', 'Woonkamer', 'Gang', 'Werkkamer'],
@@ -177,6 +178,13 @@ export function createStore(path: string, now: () => number = Date.now) {
         PRAGMA user_version = 13;
       `);
     }
+    if (version < 14) {
+      // Simon says starts on in every room, existing ones included.
+      db.exec(`
+        ALTER TABLE games ADD COLUMN simon_tasks INTEGER NOT NULL DEFAULT 1;
+        PRAGMA user_version = 14;
+      `);
+    }
   });
   function addStations(code: string, names: string[]) {
     const insert = db.prepare('INSERT INTO stations (id, game_code, name, position, codebook) VALUES (?, ?, ?, (SELECT COALESCE(MAX(position), -1) + 1 FROM stations WHERE game_code = ?), ?)');
@@ -216,7 +224,7 @@ export function createStore(path: string, now: () => number = Date.now) {
         openingProtection: game.opening_protection, killCooldown: game.kill_cooldown, discussionTime: game.discussion_time,
         emergencyAllowance: game.emergency_allowance, progressInterval: game.progress_interval,
         tasksPerPlayer: game.tasks_per_player, taskGoalPercent: game.task_goal_percent,
-        confirmVictory: Boolean(game.confirm_victory), changePreviews: Boolean(game.change_previews), changeHistory: Boolean(game.change_history),
+        confirmVictory: Boolean(game.confirm_victory), changePreviews: Boolean(game.change_previews), changeHistory: Boolean(game.change_history), simonTasks: Boolean(game.simon_tasks),
       },
       // The proposed winning team and the change history are for the organiser only.
       ...(player.organiser && game.pause_reason === 'victory' && game.proposed_winner ? { proposedResult: { winner: game.proposed_winner, reason: game.proposed_reason ?? 'organiser' } } : {}),
@@ -306,10 +314,11 @@ export function createStore(path: string, now: () => number = Date.now) {
   function assignTasks(game: Game, roundId: string, players: { id: string; role: Role }[]) {
     const stations = shuffle(db.prepare('SELECT id FROM stations WHERE game_code = ?').all(game.code) as { id: string }[]);
     const insert = db.prepare('INSERT INTO tasks (id, game_code, round_id, player_id, station_id, fake, puzzle, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    const available = taskKindsFor(game);
     for (const player of players) {
       // Spread each list across stations, with a mix of puzzle kinds.
       const offset = randomInt(stations.length);
-      const kinds = shuffle(Array.from({ length: game.tasks_per_player }, (_, index) => TASK_KINDS[index % TASK_KINDS.length]));
+      const kinds = shuffle(Array.from({ length: game.tasks_per_player }, (_, index) => available[index % available.length]));
       kinds.forEach((kind, index) => insert.run(
         randomUUID(), game.code, roundId, player.id, stations[(offset + index) % stations.length].id,
         Number(player.role === 'impostor'), JSON.stringify(puzzle(kind)), index,
@@ -580,11 +589,11 @@ export function createStore(path: string, now: () => number = Date.now) {
       discussion_time = COALESCE(?, discussion_time), emergency_allowance = COALESCE(?, emergency_allowance),
       progress_interval = COALESCE(?, progress_interval), tasks_per_player = COALESCE(?, tasks_per_player),
       task_goal_percent = COALESCE(?, task_goal_percent), confirm_victory = COALESCE(?, confirm_victory),
-      change_previews = COALESCE(?, change_previews), change_history = COALESCE(?, change_history), revision = revision + 1 WHERE code = ?`)
+      change_previews = COALESCE(?, change_previews), change_history = COALESCE(?, change_history), simon_tasks = COALESCE(?, simon_tasks), revision = revision + 1 WHERE code = ?`)
       .run(input.stationAccess ?? null, flag(input.eliminations), flag(input.bodyReports), flag(input.emergencyMeetings), flag(input.phoneVoting),
         input.openingProtection ?? null, input.killCooldown ?? null, input.discussionTime ?? null, input.emergencyAllowance ?? null,
         input.progressInterval ?? null, input.tasksPerPlayer ?? null, input.taskGoalPercent ?? null,
-        flag(input.confirmVictory), flag(input.changePreviews), flag(input.changeHistory), game.code);
+        flag(input.confirmVictory), flag(input.changePreviews), flag(input.changeHistory), flag(input.simonTasks), game.code);
     recordCommand(input.commandId, game.code, organiser.id, payload);
     return lobby(token)!;
   });
@@ -744,10 +753,11 @@ export function createStore(path: string, now: () => number = Date.now) {
         const old = unfinished(input.stationId);
         db.prepare('DELETE FROM tasks WHERE station_id = ? AND round_id = ? AND done_at IS NULL').run(input.stationId, game.round_id);
         const insert = db.prepare('INSERT INTO tasks (id, game_code, round_id, player_id, station_id, fake, puzzle, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+        const available = taskKindsFor(game);
         const pairs = old.map(task => {
           const stationId = input.targetStationId ?? (others.length ? others[randomInt(others.length)] : input.stationId);
           const replacement = randomUUID();
-          insert.run(replacement, game.code, game.round_id, task.player_id, stationId, task.fake, JSON.stringify(puzzle(TASK_KINDS[randomInt(TASK_KINDS.length)])), task.position);
+          insert.run(replacement, game.code, game.round_id, task.player_id, stationId, task.fake, JSON.stringify(puzzle(available[randomInt(available.length)])), task.position);
           return { old: task, replacement };
         });
         logChange(game, 'replaceStationTasks', { station, ...(target ? { target } : {}) }, { pairs });
