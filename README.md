@@ -52,7 +52,7 @@ The first version covers joining, secret roles, tasks, eliminations, body report
 The game runs fine from a laptop on your own Wi-Fi; nothing has to be deployed.
 
 1. Put the laptop and all phones on the same Wi-Fi (not a guest network that isolates devices).
-2. Run `npm ci` once, then `npm run play`. It builds the app and serves it on port 3001, printing addresses such as `On your network: http://192.168.1.18:3001`. On macOS, allow incoming connections if the firewall asks.
+2. Stop `npm run dev` if it is running (both use port 3001). Run `npm ci` once, then `npm run play`. It builds the app and serves it on port 3001, printing addresses such as `On your network: http://192.168.1.18:3001`. On macOS, allow incoming connections if the firewall asks.
 3. On the laptop, open that network address (not `localhost`, or the QR codes will not work on phones), choose **Host a game → Just host on this screen**, and keep this screen as the organiser view. It does not get a role or tasks.
 4. Players scan the QR code on the laptop screen (or the printed join poster) with their phone camera. Use the phone's default browser, because station QR codes open there too.
 5. Open **Print materials** from the same address and print the station sheets.

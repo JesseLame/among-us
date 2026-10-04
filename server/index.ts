@@ -8,6 +8,11 @@ const server = createApp({
   clientPath: resolve('dist/client'),
 });
 const port = Number(process.env.PORT || 3001);
+server.http.on('error', (error: NodeJS.ErrnoException) => {
+  if (error.code !== 'EADDRINUSE') throw error;
+  console.error(`Port ${port} is already in use, probably by another copy of the game (for example \`npm run dev\`). Stop it first, or start on another port: PORT=3005 npm start`);
+  process.exit(1);
+});
 server.http.listen(port, '0.0.0.0', () => {
   console.log(`Game server listening on http://localhost:${port}`);
   // Phones on the same Wi-Fi use one of these addresses (also when hosting from a laptop).
