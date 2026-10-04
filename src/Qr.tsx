@@ -19,26 +19,34 @@ export function QrCode({ value, label, className }: { value: string; label: stri
 
 // The address phones should use in links and QR codes. Phones cannot reach "localhost",
 // so a screen opened that way uses the computer's network address instead.
-// undefined while loading; null when this computer has no network address.
+// A usable origin is a string other than 'unavailable'; see usableOrigin().
+// undefined while loading; null when this computer has no network address;
+// 'unavailable' when the lookup failed (for example a server started before an update).
 // The address needs a session, so pass the room code to fetch it again after joining.
-export function usePhoneOrigin(room?: string) {
+export type PhoneOrigin = string | null | undefined | 'unavailable';
+export function usePhoneOrigin(room?: string): PhoneOrigin {
   const [origin, setOrigin] = useState<string | null | undefined>(() => onLocalhost() ? undefined : location.origin);
+  const [failed, setFailed] = useState(false);
   useEffect(() => {
     if (!onLocalhost() || room === undefined) return;
-    fetch('/api/network').then(response => response.ok ? response.json() : null)
-      .then((result: { lanAddresses?: string[] } | null) => {
-        const address = result?.lanAddresses?.[0];
+    setFailed(false);
+    fetch('/api/network').then(response => { if (!response.ok) throw new Error(String(response.status)); return response.json(); })
+      .then((result: { lanAddresses?: string[] }) => {
+        const address = result.lanAddresses?.[0];
         setOrigin(address ? `${location.protocol}//${address}${location.port ? `:${location.port}` : ''}` : null);
       })
-      .catch(() => setOrigin(null));
+      .catch(() => { setOrigin(null); setFailed(true); });
   }, [room]);
-  return origin;
+  return failed ? 'unavailable' as const : origin;
 }
 
 // Shown only on localhost: which address the QR codes use, or why phones cannot connect.
-export function PhoneAddressNote({ origin, usesAddress, noNetwork }: { origin: string | null | undefined; usesAddress: string; noNetwork: string }) {
+export function PhoneAddressNote({ origin, usesAddress, noNetwork, lookupFailed }: { origin: PhoneOrigin; usesAddress: string; noNetwork: string; lookupFailed: string }) {
   if (!onLocalhost() || origin === undefined) return null;
-  return <p className={origin ? ui.note : ui.error} role="note">
-    {origin ? <>{usesAddress} <strong className={styles.phoneAddress}>{origin}</strong></> : noNetwork}
+  const known = origin !== null && origin !== 'unavailable';
+  return <p className={known ? ui.note : ui.error} role="note">
+    {known ? <>{usesAddress} <strong className={styles.phoneAddress}>{origin}</strong></> : origin === 'unavailable' ? lookupFailed : noNetwork}
   </p>;
 }
+
+export const usableOrigin = (origin: PhoneOrigin) => origin && origin !== 'unavailable' ? origin : null;

@@ -10,7 +10,7 @@ import RoundView, { RoundControls } from './RoundView';
 import type { Scan } from './Tasks';
 import Stations from './Stations';
 import PrintSheets from './PrintSheets';
-import { PhoneAddressNote, QrCode, usePhoneOrigin } from './Qr';
+import { PhoneAddressNote, QrCode, usableOrigin, usePhoneOrigin } from './Qr';
 
 export default function App() {
   const [language, setLanguage] = useState<Language>(initialLanguage);
@@ -52,7 +52,8 @@ export default function App() {
   const sessionRequest = useRef(0);
   const lobbyCode = lobby?.code;
   const playingCount = lobby?.players.filter(player => player.playing).length ?? 0;
-  const phoneOrigin = usePhoneOrigin(lobbyCode ?? undefined);
+  const phoneOriginState = usePhoneOrigin(lobbyCode ?? undefined);
+  const phoneOrigin = usableOrigin(phoneOriginState);
   const privatePlayerScreen = lobby && !lobby.you.organiser && (lobby.phase === 'active' || lobby.phase === 'paused');
   const updateLobby = useCallback((next: Lobby) => {
     // Ignore late responses from a removed session or a previously visited room.
@@ -149,7 +150,7 @@ export default function App() {
             <p>{t.scanToJoin}</p>
           </div>}
         </div>
-        {lobby.you.organiser && <PhoneAddressNote origin={phoneOrigin} usesAddress={t.qrUsesAddress} noNetwork={t.qrNoNetwork}/>}
+        {lobby.you.organiser && <PhoneAddressNote origin={phoneOriginState} usesAddress={t.qrUsesAddress} noNetwork={t.qrNoNetwork} lookupFailed={t.qrLookupFailed}/>}
         <p className={ui.note}>{lobby.you.organiser ? lobby.you.playing ? t.hostNote : t.hostOnlyNote : t.playerNote}</p>
       </section>
       <section className={`${ui.card} ${styles.lobbyCard}`} aria-labelledby="roster">

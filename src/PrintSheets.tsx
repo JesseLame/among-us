@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Button } from 'react-aria-components';
-import { PhoneAddressNote, QrCode, usePhoneOrigin } from './Qr';
+import { PhoneAddressNote, QrCode, usableOrigin, usePhoneOrigin } from './Qr';
 import { symbolGlyphs, symbols, type ErrorCode, type Lobby, type PrintableStation } from '../shared/protocol';
 import { codeFor, request } from './api';
 import { errorMessages, translations, type Language } from './i18n';
@@ -18,7 +18,8 @@ export default function PrintSheets({ language, languageControl }: { language: L
   const [code, setCode] = useState('');
   const [error, setError] = useState<ErrorCode | null>(null);
   const [documents, setDocuments] = useState<Documents>({ join: true, stations: true, markers: true });
-  const origin = usePhoneOrigin('print');
+  const originState = usePhoneOrigin('print');
+  const origin = usableOrigin(originState);
   useEffect(() => {
     request<{ stations: PrintableStation[]; lanAddresses: string[] }>('/api/stations/print')
       .then(result => setStations(result.stations))
@@ -34,7 +35,7 @@ export default function PrintSheets({ language, languageControl }: { language: L
     <header className={styles.printHeader}>
       <h1>{t.printTitle}</h1>
       <p className={ui.note}>{t.printIntro}</p>
-      <PhoneAddressNote origin={origin} usesAddress={t.qrUsesAddress} noNetwork={t.qrNoNetwork}/>
+      <PhoneAddressNote origin={originState} usesAddress={t.qrUsesAddress} noNetwork={t.qrNoNetwork} lookupFailed={t.qrLookupFailed}/>
       <fieldset className={styles.printChoices}>
         <legend>{t.printChoose}</legend>
         {choice('join', t.docJoin)}
