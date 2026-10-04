@@ -32,6 +32,7 @@ export function createView({ db, now, playerFor, gameFor }: Base, { progress, vo
         emergencyAllowance: game.emergency_allowance, progressInterval: game.progress_interval,
         tasksPerPlayer: game.tasks_per_player, taskGoalPercent: game.task_goal_percent,
         confirmVictory: Boolean(game.confirm_victory), changePreviews: Boolean(game.change_previews), changeHistory: Boolean(game.change_history), taskGames: taskKindsFor(game),
+        deliveryMode: game.delivery_mode, deliveryObject: game.delivery_object,
       },
       // The proposed winning team and the change history are for the organiser only.
       ...(player.organiser && game.pause_reason === 'victory' && game.proposed_winner ? { proposedResult: { winner: game.proposed_winner, reason: game.proposed_reason ?? 'organiser' } } : {}),

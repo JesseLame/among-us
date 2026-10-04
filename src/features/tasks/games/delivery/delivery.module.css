@@ -1,0 +1,79 @@
+/* Delivery: the cargo (or real object) on a panel, and a large hold-to-confirm button. */
+.deliveryBoard {
+  display: grid;
+  gap: var(--space-4);
+  max-width: 340px;
+  padding: var(--space-5);
+}
+
+.cargo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  min-height: 96px;
+  padding: var(--space-3) var(--space-4);
+  border: 2px dashed var(--color-puzzle-panel-border);
+  border-radius: var(--radius-card);
+  background: var(--color-puzzle-display);
+}
+
+.crate {
+  font-size: 44px;
+  line-height: 1;
+}
+
+.object {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  color: var(--color-on-primary);
+  font: 600 var(--text-xl) var(--font-heading);
+  overflow-wrap: anywhere;
+}
+
+.object small {
+  color: var(--color-puzzle-wall);
+  font: 600 var(--text-xs) var(--font-heading);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+/* The button fills from left to right while held (--held runs from 0 to 1). */
+.hold {
+  position: relative;
+  min-height: 64px;
+  border: 3px solid var(--color-puzzle-highlight);
+  border-radius: var(--radius-control);
+  background: linear-gradient(to right, var(--color-puzzle-highlight) calc(var(--held) * 100%), var(--color-puzzle-panel) 0);
+  color: var(--color-on-primary);
+  font: 600 var(--text-lg) var(--font-heading);
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Text stays readable on both the filled and the empty part. */
+.hold span {
+  padding: 2px 10px;
+  border-radius: 6px;
+  background: var(--color-puzzle-panel);
+}
+
+.hold[data-focus-visible] {
+  outline: var(--focus-width) solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+.hold[data-disabled] {
+  cursor: default;
+  opacity: var(--control-disabled-opacity);
+}
+
+.hold[data-finished] {
+  opacity: 1;
+  border-color: var(--color-puzzle-lit);
+  background: var(--color-puzzle-lit);
+}

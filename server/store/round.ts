@@ -1,9 +1,9 @@
 import { randomInt, randomUUID } from 'node:crypto';
 import type { CompleteTask, Eliminate, Lobby, Role, RoleInfo, RoundCommand, RoundResult, TaskPuzzle } from '../../shared/protocol.js';
-import { puzzle, shuffle, solved, type Codebook } from '../tasks/index.js';
+import { advance, puzzle, shuffle, solved, type Codebook } from '../tasks/index.js';
 import type { Base } from './base.js';
 import type { Rules } from './rules.js';
-import { GameError, taskKindsFor, type Game, type Player, type TaskRow } from './shared.js';
+import { GameError, taskContext, taskKindsFor, type Game, type Player, type TaskRow } from './shared.js';
 import type { View } from './view.js';
 
 // A round: starting and running it, private roles, eliminations, tasks and the progress tick.
@@ -19,7 +19,7 @@ export function createRound({ db, now, playerFor, gameFor, alreadyApplied, recor
       const kinds = shuffle(Array.from({ length: game.tasks_per_player }, (_, index) => available[index % available.length]));
       kinds.forEach((kind, index) => insert.run(
         randomUUID(), game.code, roundId, player.id, stations[(offset + index) % stations.length].id,
-        Number(player.role === 'impostor'), JSON.stringify(puzzle(kind)), index,
+        Number(player.role === 'impostor'), JSON.stringify(puzzle(kind, taskContext(game, stations[(offset + index) % stations.length].id, stations.map(entry => entry.id)))), index,
       ));
     }
   }
@@ -149,8 +149,15 @@ export function createRound({ db, now, playerFor, gameFor, alreadyApplied, recor
     const task = db.prepare('SELECT * FROM tasks WHERE id = ? AND player_id = ? AND round_id = ?').get(input.taskId, player.id, game.round_id) as TaskRow | undefined;
     if (!task) throw new GameError('TASK_NOT_FOUND', 404);
     if (task.done_at !== null) return { lobby: lobby(token)!, ended: false };
+    const current = JSON.parse(task.puzzle) as TaskPuzzle;
+    // A step of a game with several steps: only this player's task changes, to its next step.
+    const next = advance(current, input.answer);
+    if (next) {
+      db.prepare('UPDATE tasks SET puzzle = ?, station_id = COALESCE(?, station_id) WHERE id = ?').run(JSON.stringify(next.puzzle), next.station, task.id);
+      return { lobby: lobby(token)!, ended: false };
+    }
     const station = db.prepare('SELECT codebook FROM stations WHERE id = ?').get(task.station_id) as { codebook: string } | undefined;
-    if (!solved(JSON.parse(task.puzzle) as TaskPuzzle, input.answer, station && JSON.parse(station.codebook) as Codebook)) throw new GameError('WRONG_ANSWER', 422);
+    if (!solved(current, input.answer, station && JSON.parse(station.codebook) as Codebook)) throw new GameError('WRONG_ANSWER', 422);
     db.prepare('UPDATE tasks SET done_at = ? WHERE id = ?').run(now(), task.id);
     // A fake task never changes the result, so it never stops the round either.
     const ended = !task.fake && settle(game.code);

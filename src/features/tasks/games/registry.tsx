@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import type { TaskKind } from '../../../../shared/protocol';
+import type { TaskKind, TaskPuzzle } from '../../../../shared/protocol';
 import type { Copy } from '../../../i18n';
 import type { TaskGame, TaskGameProps } from './types';
 import OrderGame from './order/OrderGame';
@@ -8,6 +8,7 @@ import CodebookGame from './codebook/CodebookGame';
 import SimonGame from './simon/SimonGame';
 import MazeGame from './maze/MazeGame';
 import WaterwaysGame from './waterways/WaterwaysGame';
+import DeliveryGame, { deliverySummary } from './delivery/DeliveryGame';
 
 // Every task game on the phone. The type makes the build fail when a kind in
 // `taskKinds` (shared/protocol.ts) has no game here.
@@ -18,9 +19,16 @@ export const taskGames: { [K in TaskKind]: TaskGame<K> } = {
   simon: { label: 'kindSimon', Game: SimonGame },
   maze: { label: 'kindMaze', Game: MazeGame },
   waterways: { label: 'kindWaterways', Game: WaterwaysGame },
+  delivery: { label: 'kindDelivery', Game: DeliveryGame, summary: deliverySummary },
 };
 
 export const kindLabel = (t: Copy, kind: TaskKind) => t[taskGames[kind].label];
+
+// The task list's extra line for a task, if its game has one.
+export function taskSummary(puzzle: TaskPuzzle, t: Copy, stationName: TaskGameProps['stationName']) {
+  const summary = taskGames[puzzle.kind].summary as TaskGame<TaskKind>['summary'];
+  return summary?.(puzzle, t, stationName);
+}
 
 // One task game. Used for real tasks and on the practice page, so both behave the same.
 export function PuzzleView(props: TaskGameProps) {

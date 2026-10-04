@@ -13,7 +13,7 @@ The UI uses a small CSS-based design system. A new colour palette, type treatmen
 | Buttons, form fields, tabs, language switch, cards, feedback and dialogs | [`src/styles/ui.module.css`](../src/styles/ui.module.css) | Shared control styling, including hover/selected states. |
 | Page shell, header/footer, lobby and round layout, roster and connection line | [`src/App.module.css`](../src/App.module.css) | Layout that several screens share. |
 | One screen's layout: house illustration and join form, lobby, role card and organiser controls, meetings, task list, practice and print sheets | `src/features/<screen>/<screen>.module.css` | Each screen's own styles, beside its components. |
-| Task game boards (order, wiring, codebook safe, Simon pads, maze, waterways valves) | `src/features/tasks/games/` | `games.module.css` holds the shared dark board and solved glow; each game folder has its own CSS module. |
+| Task game boards (order, wiring, codebook safe, Simon pads, maze, waterways valves, delivery hold button) | `src/features/tasks/games/` | `games.module.css` holds the shared dark board and solved glow; each game folder has its own CSS module. |
 | Reset, page defaults, focus, minimum control height, reduced motion | [`src/global.css`](../src/global.css) | Global foundation. Imports fonts and theme once. |
 | Visible wording | [`src/i18n/en.ts`](../src/i18n/en.ts), [`src/i18n/nl.ts`](../src/i18n/nl.ts) | Matched English/Dutch dictionaries, one file per language. |
 | Structure and interaction | `src/App.tsx` and the screen folders in `src/features/` (`home`, `lobby`, `round`, `meeting`, `tasks`, `practice`, `print`) | React markup and behaviour. Edit for a structural redesign, not merely to change colours. |

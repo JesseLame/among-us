@@ -156,6 +156,13 @@ export function openDatabase(path: string) {
         PRAGMA user_version = 15;
       `);
     }
+    if (version < 16) {
+      db.exec(`
+        ALTER TABLE games ADD COLUMN delivery_mode TEXT NOT NULL DEFAULT 'app';
+        ALTER TABLE games ADD COLUMN delivery_object TEXT NOT NULL DEFAULT '';
+        PRAGMA user_version = 16;
+      `);
+    }
   });
   migrate();
   return db;

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { taskKinds, type ErrorCode, type HistoryEntry, type Lobby, type MeetingKind, type MeetingStage, type Phase, type PlayerStatus, type Role, type RoundResult, type StationAccess, type TaskKind } from '../../shared/protocol.js';
+import { taskKinds, type ErrorCode, type HistoryEntry, type Lobby, type MeetingKind, type MeetingStage, type Phase, type PlayerStatus, type Role, type RoundResult, type StationAccess, type TaskKind, type DeliveryMode } from '../../shared/protocol.js';
 
 export class GameError extends Error {
   constructor(public code: ErrorCode, public status = 400) { super(code); }
@@ -22,6 +22,8 @@ export type Game = {
   confirm_victory: number; change_previews: number; change_history: number;
   // JSON list of the task games the organiser switched off, so a newly added game starts on.
   task_games_off: string;
+  // Delivery tasks: carried in the app, or the named real object.
+  delivery_mode: DeliveryMode; delivery_object: string;
   // The win the app detected while waiting for the organiser to confirm it (pause_reason 'victory').
   proposed_winner: 'crew' | 'impostor' | null; proposed_reason: RoundResult['reason'] | null;
 };
@@ -35,6 +37,10 @@ export const taskKindsFor = (game: Game): TaskKind[] => {
   const off = JSON.parse(game.task_games_off) as string[];
   return taskKinds.filter(kind => !off.includes(kind));
 };
+// What a new puzzle needs to know about the room. A real object only counts once it is named.
+export const taskContext = (game: Game, station: string | null, stations: string[]) => ({
+  station, stations, deliveryObject: game.delivery_mode === 'object' && game.delivery_object ? game.delivery_object : null,
+});
 export const DEFAULT_STATIONS = {
   en: ['Kitchen', 'Living room', 'Hallway', 'Study'],
   nl: ['Keuken', 'Woonkamer', 'Gang', 'Werkkamer'],

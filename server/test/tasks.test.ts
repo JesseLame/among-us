@@ -37,7 +37,7 @@ describe('stations and tasks', () => {
     lobby = (await (await app.post('/api/round/commands', roundInput(lobby, 'start'), host)).json()).lobby;
     expect((await (await app.post('/api/stations/commands', stationInput(lobby, { action: 'add', name: 'Tuin' }), host)).json()).error).toBe('INVALID_PHASE');
     // Station access defaults to QR-only; only the organiser can change it, also mid-round.
-    expect(lobby.settings).toEqual({ stationAccess: 'qr', eliminations: true, bodyReports: true, emergencyMeetings: true, phoneVoting: false, openingProtection: 60, killCooldown: 60, discussionTime: 90, emergencyAllowance: 1, progressInterval: 30, tasksPerPlayer: 4, taskGoalPercent: 80, confirmVictory: false, changePreviews: true, changeHistory: true, taskGames: ['codebook', 'order', 'wires', 'simon', 'maze', 'waterways'] });
+    expect(lobby.settings).toEqual({ stationAccess: 'qr', eliminations: true, bodyReports: true, emergencyMeetings: true, phoneVoting: false, openingProtection: 60, killCooldown: 60, discussionTime: 90, emergencyAllowance: 1, progressInterval: 30, tasksPerPlayer: 4, taskGoalPercent: 80, confirmVictory: false, changePreviews: true, changeHistory: true, taskGames: ['codebook', 'order', 'wires', 'simon', 'maze', 'waterways', 'delivery'], deliveryMode: 'app', deliveryObject: '' });
     const settings = { commandId: randomUUID(), expectedRevision: lobby.revision, roundId: lobby.roundId, stationAccess: 'manual' };
     expect((await app.post('/api/settings/commands', settings, guest)).status).toBe(403);
     expect((await app.post('/api/settings/commands', { ...settings, stationAccess: 'anything' }, host)).status).toBe(400);
@@ -64,8 +64,11 @@ describe('stations and tasks', () => {
       expect(JSON.stringify(player.lobby)).not.toMatch(/fake|crewmate|impostor|"role"/);
       expect(new Set(player.lobby.you.tasks.map(task => task.puzzle.kind)).size).toBeGreaterThan(1);
     }
-    const complete = (cookie: string, task: Task, answer: unknown = answerFor(task, stations)) =>
-      app.post('/api/tasks/complete', { roundId: active.roundId, taskId: task.id, answer }, cookie);
+    const post = (cookie: string, task: Task, answer: unknown) => app.post('/api/tasks/complete', { roundId: active.roundId, taskId: task.id, answer }, cookie);
+    const complete = async (cookie: string, task: Task, answer?: unknown) => {
+      if (answer === undefined && task.puzzle.kind === 'delivery' && task.puzzle.stage === 'pickup') expect((await post(cookie, task, [0])).status).toBe(200);
+      return post(cookie, task, answer ?? answerFor(task, stations));
+    };
 
     const impostor = players.find(player => player.role === 'impostor')!;
     const crewmates = players.filter(player => player !== impostor);
@@ -119,7 +122,7 @@ describe('task game choice', () => {
   it('hands out every game by default and only the games the organiser leaves on', async () => {
     const app = await start();
     const game = await crew(app);
-    expect(game.lobby.settings.taskGames).toEqual(['codebook', 'order', 'wires', 'simon', 'maze', 'waterways']);
+    expect(game.lobby.settings.taskGames).toEqual(['codebook', 'order', 'wires', 'simon', 'maze', 'waterways', 'delivery']);
     const kinds = async () => (await Promise.all(game.cookies.map(async cookie => (await game.snapshot(cookie)).you.tasks))).flat().map(task => task.puzzle.kind);
     const settings = (lobby: Lobby, taskGames: unknown) => app.post('/api/settings/commands', { commandId: randomUUID(), expectedRevision: lobby.revision, roundId: lobby.roundId, taskGames }, game.cookies[0]);
     // At least one game stays on, each listed once.
@@ -154,10 +157,52 @@ describe('task game choice', () => {
   });
 });
 
+describe('delivery tasks', () => {
+  it('moves an app delivery to its drop-off station for that player only, and hands out the real object when named', async () => {
+    const app = await start();
+    const game = await crew(app);
+    const settings = (lobby: Lobby, change: object) => app.post('/api/settings/commands', { commandId: randomUUID(), expectedRevision: lobby.revision, roundId: lobby.roundId, ...change }, game.cookies[0]);
+    let lobby: Lobby = (await (await settings(game.lobby, { taskGames: ['delivery'] })).json()).lobby;
+    lobby = (await (await app.post('/api/round/commands', roundInput(lobby, 'start'), game.cookies[0])).json()).lobby;
+    const before = await game.snapshot(game.cookies[2]);
+    const [task] = (await game.snapshot(game.cookies[1])).you.tasks;
+    if (task.puzzle.kind !== 'delivery') throw new Error('Expected a delivery');
+    expect(task.puzzle).toMatchObject({ stage: 'pickup', object: null });
+    expect(task.puzzle.to).not.toBe(task.stationId);
+    expect(lobby.stations.map(station => station.id)).toContain(task.puzzle.to);
+    const complete = (answer: number[]) => app.post('/api/tasks/complete', { roundId: lobby.roundId, taskId: task.id, answer }, game.cookies[1]);
+    // Dropping off before picking up is wrong; picking up moves the task, and a retried pickup is harmless.
+    expect((await (await complete([1])).json()).error).toBe('WRONG_ANSWER');
+    const picked = ((await (await complete([0])).json()).lobby as Lobby).you.tasks.find(entry => entry.id === task.id)!;
+    expect(picked).toMatchObject({ done: false, stationId: task.puzzle.to, puzzle: { ...task.puzzle, stage: 'dropoff' } });
+    expect((await complete([0])).status).toBe(200);
+    expect((await game.snapshot(game.cookies[1])).you.tasks.find(entry => entry.id === task.id)!.stationId).toBe(task.puzzle.to);
+    // Nobody else learns about the step.
+    const after = await game.snapshot(game.cookies[2]);
+    expect(after.revision).toBe(before.revision);
+    expect(after.you.tasks).toEqual(before.you.tasks);
+    const delivered = ((await (await complete([1])).json()).lobby as Lobby).you.tasks.find(entry => entry.id === task.id)!;
+    expect(delivered.done).toBe(true);
+
+    lobby = (await (await app.post('/api/round/commands', roundInput(await game.snapshot(), 'end'), game.cookies[0])).json()).lobby;
+    lobby = (await (await app.post('/api/round/commands', roundInput(lobby, 'reset'), game.cookies[0])).json()).lobby;
+    // A real object without a name still delivers in the app.
+    lobby = (await (await settings(lobby, { deliveryMode: 'object' })).json()).lobby;
+    expect(lobby.settings).toMatchObject({ deliveryMode: 'object', deliveryObject: '' });
+    lobby = (await (await settings(lobby, { deliveryObject: '  wooden spoon ' })).json()).lobby;
+    expect(lobby.settings.deliveryObject).toBe('wooden spoon');
+    lobby = (await (await app.post('/api/round/commands', roundInput(lobby, 'start'), game.cookies[0])).json()).lobby;
+    const real = (await game.snapshot(game.cookies[1])).you.tasks;
+    expect(real.every(entry => entry.puzzle.kind === 'delivery' && entry.puzzle.stage === 'dropoff' && entry.puzzle.object === 'wooden spoon' && entry.puzzle.to === null)).toBe(true);
+    const finished = (await (await app.post('/api/tasks/complete', { roundId: lobby.roundId, taskId: real[0].id, answer: [1] }, game.cookies[1])).json()).lobby as Lobby;
+    expect(finished.you.tasks[0].done).toBe(true);
+  });
+});
+
 describe('practice page', () => {
   it('serves every task game without a session and checks answers with the task rules', async () => {
     const app = await start();
-    for (const kind of ['order', 'wires', 'codebook', 'simon', 'maze', 'waterways']) {
+    for (const kind of ['order', 'wires', 'codebook', 'simon', 'maze', 'waterways', 'delivery']) {
       const practice = await (await fetch(`${app.url}/api/practice/${kind}`)).json() as { puzzle: { kind: string }; codebook?: Record<string, number> };
       expect(practice.puzzle.kind).toBe(kind);
       expect(Boolean(practice.codebook)).toBe(kind === 'codebook');
@@ -186,6 +231,12 @@ describe('practice page', () => {
     const water = await (await fetch(`${app.url}/api/practice/waterways`)).json() as { id: string; puzzle: Extract<TaskPuzzle, { kind: 'waterways' }> };
     expect((await (await app.post('/api/practice/check', { id: water.id, answer: water.puzzle.turns })).json()).error).toBe('WRONG_ANSWER');
     expect(await (await app.post('/api/practice/check', { id: water.id, answer: waterwaysTurns(water.puzzle) })).json()).toEqual({ solved: true });
+    // Delivery: the pickup returns the drop-off step under the same id, then the drop-off solves it.
+    const parcel = await (await fetch(`${app.url}/api/practice/delivery`)).json() as { id: string; puzzle: Extract<TaskPuzzle, { kind: 'delivery' }> };
+    expect(parcel.puzzle).toMatchObject({ stage: 'pickup', object: null, to: null });
+    expect((await (await app.post('/api/practice/check', { id: parcel.id, answer: [1] })).json()).error).toBe('WRONG_ANSWER');
+    expect(await (await app.post('/api/practice/check', { id: parcel.id, answer: [0] })).json()).toEqual({ solved: false, puzzle: { ...parcel.puzzle, stage: 'dropoff' } });
+    expect(await (await app.post('/api/practice/check', { id: parcel.id, answer: [1] })).json()).toEqual({ solved: true });
     // Practice never creates a room or session.
     expect((await (await fetch(`${app.url}/api/session`)).json()).lobby).toBeNull();
   });

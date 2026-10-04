@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Button, Group, Input, Label, NumberField, Switch, Text } from 'react-aria-components';
+import { Button, Group, Input, Label, NumberField, Switch, Text, TextField } from 'react-aria-components';
 import { taskKinds, type ErrorCode, type Lobby, type SettingsCommand } from '../../../shared/protocol';
 import { codeFor, commandId, request } from '../../lib/api';
 import { errorMessages, translations, type Language } from '../../i18n';
@@ -29,7 +29,13 @@ export default function GameSettings({ lobby, language, connected, onUpdate }: P
     finally { inFlight.current = false; setBusy(false); }
   }
 
-  const { stationAccess, eliminations, bodyReports, emergencyMeetings, phoneVoting, confirmVictory, changePreviews, changeHistory, taskGames } = lobby.settings;
+  const { stationAccess, eliminations, bodyReports, emergencyMeetings, phoneVoting, confirmVictory, changePreviews, changeHistory, taskGames, deliveryMode, deliveryObject } = lobby.settings;
+  // The object name saves when the field is left (or Enter), not on every keystroke.
+  const [objectDraft, setObjectDraft] = useState<string | null>(null);
+  const saveObject = () => {
+    if (objectDraft !== null && objectDraft.trim() !== deliveryObject) void change({ deliveryObject: objectDraft.trim() }).then(() => setObjectDraft(null));
+    else setObjectDraft(null);
+  };
   const setting = (label: string, selected: boolean, help: string, onChange: (selected: boolean) => void) => <div className={styles.setting}>
     <Switch className={ui.switch} isSelected={selected} isDisabled={busy || !connected} onChange={onChange}>
       <span className={ui.switchTrack} aria-hidden="true"><span/></span>{label}
@@ -83,6 +89,22 @@ export default function GameSettings({ lobby, language, connected, onUpdate }: P
           </fieldset>
           <p className={ui.note}>{t.taskGamesHelp}</p>
         </div>
+        {taskGames.includes('delivery') && <div className={styles.setting}>
+          <fieldset className={`${ui.choices} ${styles.gameChoices}`}>
+            <legend>{t.deliverySetting}</legend>
+            {(['app', 'object'] as const).map(mode => <label key={mode}>
+              <input type="radio" name="delivery-mode" checked={deliveryMode === mode} disabled={busy || !connected}
+                onChange={() => void change({ deliveryMode: mode })}/>
+              <span>{mode === 'app' ? t.deliveryApp : t.deliveryReal}<small>{mode === 'app' ? t.deliveryAppHelp : t.deliveryRealHelp}</small></span>
+            </label>)}
+          </fieldset>
+          {deliveryMode === 'object' && <TextField className={`${ui.field} ${styles.objectField}`} value={objectDraft ?? deliveryObject} maxLength={40} isDisabled={!connected}
+            onChange={setObjectDraft} onBlur={saveObject} onKeyDown={event => { if (event.key === 'Enter') saveObject(); }}>
+            <Label>{t.deliveryObjectLabel}</Label>
+            <Input/>
+            <Text slot="description" elementType="small">{deliveryObject ? t.deliveryObjectHelp : t.deliveryObjectMissing}</Text>
+          </TextField>}
+        </div>}
         {number('tasksPerPlayer', t.settingTasks, t.settingNextRoundHelp, 1, 8, 1, true)}
         {number('taskGoalPercent', t.settingGoal, t.settingNextRoundHelp, 10, 100, 5, true)}
         {number('progressInterval', t.settingProgress, t.settingProgressHelp, 5, 300, 5)}

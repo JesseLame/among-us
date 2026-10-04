@@ -2,9 +2,12 @@ import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import QRCode from 'qrcode';
 import type { Lobby, PrintableStation, Task } from '../shared/protocol';
-import { mazeRoute, waterwaysTurns } from '../server/test/solvers';
+import { mazeRoute, waterwaysTaps } from '../server/test/solvers';
+import { hold } from './hold';
 
 test('organiser edits stations and prints sheets; a player completes phone and codebook tasks', async ({ page, browser, baseURL }, testInfo) => {
+  // Plays every task game, including timed ones (Simon says, holds).
+  test.setTimeout(60_000);
   await page.goto('/');
   await page.getByText('EN', { exact: true }).click();
   await page.getByRole('tab', { name: 'Host a game' }).click();
@@ -50,7 +53,7 @@ test('organiser edits stations and prints sheets; a player completes phone and c
 
     const lobby: Lobby = (await (await context.request.get('/api/session')).json()).lobby;
     const name = (task: Task) => lobby.stations.find(station => station.id === task.stationId)!.name;
-    const kinds = { order: 'Number order', wires: 'Fix the wiring', codebook: 'Codebook', simon: 'Simon says', maze: 'Maze', waterways: 'Open waterways' };
+    const kinds = { order: 'Number order', wires: 'Fix the wiring', codebook: 'Codebook', simon: 'Simon says', maze: 'Maze', waterways: 'Open waterways', delivery: 'Delivery' };
 
     // In-app scanner: a photo of an unrelated QR code is rejected, a station code opens its task.
     const scanned = lobby.you.tasks.find(task => lobby.you.tasks.filter(other => other.stationId === task.stationId).length === 1)!;
@@ -79,9 +82,9 @@ test('organiser edits stations and prints sheets; a player completes phone and c
     await expect(page.getByRole('switch', { name: 'Open tasks without scanning' })).toBeChecked();
     // Every task game starts on; the organiser can switch games off, but not the last one.
     const taskGames = page.getByRole('group', { name: 'Task games' }).getByRole('checkbox');
-    await expect(taskGames).toHaveCount(6);
+    await expect(taskGames).toHaveCount(7);
     for (const box of await taskGames.all()) await expect(box).toBeChecked();
-    const others = ['Codebook', 'Number order', 'Fix the wiring', 'Simon says', 'Open waterways'];
+    const others = ['Codebook', 'Number order', 'Fix the wiring', 'Simon says', 'Open waterways', 'Delivery'];
     // Each box follows the saved settings, so it changes once the server has the change.
     for (const game of others) {
       await page.getByRole('checkbox', { name: game }).click();
@@ -93,6 +96,15 @@ test('organiser edits stations and prints sheets; a player completes phone and c
       await expect(page.getByRole('checkbox', { name: game })).toBeChecked();
     }
     await expect(page.getByRole('checkbox', { name: 'Maze' })).toBeEnabled();
+    // Delivery with a real object: the organiser names it; tasks already handed out stay as they are.
+    await page.getByRole('radio', { name: /A real object/ }).click();
+    await expect(page.getByRole('radio', { name: /A real object/ })).toBeChecked();
+    await expect(page.getByText('Name the object; until then delivery tasks use the app.')).toBeVisible();
+    await page.getByRole('textbox', { name: 'Object' }).fill('Wooden spoon');
+    await page.getByRole('textbox', { name: 'Object' }).press('Enter');
+    await expect(page.getByText('Something easy to carry, such as a wooden spoon. Saved when you leave the field.')).toBeVisible();
+    await page.getByRole('radio', { name: /In the app/ }).click();
+    await expect(page.getByRole('textbox', { name: 'Object' })).toHaveCount(0);
     await expect(guest.getByRole('button', { name: /^Open: / })).toHaveCount(4);
     await expect(guest.getByText('Scan QR')).toHaveCount(0);
     const order = lobby.you.tasks.find(task => task.puzzle.kind === 'order');
@@ -165,15 +177,26 @@ test('organiser edits stations and prints sheets; a player completes phone and c
       for (const move of mazeRoute(maze.puzzle)) await controls.getByRole('button', { name: ['Up', 'Right', 'Down', 'Left'][move] }).click();
       await expect(guest.getByRole('listitem').filter({ hasText: 'Maze' }).getByText('✓ Done')).toBeVisible();
     }
+    const delivery = lobby.you.tasks.find(task => task.puzzle.kind === 'delivery');
+    if (delivery && delivery.puzzle.kind === 'delivery') {
+      const to = lobby.stations.find(station => station.id === delivery.puzzle.to)!.name;
+      const item = guest.getByRole('listitem').filter({ hasText: 'Delivery' });
+      await expect(item.getByText(new RegExp(`^Load: .+ → ${to}$`))).toBeVisible();
+      await guest.getByRole('button', { name: `Open: Delivery, ${name(delivery)}` }).click();
+      await hold(guest, 'Hold to load');
+      await expect(guest.getByText(`Loaded! Now take it to the ${to}.`)).toBeVisible();
+      await expect(guest.getByText('Step done. Your task has moved to its next station.')).toBeVisible();
+      await expect(item.getByText(/^Carrying: /)).toBeVisible();
+      await guest.getByRole('button', { name: `Open: Delivery, ${to}` }).click();
+      await hold(guest, 'Hold to unload');
+      await expect(item.getByText('✓ Done')).toBeVisible();
+    }
     const water = lobby.you.tasks.find(task => task.puzzle.kind === 'waterways');
     if (water && water.puzzle.kind === 'waterways') {
-      const { turns } = water.puzzle;
       await guest.getByRole('button', { name: `Open: Open waterways, ${name(water)}` }).click();
       await expect(guest.getByRole('heading', { name: 'Open waterways' })).toBeFocused();
       const valves = guest.getByRole('group', { name: 'Open waterways' }).getByRole('button');
-      for (const [index, turn] of waterwaysTurns(water.puzzle).entries()) {
-        for (let tap = 0; tap < (turn - turns[index] + 4) % 4; tap++) await valves.nth(index).click();
-      }
+      for (const index of waterwaysTaps(water.puzzle)) await valves.nth(index).click();
       await expect(guest.getByRole('listitem').filter({ hasText: 'Open waterways' }).getByText('✓ Done')).toBeVisible();
     }
     // Four tasks, each a different game.

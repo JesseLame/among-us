@@ -144,12 +144,14 @@ export function createRooms({ db, now, gameFor, alreadyApplied, recordCommand, o
       discussion_time = COALESCE(?, discussion_time), emergency_allowance = COALESCE(?, emergency_allowance),
       progress_interval = COALESCE(?, progress_interval), tasks_per_player = COALESCE(?, tasks_per_player),
       task_goal_percent = COALESCE(?, task_goal_percent), confirm_victory = COALESCE(?, confirm_victory),
-      change_previews = COALESCE(?, change_previews), change_history = COALESCE(?, change_history), task_games_off = COALESCE(?, task_games_off), revision = revision + 1 WHERE code = ?`)
+      change_previews = COALESCE(?, change_previews), change_history = COALESCE(?, change_history), task_games_off = COALESCE(?, task_games_off),
+      delivery_mode = COALESCE(?, delivery_mode), delivery_object = COALESCE(?, delivery_object), revision = revision + 1 WHERE code = ?`)
       .run(input.stationAccess ?? null, flag(input.eliminations), flag(input.bodyReports), flag(input.emergencyMeetings), flag(input.phoneVoting),
         input.openingProtection ?? null, input.killCooldown ?? null, input.discussionTime ?? null, input.emergencyAllowance ?? null,
         input.progressInterval ?? null, input.tasksPerPlayer ?? null, input.taskGoalPercent ?? null,
         flag(input.confirmVictory), flag(input.changePreviews), flag(input.changeHistory),
-        input.taskGames ? JSON.stringify(taskKinds.filter(kind => !input.taskGames!.includes(kind))) : null, game.code);
+        input.taskGames ? JSON.stringify(taskKinds.filter(kind => !input.taskGames!.includes(kind))) : null,
+        input.deliveryMode ?? null, input.deliveryObject ?? null, game.code);
     recordCommand(input.commandId, game.code, organiser.id, payload);
     return lobby(token)!;
   });

@@ -128,7 +128,7 @@ describe('private roles and round lifecycle', () => {
     expect(lobby.roundId).toBeNull();
     const originalSession = (await (await fetch(`${app.url}/api/session`, { headers: { Cookie: 'home_session=old-session' } })).json()).lobby;
     expect(originalSession.you).toEqual({ id: 'original', organiser: true, playing: true, status: 'alive', emergencyLeft: 1, tasks: [] });
-    expect(originalSession.settings).toEqual({ stationAccess: 'qr', eliminations: true, bodyReports: true, emergencyMeetings: true, phoneVoting: false, openingProtection: 60, killCooldown: 60, discussionTime: 90, emergencyAllowance: 1, progressInterval: 30, tasksPerPlayer: 4, taskGoalPercent: 80, confirmVictory: false, changePreviews: true, changeHistory: true, taskGames: ['codebook', 'order', 'wires', 'simon', 'maze', 'waterways'] });
+    expect(originalSession.settings).toEqual({ stationAccess: 'qr', eliminations: true, bodyReports: true, emergencyMeetings: true, phoneVoting: false, openingProtection: 60, killCooldown: 60, discussionTime: 90, emergencyAllowance: 1, progressInterval: 30, tasksPerPlayer: 4, taskGoalPercent: 80, confirmVictory: false, changePreviews: true, changeHistory: true, taskGames: ['codebook', 'order', 'wires', 'simon', 'maze', 'waterways', 'delivery'], deliveryMode: 'app', deliveryObject: '' });
     expect(originalSession.stations.map((station: { name: string }) => station.name)).toEqual(['Kitchen', 'Living room', 'Hallway', 'Study']);
   });
 
@@ -143,13 +143,13 @@ describe('private roles and round lifecycle', () => {
     await stop(app);
     // Back to the version with the Simon says switch, switched off.
     const old = new Database(path);
-    old.exec(`ALTER TABLE games DROP COLUMN task_games_off; ALTER TABLE games ADD COLUMN simon_tasks INTEGER NOT NULL DEFAULT 1;
+    old.exec(`ALTER TABLE games DROP COLUMN task_games_off; ALTER TABLE games DROP COLUMN delivery_mode; ALTER TABLE games DROP COLUMN delivery_object; ALTER TABLE games ADD COLUMN simon_tasks INTEGER NOT NULL DEFAULT 1;
       UPDATE games SET simon_tasks = 0; PRAGMA user_version = 14;`);
     old.close();
     const reopened = await start(path);
     const lobby = (await (await fetch(`${reopened.url}/api/session`, { headers: { Cookie: cookie } })).json()).lobby;
     expect(lobby.code).toBe(code);
-    expect(lobby.settings.taskGames).toEqual(['codebook', 'order', 'wires', 'maze', 'waterways']);
+    expect(lobby.settings.taskGames).toEqual(['codebook', 'order', 'wires', 'maze', 'waterways', 'delivery']);
   });
 });
 

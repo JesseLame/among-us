@@ -50,8 +50,10 @@ export default function Practice({ language, languageControl }: { language: Lang
     if (!current || busy) return;
     setBusy(true); setError(null);
     try {
-      await request('/api/practice/check', { id: current.id, answer });
-      setSolved(true); setCount(value => value + 1);
+      const result = await request<{ solved: boolean; puzzle?: PracticePuzzle['puzzle'] }>('/api/practice/check', { id: current.id, answer });
+      // A game with several steps continues with its next step.
+      if (result.puzzle) setCurrent({ ...current, puzzle: result.puzzle });
+      else { setSolved(true); setCount(value => value + 1); }
     } catch (failure) {
       const code = codeFor(failure);
       setError(code);
@@ -81,7 +83,7 @@ export default function Practice({ language, languageControl }: { language: Lang
         <p className={shared.eyebrow}>{t.practiceEyebrow}{count > 0 && ` · ${t.practiceSolvedCount} ${count}`}</p>
         <h2 id="practice-title" ref={heading} tabIndex={-1}>{kindLabel(t, kind)}</h2>
         {current
-          ? <PuzzleView key={current.id} puzzle={current.puzzle} t={t} disabled={busy || solved} solved={solved} rejected={rejected} onSubmit={answer => void submit(answer)}/>
+          ? <PuzzleView key={current.id} puzzle={current.puzzle} t={t} stationName={() => undefined} disabled={busy || solved} solved={solved} rejected={rejected} onSubmit={answer => void submit(answer)}/>
           : !error && <p className={ui.note} role="status">{t.loading}</p>}
         {current?.codebook && <PracticeSheet book={current.codebook} t={t}/>}
         {solved && <p className={ui.note} role="status">{t.practiceSolved}</p>}

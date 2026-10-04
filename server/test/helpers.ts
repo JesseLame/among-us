@@ -62,6 +62,8 @@ export function answerFor(task: Task, stations: PrintableStation[]) {
   if (puzzle.kind === 'simon') return puzzle.sequence;
   if (puzzle.kind === 'maze') return mazeRoute(puzzle);
   if (puzzle.kind === 'waterways') return waterwaysTurns(puzzle);
+  // The drop-off; a delivery in the app first needs its pickup ([0]).
+  if (puzzle.kind === 'delivery') return [1];
   const book = stations.find(station => station.id === task.stationId)!.codebook;
   return puzzle.symbols.map(symbol => book[symbol]).join('');
 }

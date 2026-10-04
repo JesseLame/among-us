@@ -4,7 +4,7 @@ import { puzzle } from '../tasks/index.js';
 import type { Base } from './base.js';
 import type { Rooms } from './rooms.js';
 import type { Rules } from './rules.js';
-import { GameError, taskKindsFor, type ChangeRow, type Game, type Player, type TaskRow } from './shared.js';
+import { GameError, taskContext, taskKindsFor, type ChangeRow, type Game, type Player, type TaskRow } from './shared.js';
 
 const TASK_COLUMNS = 'id, game_code, round_id, player_id, station_id, fake, puzzle, position, done_at';
 type FullTask = TaskRow & { game_code: string; round_id: string; position: number };
@@ -58,7 +58,7 @@ export function createCorrections({ db, now, gameFor, alreadyApplied, recordComm
         const pairs = old.map(task => {
           const stationId = input.targetStationId ?? (others.length ? others[randomInt(others.length)] : input.stationId);
           const replacement = randomUUID();
-          insert.run(replacement, game.code, game.round_id, task.player_id, stationId, task.fake, JSON.stringify(puzzle(available[randomInt(available.length)])), task.position);
+          insert.run(replacement, game.code, game.round_id, task.player_id, stationId, task.fake, JSON.stringify(puzzle(available[randomInt(available.length)], taskContext(game, stationId, stations.map(entry => entry.id)))), task.position);
           return { old: task, replacement };
         });
         logChange(game, 'replaceStationTasks', { station, ...(target ? { target } : {}) }, { pairs });

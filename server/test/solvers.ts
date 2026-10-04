@@ -1,5 +1,5 @@
 // Solvers for the puzzles with many possible answers, shared by the server and browser tests.
-import { mazeStep, valveSides, type ValveShape } from '../../shared/protocol.js';
+import { mazeStep, valveSides, waterFlow, type ValveShape } from '../../shared/protocol.js';
 
 // The direct route through a maze puzzle (0 up, 1 right, 2 down, 3 left).
 export function mazeRoute(puzzle: { size: number; open: number[]; start: number; exit: number }) {
@@ -41,4 +41,20 @@ export function waterwaysTurns(puzzle: { size: number; valves: ValveShape[]; tur
   }
   if (!follow(puzzle.source * size, 8)) throw new Error('No channel through the waterways');
   return turns;
+}
+
+// The valve taps (by index) that turn the puzzle into the solution, stopping at the tap that lets
+// the water out: after that the game takes no more taps.
+export function waterwaysTaps(puzzle: { size: number; valves: ValveShape[]; turns: number[]; source: number; drain: number }) {
+  const target = waterwaysTurns(puzzle);
+  const turns = [...puzzle.turns];
+  const taps: number[] = [];
+  for (const [index, turn] of target.entries()) {
+    while (turns[index] !== turn) {
+      turns[index] = (turns[index] + 1) % 4;
+      taps.push(index);
+      if (waterFlow(puzzle, turns).out) return taps;
+    }
+  }
+  return taps;
 }

@@ -1,11 +1,14 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { mazeStep, type TaskPuzzle } from '../shared/protocol';
-import { mazeRoute, waterwaysTurns } from '../server/test/solvers';
+import { mazeRoute, waterwaysTaps } from '../server/test/solvers';
+import { hold } from './hold';
 
 test.use({ viewport: { width: 375, height: 812 } });
 
 test('practice page plays every task game without a room, in both languages', async ({ page }) => {
+  // Plays every task game, including timed ones (Simon says, holds).
+  test.setTimeout(60_000);
   const solvedNote = page.getByText('Solved! The server accepted this answer.');
   // The Next puzzle button fades to its solved colour; check contrast once it has.
   const settled = () => page.evaluate(() => Promise.all(document.getAnimations().map(animation => animation.finished)));
@@ -14,7 +17,7 @@ test('practice page plays every task game without a room, in both languages', as
   await page.getByRole('link', { name: 'Practise the task games' }).click();
   await expect(page.getByRole('heading', { name: 'Try the task games' })).toBeVisible();
   const games = page.getByRole('navigation', { name: 'Task games' }).getByRole('button');
-  await expect(games).toHaveText(['Codebook', 'Number order', 'Fix the wiring', 'Simon says', 'Maze', 'Open waterways']);
+  await expect(games).toHaveText(['Codebook', 'Number order', 'Fix the wiring', 'Simon says', 'Maze', 'Open waterways', 'Delivery']);
 
   // Codebook: read the practice sheet and key in the numbers.
   await expect(page.getByRole('heading', { name: 'Codebook', level: 2 })).toBeVisible();
@@ -97,13 +100,22 @@ test('practice page plays every task game without a room, in both languages', as
   const valves = page.getByRole('group', { name: 'Open waterways' }).getByRole('button');
   await expect(valves).toHaveCount(16);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-  const target = waterwaysTurns(water);
-  for (const [index, turn] of target.entries()) {
-    for (let tap = 0; tap < (turn - water.turns[index] + 4) % 4; tap++) await valves.nth(index).click();
-  }
+  for (const index of waterwaysTaps(water)) await valves.nth(index).click();
   await expect(page.getByText('The water flows!')).toBeVisible();
   await expect(solvedNote).toBeVisible();
   await page.screenshot({ path: test.info().outputPath('waterways-mobile.png'), fullPage: true });
+
+  // Delivery: a short press does nothing; holding loads, then holding again unloads.
+  await games.getByText('Delivery').click();
+  await expect(page.getByRole('button', { name: 'Hold to load' })).toBeVisible();
+  await page.getByRole('button', { name: 'Hold to load' }).click();
+  await expect(page.getByRole('button', { name: 'Hold to load' })).toBeVisible();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await hold(page, 'Hold to load');
+  await expect(page.getByText('You brought the cargo. Hold the button to unload it here.')).toBeVisible();
+  await hold(page, 'Hold to unload');
+  await expect(solvedNote).toBeVisible();
+  await expect(page.getByText('Delivered!')).toBeVisible();
 
   // Deep links and Dutch.
   await page.goto('/practice?game=wires');

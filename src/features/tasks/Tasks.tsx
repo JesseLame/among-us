@@ -3,7 +3,7 @@ import { Button } from 'react-aria-components';
 import type { CompleteTask, ErrorCode, Lobby, Task } from '../../../shared/protocol';
 import { codeFor, request } from '../../lib/api';
 import StationScanner from './Scanner';
-import { kindLabel, PuzzleView } from './games/registry';
+import { kindLabel, PuzzleView, taskSummary } from './games/registry';
 import { errorMessages, translations, type Language } from '../../i18n';
 import shared from '../../App.module.css';
 import styles from './tasks.module.css';
@@ -20,7 +20,8 @@ export default function Tasks({ lobby, language, connected, onUpdate, scan, onSc
   const [openId, setOpenId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ErrorCode | null>(null);
-  const [notice, setNotice] = useState(false);
+  // After a task closes: it is done, or it moved on to its next step at another station.
+  const [notice, setNotice] = useState<'done' | 'step' | null>(null);
   const [scanning, setScanning] = useState(false);
   // After a correct answer the solved puzzle stays on screen briefly before closing.
   const [solved, setSolved] = useState(false);
@@ -28,8 +29,13 @@ export default function Tasks({ lobby, language, connected, onUpdate, scan, onSc
   const closing = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(closing.current), []);
   const heading = useRef<HTMLHeadingElement>(null);
-  const open = lobby.you.tasks.find(task => task.id === openId);
-  const stationName = (task: Task) => lobby.stations.find(station => station.id === task.stationId)?.name ?? '';
+  // While a solved task stays on screen it shows the step that was answered, even if this
+  // player's update (with a task moved to its next step) arrives first.
+  const answered = useRef<Task | null>(null);
+  const current = lobby.you.tasks.find(task => task.id === openId);
+  const open = solved && current && answered.current?.id === current.id ? answered.current : current;
+  const nameOf = (id: string) => lobby.stations.find(station => station.id === id)?.name;
+  const stationName = (task: Task) => nameOf(task.stationId) ?? '';
   const active = lobby.phase === 'active';
   // The scanned station: its tasks are listed first and, in QR-only mode, are the only ones that open.
   // A fresh scan opens the only open task there directly.
@@ -49,13 +55,15 @@ export default function Tasks({ lobby, language, connected, onUpdate, scan, onSc
   async function submit(task: Task, answer: CompleteTask['answer']) {
     if (busy) return;
     setBusy(true); setError(null);
+    answered.current = task;
     try {
       const result = await request('/api/tasks/complete', { roundId: lobby.roundId, taskId: task.id, answer });
       setSolved(true);
+      const step = result.lobby?.you.tasks.some(other => other.id === task.id && !other.done);
       closing.current = setTimeout(() => {
         if (result.lobby) onUpdate(result.lobby);
-        setOpenId(null); setSolved(false); setNotice(true);
-      }, 800);
+        setOpenId(null); setSolved(false); setNotice(step ? 'step' : 'done');
+      }, step ? 1600 : 800);
     } catch (failure) {
       const code = codeFor(failure);
       setError(code);
@@ -74,7 +82,7 @@ export default function Tasks({ lobby, language, connected, onUpdate, scan, onSc
   if (open) return <section className={`${ui.card} ${styles.taskCard}`} aria-labelledby="task-title">
     <p className={shared.eyebrow}>{t.doTaskAt} · {stationName(open)}</p>
     <h2 id="task-title" ref={heading} tabIndex={-1}>{kindLabel(t, open.puzzle.kind)}</h2>
-    <PuzzleView key={open.id} puzzle={open.puzzle} t={t} disabled={locked} solved={solved} rejected={rejected} onSubmit={answer => void submit(open, answer)}/>
+    <PuzzleView key={open.id} puzzle={open.puzzle} t={t} stationName={nameOf} disabled={locked} solved={solved} rejected={rejected} onSubmit={answer => void submit(open, answer)}/>
     {error && <p className={ui.error} role="alert">{errorMessages[language][error]}</p>}
     <Button className={ui.secondary} isDisabled={busy || solved} onPress={() => { setOpenId(null); setError(null); }}>{t.backToTasks}</Button>
   </section>;
@@ -82,14 +90,14 @@ export default function Tasks({ lobby, language, connected, onUpdate, scan, onSc
   if (scanning) return <section className={`${ui.card} ${styles.taskCard}`} aria-labelledby="scanner-title">
     <h2 id="scanner-title" ref={heading} tabIndex={-1}>{t.scanStation}</h2>
     <StationScanner stations={lobby.stations} t={t} onClose={() => setScanning(false)}
-      onScanned={stationId => { setScanning(false); setNotice(false); onStationScanned?.(stationId); }}/>
+      onScanned={stationId => { setScanning(false); setNotice(null); onStationScanned?.(stationId); }}/>
   </section>;
 
   const allDone = lobby.you.tasks.every(task => task.done);
   const hereName = here && lobby.stations.find(station => station.id === here)?.name;
   const hereOpen = here ? lobby.you.tasks.some(task => task.stationId === here && !task.done) : false;
   const ordered = here ? [...lobby.you.tasks].sort((a, b) => Number(b.stationId === here) - Number(a.stationId === here)) : lobby.you.tasks;
-  const status = notice ? allDone ? t.allTasksDone : t.taskComplete
+  const status = notice === 'step' ? t.taskNextStep : notice ? allDone ? t.allTasksDone : t.taskComplete
     : hereName ? `${t.arrivedAt} ${hereName}.${hereOpen ? '' : ` ${t.noTasksHere}`}`
     : allDone ? t.allTasksDone : qrOnly ? t.tasksHelpQr : t.tasksHelp;
   return <section className={`${ui.card} ${styles.taskCard}`} aria-labelledby="tasks-title">
@@ -101,13 +109,14 @@ export default function Tasks({ lobby, language, connected, onUpdate, scan, onSc
     </Button>}
     <ul className={styles.taskList}>
       {ordered.map(task => <li key={task.id} data-done={task.done} data-here={task.stationId === here || undefined}>
-        <span><strong>{stationName(task)}</strong><small>{kindLabel(t, task.puzzle.kind)}</small></span>
+        <span><strong>{stationName(task)}</strong><small>{kindLabel(t, task.puzzle.kind)}</small>
+          {!task.done && taskSummary(task.puzzle, t, nameOf) && <small>{taskSummary(task.puzzle, t, nameOf)}</small>}</span>
         {task.done
           ? <span className={ui.badge}>✓ {t.taskDone}</span>
           : qrOnly && task.stationId !== here
           ? <span className={styles.scanBadge}><span aria-hidden="true">⌗ </span>{t.scanToOpen}</span>
           : <Button className={ui.secondary} isDisabled={!active || !connected} aria-label={`${t.openTask}: ${kindLabel(t, task.puzzle.kind)}, ${stationName(task)}`}
-            onPress={() => { setOpenId(task.id); setNotice(false); setError(null); }}>{t.openTask}</Button>}
+            onPress={() => { setOpenId(task.id); setNotice(null); setError(null); }}>{t.openTask}</Button>}
       </li>)}
     </ul>
   </section>;

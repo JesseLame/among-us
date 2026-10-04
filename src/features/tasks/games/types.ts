@@ -15,6 +15,13 @@ export type TaskGameProps<K extends TaskKind = TaskKind> = {
   // Goes up each time the server turns an answer down, so a game can reset.
   rejected: number;
   onSubmit: (answer: CompleteTask['answer']) => void;
+  // A station's name by id (games that send players to another station). None in practice.
+  stationName: (id: string) => string | undefined;
 };
 
-export type TaskGame<K extends TaskKind> = { label: keyof Copy; Game: ComponentType<TaskGameProps<K>> };
+// `summary`: an extra line for the task list, for games whose task needs preparing before you
+// reach the station (such as fetching an object).
+export type TaskGame<K extends TaskKind> = {
+  label: keyof Copy; Game: ComponentType<TaskGameProps<K>>;
+  summary?: (puzzle: Puzzle<K>, t: Copy, stationName: TaskGameProps['stationName']) => string;
+};

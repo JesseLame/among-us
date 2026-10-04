@@ -14,7 +14,7 @@ export type ErrorCode = typeof errors[number];
 // (registered in registry.tsx, built on TaskFrame) and its EN/NL texts.
 // The practice page (/practice) lists every kind automatically. A new game also needs an
 // organiser on/off choice, which `taskGames` gives every kind automatically (on by default).
-export const taskKinds = ['codebook', 'order', 'wires', 'simon', 'maze', 'waterways'] as const;
+export const taskKinds = ['codebook', 'order', 'wires', 'simon', 'maze', 'waterways', 'delivery'] as const;
 export type TaskKind = typeof taskKinds[number];
 export type Role = 'crewmate' | 'impostor';
 export type Phase = 'lobby' | 'active' | 'paused' | 'meeting' | 'ended';
@@ -48,6 +48,8 @@ export type StationCommand = z.infer<typeof stationCommand>;
 // QR: a task opens only after scanning its station's QR code. Manual: open from the task list.
 export const stationAccess = z.enum(['qr', 'manual']);
 export type StationAccess = z.infer<typeof stationAccess>;
+export const deliveryMode = z.enum(['app', 'object']);
+export type DeliveryMode = z.infer<typeof deliveryMode>;
 // Each change sends only the settings it changes. Timer durations are in seconds and
 // apply to future timers (an elimination cooldown already running keeps its end).
 const seconds = z.number().int().min(0).max(600);
@@ -64,13 +66,15 @@ export const settingsCommand = roundCommand.omit({ action: true }).extend({
   confirmVictory: z.boolean().optional(), changePreviews: z.boolean().optional(), changeHistory: z.boolean().optional(),
   // The task games handed out whenever tasks are handed out or replaced: at least one, each once.
   taskGames: z.array(z.enum(taskKinds)).min(1).refine(games => new Set(games).size === games.length).optional(),
+  // Delivery: carried in the app, or a real object from the house that players carry around.
+  deliveryMode: deliveryMode.optional(), deliveryObject: z.string().trim().max(40).optional(),
 });
 export type SettingsCommand = z.infer<typeof settingsCommand>;
 
 // Order: numbers in the tapped order. Wires: for each left wire, the index of
 // its right-hand match. Codebook: the digits read from the printed station sheet.
 // Maze: the moves from start to exit (0 up, 1 right, 2 down, 3 left).
-// Waterways: every valve's quarter turns (0–3), row by row.
+// Waterways: every valve's quarter turns (0–3), row by row. Delivery: [0] to pick up, [1] to drop off.
 const MAX_ANSWER = 64;
 export const completeTask = z.object({
   roundId: z.uuid(),
@@ -101,8 +105,13 @@ export type TaskPuzzle =
   | { kind: 'maze'; size: number; open: number[]; start: number; exit: number }
   // A size × size grid of valves, row by row, each turned 0–3 quarter turns clockwise.
   // Water enters the `source` row from the left and must leave the `drain` row on the right.
-  | { kind: 'waterways'; size: number; valves: ValveShape[]; turns: number[]; source: number; drain: number };
+  | { kind: 'waterways'; size: number; valves: ValveShape[]; turns: number[]; source: number; drain: number }
+  // In the app: load the cargo at this station, then the task moves to `to` to drop it off.
+  // With a real object (`object` set) only the drop-off is left: bring the object to this station.
+  | { kind: 'delivery'; cargo: Cargo; object: string | null; stage: 'pickup' | 'dropoff'; to: string | null };
 export type ValveShape = 'straight' | 'bend';
+export const cargos = ['fuel', 'battery', 'parcel', 'samples', 'water'] as const;
+export type Cargo = typeof cargos[number];
 // The sides a valve opens (1 up, 2 right, 4 down, 8 left): a straight one joins left and right,
 // a bend joins left and up, both before turning. Each quarter turn moves every side clockwise.
 export function valveSides(shape: ValveShape, turn: number) {
@@ -213,6 +222,7 @@ export type Lobby = {
     openingProtection: number; killCooldown: number; discussionTime: number;
     emergencyAllowance: number; progressInterval: number; tasksPerPlayer: number; taskGoalPercent: number;
     confirmVictory: boolean; changePreviews: boolean; changeHistory: boolean; taskGames: TaskKind[];
+    deliveryMode: DeliveryMode; deliveryObject: string;
   };
   // Organiser only: the result the app detected, waiting for confirmation (pauseReason 'victory').
   proposedResult?: { winner: 'crew' | 'impostor'; reason: RoundResult['reason'] };
