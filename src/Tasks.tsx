@@ -7,7 +7,8 @@ import styles from './App.module.css';
 import ui from './styles/ui.module.css';
 
 type Copy = typeof translations.en;
-type Props = { lobby: Lobby; language: Language; connected: boolean; onUpdate: (lobby: Lobby) => void; arrivedAt?: string | null; onArrived?: () => void };
+export type Scan = { stationId: string; fresh: boolean };
+type Props = { lobby: Lobby; language: Language; connected: boolean; onUpdate: (lobby: Lobby) => void; scan?: Scan | null; onScanHandled?: () => void };
 const kindLabel = (t: Copy, kind: TaskPuzzle['kind']) => kind === 'order' ? t.kindOrder : kind === 'wires' ? t.kindWires : t.kindCodebook;
 
 export function SharedProgress({ lobby, language }: Pick<Props, 'lobby' | 'language'>) {
@@ -23,7 +24,7 @@ export function SharedProgress({ lobby, language }: Pick<Props, 'lobby' | 'langu
   </ProgressBar>;
 }
 
-export default function Tasks({ lobby, language, connected, onUpdate, arrivedAt, onArrived }: Props) {
+export default function Tasks({ lobby, language, connected, onUpdate, scan, onScanHandled }: Props) {
   const t = translations[language];
   const [openId, setOpenId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -38,16 +39,16 @@ export default function Tasks({ lobby, language, connected, onUpdate, arrivedAt,
   const open = lobby.you.tasks.find(task => task.id === openId);
   const stationName = (task: Task) => lobby.stations.find(station => station.id === task.stationId)?.name ?? '';
   const active = lobby.phase === 'active';
-  // Arriving by QR code opens the only open task at that station, or lists that station's tasks first.
-  const [here, setHere] = useState<string | null>(null);
+  // The scanned station: its tasks are listed first and, in QR-only mode, are the only ones that open.
+  // A fresh scan opens the only open task there directly.
+  const here = scan && lobby.stations.some(station => station.id === scan.stationId) ? scan.stationId : null;
+  const qrOnly = lobby.settings.stationAccess === 'qr';
   useEffect(() => {
-    if (!arrivedAt || !active) return;
-    onArrived?.();
-    if (!lobby.stations.some(station => station.id === arrivedAt)) return;
-    const open = lobby.you.tasks.filter(task => task.stationId === arrivedAt && !task.done);
-    setHere(arrivedAt);
+    if (!scan?.fresh || !active) return;
+    onScanHandled?.();
+    const open = lobby.you.tasks.filter(task => task.stationId === here && !task.done);
     if (open.length === 1) setOpenId(open[0].id);
-  }, [arrivedAt, active]);
+  }, [scan, active]);
   // Move focus between the list and an opened task, but not on first render.
   const previousOpen = useRef(openId);
   useEffect(() => { if (previousOpen.current !== openId) heading.current?.focus(); previousOpen.current = openId; }, [openId]);
@@ -87,7 +88,7 @@ export default function Tasks({ lobby, language, connected, onUpdate, arrivedAt,
   const ordered = here ? [...lobby.you.tasks].sort((a, b) => Number(b.stationId === here) - Number(a.stationId === here)) : lobby.you.tasks;
   const status = notice ? allDone ? t.allTasksDone : t.taskComplete
     : hereName ? `${t.arrivedAt} ${hereName}.${hereOpen ? '' : ` ${t.noTasksHere}`}`
-    : allDone ? t.allTasksDone : t.tasksHelp;
+    : allDone ? t.allTasksDone : qrOnly ? t.tasksHelpQr : t.tasksHelp;
   return <section className={`${ui.card} ${styles.taskCard}`} aria-labelledby="tasks-title">
     <h2 id="tasks-title" ref={heading} tabIndex={-1}>{t.yourTasks}</h2>
     <p className={ui.note} role="status">{status}</p>
@@ -96,6 +97,8 @@ export default function Tasks({ lobby, language, connected, onUpdate, arrivedAt,
         <span><strong>{stationName(task)}</strong><small>{kindLabel(t, task.puzzle.kind)}</small></span>
         {task.done
           ? <span className={ui.badge}>✓ {t.taskDone}</span>
+          : qrOnly && task.stationId !== here
+          ? <span className={styles.scanBadge}><span aria-hidden="true">⌗ </span>{t.scanToOpen}</span>
           : <Button className={ui.secondary} isDisabled={!active || !connected} aria-label={`${t.openTask}: ${kindLabel(t, task.puzzle.kind)}, ${stationName(task)}`}
             onPress={() => { setOpenId(task.id); setNotice(false); setError(null); }}>{t.openTask}</Button>}
       </li>)}

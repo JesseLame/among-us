@@ -7,6 +7,7 @@ import styles from './App.module.css';
 import ui from './styles/ui.module.css';
 import { codeFor, request } from './api';
 import RoundView, { RoundControls } from './RoundView';
+import type { Scan } from './Tasks';
 import Stations from './Stations';
 import PrintSheets from './PrintSheets';
 
@@ -24,16 +25,26 @@ export default function App() {
   const [connected, setConnected] = useState(false);
   const [sessionNotice, setSessionNotice] = useState<SessionEndReason | null>(null);
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
-  // A scanned station QR code opens the app with ?station=…; Tasks consumes it once.
-  const [arrival, setArrival] = useState(() => new URLSearchParams(location.search).get('station'));
+  // A scanned station QR code opens the app with ?station=…. The player stays "at" that
+  // station until another scan or the round ends; `fresh` opens its task once.
+  const [scan, setScan] = useState<Scan | null>(() => {
+    const stationId = new URLSearchParams(location.search).get('station');
+    return stationId ? { stationId, fresh: true } : null;
+  });
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (!params.has('station')) return;
     params.delete('station');
     window.history.replaceState(null, '', `${location.pathname}${params.size ? `?${params}` : ''}`);
   }, []);
-  // Only an active round uses an arrival; otherwise forget it rather than opening a task later.
-  useEffect(() => { if (lobby && lobby.phase !== 'active' && lobby.phase !== 'paused') setArrival(null); }, [lobby?.phase]);
+  // Only the current round uses a scan; forget it rather than opening a task in a later round.
+  const scannedRound = useRef<string | null>(null);
+  useEffect(() => {
+    if (!lobby) return;
+    if (lobby.phase !== 'active' && lobby.phase !== 'paused') setScan(null);
+    else if (scannedRound.current && scannedRound.current !== lobby.roundId) setScan(null);
+    if (lobby.roundId) scannedRound.current = lobby.roundId;
+  }, [lobby?.phase, lobby?.roundId]);
   const lobbyHeading = useRef<HTMLHeadingElement>(null);
   const entryHeading = useRef<HTMLHeadingElement>(null);
   const sessionRequest = useRef(0);
@@ -118,7 +129,7 @@ export default function App() {
     {loading || loadError ? <main className={styles.loading} aria-live="polite">
       <h1>{loading ? t.loading : errorMessages[language][loadError!]}</h1>
       {loadError && <Button className={ui.primary} onPress={() => void restore()}>{t.retry}</Button>}
-    </main> : lobby && lobby.phase !== 'lobby' ? <RoundView lobby={lobby} language={language} connected={connected} onUpdate={updateLobby} onExit={exitLobby} languageControl={privatePlayerScreen ? languageControl : undefined} arrivedAt={arrival} onArrived={() => setArrival(null)}/> : lobby ? <main className={styles.lobby}>
+    </main> : lobby && lobby.phase !== 'lobby' ? <RoundView lobby={lobby} language={language} connected={connected} onUpdate={updateLobby} onExit={exitLobby} languageControl={privatePlayerScreen ? languageControl : undefined} scan={scan} onScanHandled={() => setScan(current => current && { ...current, fresh: false })}/> : lobby ? <main className={styles.lobby}>
       <section className={styles.lobbyIntro}>
         <p className={styles.eyebrow}>{t.edition}</p>
         <h1 ref={lobbyHeading} tabIndex={-1}>{t.lobbyTitle}</h1>

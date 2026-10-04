@@ -6,11 +6,12 @@ import { errorMessages, translations, type Language } from './i18n';
 import styles from './App.module.css';
 import ui from './styles/ui.module.css';
 import RoomControls from './RoomControls';
-import Tasks, { SharedProgress } from './Tasks';
+import Tasks, { SharedProgress, type Scan } from './Tasks';
+import StationAccessSwitch from './Settings';
 
 type Props = {
   lobby: Lobby; language: Language; connected: boolean; onUpdate: (lobby: Lobby) => void; onExit: (reason: SessionEndReason) => void;
-  languageControl?: ReactNode; arrivedAt?: string | null; onArrived?: () => void;
+  languageControl?: ReactNode; scan?: Scan | null; onScanHandled?: () => void;
 };
 
 export function RoundControls({ lobby, language, connected, onUpdate, onExit }: Props) {
@@ -74,6 +75,7 @@ export function RoundControls({ lobby, language, connected, onUpdate, onExit }: 
         </Dialog>
       </Modal>
     </ModalOverlay>
+    <StationAccessSwitch lobby={lobby} language={language} connected={connected} onUpdate={onUpdate}/>
     <div className={styles.printLink}>
       <a className={ui.secondary} href="/print" target="_blank" rel="noopener">{t.printSheets}<span aria-hidden="true">↗</span></a>
       <p className={ui.note}>{t.printSheetsHelp}</p>
@@ -140,7 +142,7 @@ export default function RoundView(props: Props) {
   const crewWon = lobby.result?.winner === 'crew';
   const title = lobby.phase === 'paused' ? t.pausedTitle : lobby.phase === 'ended' ? crewWon ? t.crewWonTitle : t.endedTitle : t.roundTitle;
   const endedMessage = crewWon ? t.crewWonMessage : lobby.result?.reason === 'departure' ? t.departureMessage : t.endedMessage;
-  const tasks = <Tasks key={`tasks:${lobby.roundId}:${lobby.phase}`} lobby={lobby} language={language} connected={connected} onUpdate={props.onUpdate} arrivedAt={props.arrivedAt} onArrived={props.onArrived}/>;
+  const tasks = <Tasks key={`tasks:${lobby.roundId}:${lobby.phase}`} lobby={lobby} language={language} connected={connected} onUpdate={props.onUpdate} scan={props.scan} onScanHandled={props.onScanHandled}/>;
 
   if (!lobby.you.organiser && lobby.phase !== 'ended') return <main className={styles.playerRound}>
     <PrivateRole key={`${lobby.roundId}:${lobby.phase}`} lobby={lobby} language={language} connected={connected} languageControl={props.languageControl}/>

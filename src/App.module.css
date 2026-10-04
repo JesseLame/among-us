@@ -1088,6 +1088,21 @@
   margin: 0;
 }
 
+/* Organiser controls: settings */
+.setting {
+  margin-top: var(--space-4);
+  padding-top: var(--space-2);
+  border-top: 1px dashed var(--color-border);
+}
+
+.scanBadge {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  border: 1px dashed var(--color-border-dashed);
+  border-radius: var(--radius-small);
+  padding: 6px var(--space-2);
+}
+
 /* Organiser controls: link to print materials */
 .printLink {
   display: grid;

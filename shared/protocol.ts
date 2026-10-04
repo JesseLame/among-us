@@ -30,6 +30,11 @@ export const stationCommand = z.discriminatedUnion('action', [
   stationCommandBase.extend({ action: z.literal('remove'), stationId: z.uuid() }),
 ]);
 export type StationCommand = z.infer<typeof stationCommand>;
+// QR: a task opens only after scanning its station's QR code. Manual: open from the task list.
+export const stationAccess = z.enum(['qr', 'manual']);
+export type StationAccess = z.infer<typeof stationAccess>;
+export const settingsCommand = roundCommand.omit({ action: true }).extend({ stationAccess });
+export type SettingsCommand = z.infer<typeof settingsCommand>;
 
 // Order: numbers in the tapped order. Wires: for each left wire, the index of
 // its right-hand match. Codebook: the digits read from the printed station sheet.
@@ -68,6 +73,7 @@ export type Lobby = {
   revealedRoles?: { id: string; role: Role }[];
   players: { id: string; name: string; organiser: boolean; removed?: boolean }[];
   stations: Station[];
+  settings: { stationAccess: StationAccess };
   // Shared progress is published in batches during a round so a single
   // completion cannot prove innocence. It is exact once the round has ended.
   progress: { done: number; goal: number } | null;

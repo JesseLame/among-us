@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { dirname } from 'node:path';
 import { mkdirSync } from 'node:fs';
-import type { CompleteTask, ErrorCode, Lobby, Phase, PrintableStation, Role, RoundCommand, RoomCommand, RoundResult, StationCommand, Task, TaskPuzzle } from '../shared/protocol.js';
+import type { CompleteTask, ErrorCode, Lobby, Phase, PrintableStation, Role, RoundCommand, RoomCommand, RoundResult, SettingsCommand, StationAccess, StationCommand, Task, TaskPuzzle } from '../shared/protocol.js';
 import { codebook, puzzle, shuffle, solved, type Codebook, type TaskKind } from './puzzles.js';
 
 export class GameError extends Error {
@@ -14,6 +14,7 @@ type Game = {
   winner: RoundResult['winner']; end_reason: RoundResult['reason'] | null;
   tasks_per_player: number; task_goal_percent: number;
   progress_interval: number; progress_shown: number; progress_shown_at: number;
+  station_access: StationAccess;
 };
 type TaskRow = { id: string; player_id: string; station_id: string; fake: number; puzzle: string; done_at: number | null };
 const MAX_STATIONS = 8;
@@ -81,6 +82,9 @@ export function createStore(path: string, now: () => number = Date.now) {
       // Existing lobbies receive the default stations so they can start a round with tasks.
       for (const { code } of db.prepare('SELECT code FROM games').all() as { code: string }[]) addStations(code, DEFAULT_STATIONS.en);
     }
+    if (version < 4) {
+      db.exec("ALTER TABLE games ADD COLUMN station_access TEXT NOT NULL DEFAULT 'qr'; PRAGMA user_version = 4;");
+    }
   });
   function addStations(code: string, names: string[]) {
     const insert = db.prepare('INSERT INTO stations (id, game_code, name, position, codebook) VALUES (?, ?, ?, (SELECT COALESCE(MAX(position), -1) + 1 FROM stations WHERE game_code = ?), ?)');
@@ -111,6 +115,7 @@ export function createStore(path: string, now: () => number = Date.now) {
       revision: game.revision, pauseReason: game.pause_reason,
       players: players.map(p => ({ id: p.id, name: p.name, organiser: Boolean(p.organiser), ...(p.removed ? { removed: true } : {}) })),
       stations: db.prepare('SELECT id, name FROM stations WHERE game_code = ? ORDER BY position').all(game.code) as Lobby['stations'],
+      settings: { stationAccess: game.station_access },
       progress: totals && { done: game.phase === 'ended' ? totals.done : Math.min(game.progress_shown, totals.goal), goal: totals.goal },
       you: { id: player.id, organiser: Boolean(player.organiser), tasks },
       ...(game.phase === 'ended' ? {
@@ -305,6 +310,17 @@ export function createStore(path: string, now: () => number = Date.now) {
     return lobby(token)!;
   });
 
+  // Settings can change in any phase; every phone receives them with the next update.
+  const changeSettings = db.transaction((token: string | undefined, input: SettingsCommand) => {
+    const { player: organiser, game } = organiserFor(token);
+    const payload = JSON.stringify(input);
+    if (alreadyApplied(input.commandId, organiser.id, payload)) return lobby(token)!;
+    if (game.revision !== input.expectedRevision || game.round_id !== input.roundId) throw new GameError('STALE_COMMAND', 409);
+    db.prepare('UPDATE games SET station_access = ?, revision = revision + 1 WHERE code = ?').run(input.stationAccess, game.code);
+    recordCommand(input.commandId, game.code, organiser.id, payload);
+    return lobby(token)!;
+  });
+
   // Station sheets contain the codebook answers, so only the organiser may print them.
   function printableStations(token: string | undefined): PrintableStation[] {
     const { game } = organiserFor(token);
@@ -345,5 +361,5 @@ export function createStore(path: string, now: () => number = Date.now) {
     return changed;
   }
 
-  return { lobby, create, join, role, command, manageRoom, manageStations, printableStations, completeTask, tick, close: () => db.close() };
+  return { lobby, create, join, role, command, manageRoom, manageStations, changeSettings, printableStations, completeTask, tick, close: () => db.close() };
 }

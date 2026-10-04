@@ -3,7 +3,7 @@ import { createServer } from 'node:http';
 import { resolve } from 'node:path';
 import { networkInterfaces } from 'node:os';
 import { Server } from 'socket.io';
-import { completeTask, createGame, joinGame, roomCommand, roundCommand, stationCommand, type ClientEvents, type ServerEvents, type SessionEndReason } from '../shared/protocol.js';
+import { completeTask, createGame, joinGame, roomCommand, roundCommand, settingsCommand, stationCommand, type ClientEvents, type ServerEvents, type SessionEndReason } from '../shared/protocol.js';
 import { createStore, GameError } from './store.js';
 
 export function sessionToken(cookie = '') {
@@ -114,6 +114,16 @@ export function createApp(options: { databasePath: string; production?: boolean;
       const parsed = stationCommand.safeParse(req.body);
       if (!parsed.success) throw new GameError('INVALID_INPUT');
       const lobby = store.manageStations(sessionToken(req.headers.cookie), parsed.data);
+      res.json({ lobby });
+      broadcast(lobby.code);
+    } catch (error) { next(error); }
+  });
+
+  app.post('/api/settings/commands', (req, res, next) => {
+    try {
+      const parsed = settingsCommand.safeParse(req.body);
+      if (!parsed.success) throw new GameError('INVALID_INPUT');
+      const lobby = store.changeSettings(sessionToken(req.headers.cookie), parsed.data);
       res.json({ lobby });
       broadcast(lobby.code);
     } catch (error) { next(error); }

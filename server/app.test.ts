@@ -220,6 +220,7 @@ describe('private roles and round lifecycle', () => {
     expect(lobby.roundId).toBeNull();
     const originalSession = (await (await fetch(`${app.url}/api/session`, { headers: { Cookie: 'home_session=old-session' } })).json()).lobby;
     expect(originalSession.you).toEqual({ id: 'original', organiser: true, tasks: [] });
+    expect(originalSession.settings).toEqual({ stationAccess: 'qr' });
     expect(originalSession.stations.map((station: { name: string }) => station.name)).toEqual(['Kitchen', 'Living room', 'Hallway', 'Study']);
   });
 });
@@ -367,6 +368,15 @@ describe('stations and tasks', () => {
     lobby = (await (await app.post('/api/stations/commands', stationInput(lobby, { action: 'add', name: 'Hal' }), host)).json()).lobby;
     lobby = (await (await app.post('/api/round/commands', roundInput(lobby, 'start'), host)).json()).lobby;
     expect((await (await app.post('/api/stations/commands', stationInput(lobby, { action: 'add', name: 'Tuin' }), host)).json()).error).toBe('INVALID_PHASE');
+    // Station access defaults to QR-only; only the organiser can change it, also mid-round.
+    expect(lobby.settings).toEqual({ stationAccess: 'qr' });
+    const settings = { commandId: randomUUID(), expectedRevision: lobby.revision, roundId: lobby.roundId, stationAccess: 'manual' };
+    expect((await app.post('/api/settings/commands', settings, guest)).status).toBe(403);
+    expect((await app.post('/api/settings/commands', { ...settings, stationAccess: 'anything' }, host)).status).toBe(400);
+    lobby = (await (await app.post('/api/settings/commands', settings, host)).json()).lobby;
+    expect(lobby.settings.stationAccess).toBe('manual');
+    expect((await (await fetch(`${app.url}/api/session`, { headers: { Cookie: guest } })).json()).lobby.settings.stationAccess).toBe('manual');
+    expect((await (await app.post('/api/settings/commands', { ...settings, commandId: randomUUID() }, host)).json()).error).toBe('STALE_COMMAND');
   });
 
   it('assigns private tasks, keeps fake tasks out of progress, batches progress, and ends on the task goal', async () => {

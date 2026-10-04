@@ -15,6 +15,10 @@ The organiser has a **Room management / Kamerbeheer** panel in the lobby and dur
 
 Removing a Crewmate during a round now removes their unfinished tasks from the shared goal (completed work still counts) and rechecks the task victory. The confirmation previews for this are still to be built.
 
+## Station access — implemented
+
+**Open tasks without scanning** (organiser controls, any phase) switches between QR-only access, the default, and opening tasks from the list. It applies immediately on every phone and is saved with the room.
+
 ## Task stations — implemented
 
 In the lobby, the organiser adds (up to eight) or removes task stations; new games start with Kitchen, Living room, Hallway and Study in the organiser's language. A round cannot start without a station. **Print materials** (in the organiser controls, in every phase) opens an organiser-only `/print` page: choose the join poster, station sheets (QR code + codebook) and/or body/ghost markers, then print or save as PDF. Opened via `localhost`, the page warns that the QR codes would not work on phones and links to the computer's network address. Stations cannot be edited during a round. Disabling or replacing a broken station or task mid-round is still to be built (stage 4).
@@ -25,7 +29,7 @@ These choices are independent rather than one all-or-nothing mode.
 
 | Area | Default | Organiser option |
 | --- | --- | --- |
-| Station access | Scan the room QR; manual fallback available. | Use manual room selection throughout. Physical presence still applies. |
+| Station access | Scan the room QR (implemented: QR-only by default). | Switch on opening tasks from the list (implemented). Physical presence still applies. |
 | Task completion | App checks a puzzle or physical answer. | Organiser records an announced completion or grants completion for a broken task. Fake tasks still never count. |
 | Eliminations | Impostor records the victim after the physical signal. | Organiser records a privately communicated outcome; this can disclose information to an organiser who is playing. |
 | Meetings | Players report or call a meeting in the app; timed discussion. | Organiser starts meetings after an out-loud call, or runs untimed discussion. |

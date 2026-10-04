@@ -40,7 +40,9 @@ test('organiser edits stations and prints sheets; a player completes phone and c
     await guest.goto('/');
     await page.getByRole('button', { name: 'Start round', exact: true }).click();
     await expect(guest.getByRole('heading', { name: 'Your tasks' })).toBeVisible();
-    await expect(guest.getByRole('button', { name: /^Open: / })).toHaveCount(4);
+    // QR-only by default: nothing opens from the list until a station is scanned.
+    await expect(guest.getByRole('button', { name: /^Open: / })).toHaveCount(0);
+    await expect(guest.getByText('Scan QR')).toHaveCount(4);
     expect((await new AxeBuilder({ page: guest }).analyze()).violations).toEqual([]);
 
     const lobby: Lobby = (await (await context.request.get('/api/session')).json()).lobby;
@@ -55,6 +57,14 @@ test('organiser edits stations and prints sheets; a player completes phone and c
     expect(new URL(guest.url()).search).toBe('');
     await guest.getByRole('button', { name: 'Back to tasks' }).click();
     await expect(guest.getByRole('heading', { name: 'Your tasks' })).toBeVisible();
+    await expect(guest.getByText(`You’re at ${name(scanned)}.`)).toBeVisible();
+    await expect(guest.getByRole('button', { name: /^Open: / })).toHaveCount(1);
+
+    // The organiser allows opening tasks without scanning.
+    await page.getByText('Open tasks without scanning', { exact: true }).click();
+    await expect(page.getByRole('switch', { name: 'Open tasks without scanning' })).toBeChecked();
+    await expect(guest.getByRole('button', { name: /^Open: / })).toHaveCount(4);
+    await expect(guest.getByText('Scan QR')).toHaveCount(0);
     const order = lobby.you.tasks.find(task => task.puzzle.kind === 'order');
     if (order && order.puzzle.kind === 'order') {
       await guest.getByRole('button', { name: `Open: Number order, ${name(order)}` }).click();
