@@ -41,3 +41,7 @@ This is the shared project instruction file. `CLAUDE.md` imports it; keep shared
 - There is currently no lint script. Do not report linting, tests, deployment or real-phone verification that you did not perform.
 - Keep generated output (`dist/`, `test-results/`, `playwright-report/`) and local databases out of source control. Do not expose secrets from `.env` or local sessions.
 - Update relevant docs when behaviour or project structure changes, and report what changed, how it was checked, and any remaining limitation.
+
+## Git
+
+- Repository: `https://github.com/JesseLame/among-us`. Commit as the configured Git user only. Do not add `Co-Authored-By`, "Generated with" or other AI attribution lines to commit messages or pull request descriptions.
