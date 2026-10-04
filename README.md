@@ -118,11 +118,11 @@ For an automated multiplayer check without six phones, `npm run test:e2e` create
 
 Source layout:
 
-- `src/`: React screens, CSS Modules and typed EN/NL translations. `App.tsx` holds the session, live updates and routing; each screen lives in a folder under `features/` (`home`, `lobby`, `round`, `meeting`, `tasks`, `practice`, `print`). `features/tasks/games/` has one folder per task game (component and CSS) on a shared `TaskFrame`. Shared helpers are in `lib/` (API, sound) and `components/` (QR codes).
+- `src/`: React screens, CSS Modules and typed EN/NL translations. `App.tsx` holds the session, live updates and routing; each screen lives in a folder under `features/` (`home`, `lobby`, `round`, `meeting`, `tasks`, `practice`, `print`). `features/tasks/games/` has one folder per task game (component and CSS) on a shared `TaskFrame`. Shared helpers are in `lib/` (API, sound) and `components/` (QR codes); translations are in `i18n/`, one file per language.
 - `src/styles/theme.css`: central visual theme; `ui.module.css` contains shared controls and card surfaces, and `fonts.css` handles font loading.
 - `server/`: Express API, authenticated Socket.IO updates and SQLite store. `app.ts` sets up the server and live updates; `routes/` holds the API handlers by area; `store/` holds the game state (`db.ts` opens and migrates the database, then one module each for rooms, rounds, meetings, corrections, win rules and the per-player lobby view); `tasks/` generates and checks puzzles, one module per task game; `test/` holds the integration tests by area.
 - `shared/`: shared protocol types and Zod input schemas.
-- `tests/`: browser flows and axe accessibility checks; server integration tests live alongside the server.
+- `tests/`: browser flows and axe accessibility checks; server integration tests are in `server/test/`.
 - `docs/`: game rules, requirements and remaining implementation plan.
 - `AGENTS.md`: shared coding-agent guidance; `CLAUDE.md` imports it for Claude Code.
 

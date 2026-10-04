@@ -1,8 +1,10 @@
 # Project restructure plan
 
+Status: done (October 2026). Kept as a record of why the project is laid out this way; `AGENTS.md` and `README.md` describe the current layout.
+
 Goal: replace the flat `src/` folder with feature folders, and give every task game a shared base so a new game is one folder instead of edits spread over five files. Every step is a refactor only: no change to game rules, server contracts, payloads or the SQLite schema, and no organiser setting needed.
 
-## Problems today
+## Problems before the restructure
 
 - `src/Tasks.tsx` holds the task list, shared progress and all four games.
 - Adding a game touches `shared/protocol.ts`, `server/puzzles.ts`, the `PuzzleView` switch, `kindLabels`, and `App.module.css`.
@@ -60,11 +62,11 @@ Each feature owns its CSS module. `App.module.css` keeps only the decorative geo
 3. ✅ Split the rest of `App.module.css` into feature modules.
 4. ✅ Split i18n into one file per language.
 5. ✅ Split the server into routes, store modules and test files.
-6. Update `AGENTS.md`, `README.md` and `docs/design-system.md`.
+6. ✅ Update `AGENTS.md`, `README.md` and `docs/design-system.md`.
 
 Check after each step: `npm run build`, `npm test`, the full `npm run test:e2e`, and a look at `/practice` at mobile width.
 
-## Adding a task game (after step 1)
+## Adding a task game
 
 1. Add its puzzle type to `TaskPuzzle` and its kind to `taskKinds` in `shared/protocol.ts`.
 2. Add `server/tasks/<kind>.ts` with `generate` and `check`, and register it in `server/tasks/index.ts`.
