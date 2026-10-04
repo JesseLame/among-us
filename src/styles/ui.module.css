@@ -423,6 +423,7 @@ a.secondary:hover {
   color: var(--color-text-muted);
 }
 
-.numberField[data-disabled] {
+/* Dim only the input when disabled, so the help text stays readable. */
+.numberField[data-disabled] [role='group'] {
   opacity: var(--control-disabled-opacity);
 }

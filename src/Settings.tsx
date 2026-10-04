@@ -55,25 +55,35 @@ export default function GameSettings({ lobby, language, connected, onUpdate }: P
       <Text slot="description">{help}</Text>
     </NumberField>;
 
-  return <>
-    {setting(t.manualAccess, stationAccess === 'manual', stationAccess === 'manual' ? t.manualAccessOn : t.manualAccessOff,
-      manual => void change({ stationAccess: manual ? 'manual' : 'qr' }))}
-    {setting(t.eliminationsSetting, eliminations, eliminations ? t.eliminationsOn : t.eliminationsOffHelp,
-      on => void change({ eliminations: on }))}
-    {setting(t.bodyReportsSetting, bodyReports, bodyReports ? t.bodyReportsOn : t.bodyReportsOff, on => void change({ bodyReports: on }))}
-    {setting(t.phoneVotingSetting, phoneVoting, phoneVoting ? t.phoneVotingOn : t.phoneVotingOff, on => void change({ phoneVoting: on }))}
-    {setting(t.emergencySetting, emergencyMeetings, emergencyMeetings ? t.emergencyOn : t.emergencyOff, on => void change({ emergencyMeetings: on }))}
-    <details className={styles.gameSettings}>
-      <summary>{t.gameSettings}</summary>
+  // Grouped by topic: side by side on a laptop, stacked on a phone.
+  const group = (id: string, title: string, children: React.ReactNode) =>
+    <section className={styles.settingsGroup} aria-labelledby={id}><h3 id={id}>{title}</h3>{children}</section>;
+  return <section className={styles.settingsPanel} aria-labelledby="settings-title">
+    <div className={styles.settingsHeader}>
+      <h2 id="settings-title">{t.settingsTitle}</h2>
       <p className={ui.note}>{t.gameSettingsHelp}</p>
-      {number('openingProtection', t.settingOpening, t.settingOpeningHelp, 0, 600, 5)}
-      {number('killCooldown', t.settingCooldown, t.settingCooldownHelp, 0, 600, 5)}
-      {number('discussionTime', t.settingDiscussion, t.settingDiscussionHelp, 0, 600, 15)}
-      {number('emergencyAllowance', t.settingEmergency, t.settingEmergencyHelp, 0, 5, 1)}
-      {number('tasksPerPlayer', t.settingTasks, t.settingNextRoundHelp, 1, 8, 1, true)}
-      {number('taskGoalPercent', t.settingGoal, t.settingNextRoundHelp, 10, 100, 5, true)}
-      {number('progressInterval', t.settingProgress, t.settingProgressHelp, 5, 300, 5)}
-    </details>
+    </div>
+    <div className={styles.settingsGroups}>
+      {group('settings-tasks', t.groupTasks, <>
+        {setting(t.manualAccess, stationAccess === 'manual', stationAccess === 'manual' ? t.manualAccessOn : t.manualAccessOff,
+          manual => void change({ stationAccess: manual ? 'manual' : 'qr' }))}
+        {number('tasksPerPlayer', t.settingTasks, t.settingNextRoundHelp, 1, 8, 1, true)}
+        {number('taskGoalPercent', t.settingGoal, t.settingNextRoundHelp, 10, 100, 5, true)}
+        {number('progressInterval', t.settingProgress, t.settingProgressHelp, 5, 300, 5)}
+      </>)}
+      {group('settings-eliminations', t.groupEliminations, <>
+        {setting(t.eliminationsSetting, eliminations, eliminations ? t.eliminationsOn : t.eliminationsOffHelp, on => void change({ eliminations: on }))}
+        {number('openingProtection', t.settingOpening, t.settingOpeningHelp, 0, 600, 5)}
+        {number('killCooldown', t.settingCooldown, t.settingCooldownHelp, 0, 600, 5)}
+      </>)}
+      {group('settings-meetings', t.groupMeetings, <>
+        {setting(t.bodyReportsSetting, bodyReports, bodyReports ? t.bodyReportsOn : t.bodyReportsOff, on => void change({ bodyReports: on }))}
+        {setting(t.emergencySetting, emergencyMeetings, emergencyMeetings ? t.emergencyOn : t.emergencyOff, on => void change({ emergencyMeetings: on }))}
+        {number('emergencyAllowance', t.settingEmergency, t.settingEmergencyHelp, 0, 5, 1)}
+        {setting(t.phoneVotingSetting, phoneVoting, phoneVoting ? t.phoneVotingOn : t.phoneVotingOff, on => void change({ phoneVoting: on }))}
+        {number('discussionTime', t.settingDiscussion, t.settingDiscussionHelp, 0, 600, 15)}
+      </>)}
+    </div>
     {error && <p className={ui.error} role="alert">{errorMessages[language][error]}</p>}
-  </>;
+  </section>;
 }

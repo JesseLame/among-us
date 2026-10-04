@@ -9,6 +9,7 @@ import { codeFor, request } from './api';
 import RoundView, { RoundControls } from './RoundView';
 import type { Scan } from './Tasks';
 import Stations from './Stations';
+import GameSettings from './Settings';
 import PrintSheets from './PrintSheets';
 import { PhoneAddressNote, QrCode, usableOrigin, usePhoneOrigin } from './Qr';
 import { playMeetingAlarm, unlockAudio } from './sound';
@@ -182,6 +183,7 @@ export default function App() {
         <RoundControls lobby={lobby} language={language} connected={connected} onUpdate={updateLobby} onExit={exitLobby}/>
         <aside className={styles.buildNote}><h3>{t.nextTitle}</h3><p>{t.nextText}</p></aside>
       </section>
+      {lobby.you.organiser && <GameSettings lobby={lobby} language={language} connected={connected} onUpdate={updateLobby}/>}
     </main> : <main>
       <div className={styles.hero}>
         <section className={styles.story}>

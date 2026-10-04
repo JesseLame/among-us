@@ -14,7 +14,7 @@ The UI uses a small CSS-based design system. A new colour palette, type treatmen
 | Page composition, responsive layouts, roster, role card arrangement and house illustration | [`src/App.module.css`](../src/App.module.css) | Layout and feature-specific styles, separate from shared controls. |
 | Reset, page defaults, focus, minimum control height, reduced motion | [`src/global.css`](../src/global.css) | Global foundation. Imports fonts and theme once. |
 | Visible wording | [`src/i18n.ts`](../src/i18n.ts) | Matched English/Dutch dictionaries. |
-| Structure and interaction | `src/App.tsx`, `src/RoundView.tsx`, `src/RoomControls.tsx`, `src/Stations.tsx`, `src/Tasks.tsx`, `src/PrintSheets.tsx` | React markup and behaviour. Edit for a structural redesign, not merely to change colours. |
+| Structure and interaction | `src/App.tsx`, `src/RoundView.tsx`, `src/RoomControls.tsx`, `src/Stations.tsx`, `src/Tasks.tsx`, `src/PrintSheets.tsx`, `src/Settings.tsx`, `src/Meeting.tsx`, `src/MeetingControls.tsx` | React markup and behaviour. Edit for a structural redesign, not merely to change colours. |
 
 The browser toolbar colour is the `theme-color` meta tag in `index.html`. When changing the page background, update that colour too. It is static HTML rather than a second app palette.
 

@@ -91,7 +91,6 @@ export function RoundControls({ lobby, language, connected, onUpdate, onExit }: 
         </Dialog>
       </Modal>
     </ModalOverlay>
-    <GameSettings lobby={lobby} language={language} connected={connected} onUpdate={onUpdate}/>
     <div className={styles.printLink}>
       <a className={ui.secondary} href="/print" target="_blank" rel="noopener">{t.printSheets}<span aria-hidden="true">↗</span></a>
       <p className={ui.note}>{t.printSheetsHelp}</p>
@@ -212,5 +211,6 @@ export default function RoundView(props: Props) {
       {calls}
       {tasks}
     </div>}
+    {lobby.phase !== 'ended' && <GameSettings lobby={lobby} language={language} connected={connected} onUpdate={props.onUpdate}/>}
   </main>;
 }
