@@ -141,4 +141,6 @@ With organiser-confirmed victory, a detected win condition pauses the round for 
 
 ## Later controls
 
-If later mechanics are added, expose enable/disable switches, control-room viewing and activity-expiry times, sabotage cooldown, reactor duration and repair activation window. Disabling an active sabotage should clear its effect and countdown consistently. Do not build these controls before their mechanics exist.
+Reactor sabotage has a **Reactor meltdown sabotage** switch (on by default) and a countdown length under **Sabotage** in Settings. Switching it off during a meltdown clears the countdown and repair activation without a loss, then checks a task win that waited for the repair. The repair window (10 s) is fixed for now.
+
+If later mechanics are added, expose enable/disable switches, control-room viewing and activity-expiry times. Do not build these controls before their mechanics exist.

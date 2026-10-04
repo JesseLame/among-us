@@ -7,7 +7,8 @@ import { GameError, type Game } from './shared.js';
 export function createMeetings({ db, now, playerFor, gameFor, alreadyApplied, recordCommand, organiserFor }: Base, { votesOf, voters, elapsed, settle }: Rules) {
   // A living player reports a body or calls an emergency meeting; the organiser may
   // always call one. Play and its clock stop while everyone gathers; the organiser then
-  // starts the meeting itself.
+  // starts the meeting itself. A reactor meltdown's countdown stops with the clock, and
+  // its repair activation is cleared so players must return to the stations.
   const startMeeting = db.transaction((token: string | undefined, input: CallMeeting) => {
     const player = playerFor(token);
     if (!player) throw new GameError('NO_SESSION', 401);
@@ -25,11 +26,13 @@ export function createMeetings({ db, now, playerFor, gameFor, alreadyApplied, re
       if (input.kind === 'emergency') {
         if (!game.emergency_meetings) throw new GameError('EMERGENCY_OFF', 409);
         if (player.emergency_used >= game.emergency_allowance) throw new GameError('NO_EMERGENCY_LEFT', 409);
+        // Players must fix the reactor rather than call everyone together.
+        if (game.reactor_ends_ms !== null) throw new GameError('REACTOR_ACTIVE', 409);
         db.prepare('UPDATE players SET emergency_used = emergency_used + 1 WHERE id = ?').run(player.id);
       }
     }
     db.prepare(`UPDATE games SET phase = 'meeting', clock_ms = ?, meeting_kind = ?, meeting_by = ?, meeting_stage = 'gathering', meeting_at = NULL,
-      meeting_ghosts = '[]', meeting_discussion = NULL, meeting_votes = NULL, meeting_result = NULL, revision = revision + 1 WHERE code = ?`)
+      meeting_ghosts = '[]', meeting_discussion = NULL, meeting_votes = NULL, meeting_result = NULL, reactor_panel = NULL, revision = revision + 1 WHERE code = ?`)
       .run(elapsed(game), input.kind, input.kind === 'organiser' ? null : player.id, game.code);
     recordCommand(input.commandId, game.code, player.id, payload);
     return game.code;

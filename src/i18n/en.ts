@@ -195,6 +195,23 @@ export const en = {
   colour_red: 'Red', colour_blue: 'Blue', colour_yellow: 'Yellow', colour_green: 'Green', colour_purple: 'Purple', colour_orange: 'Orange',
   symbol_star: 'Star', symbol_circle: 'Circle', symbol_triangle: 'Triangle', symbol_square: 'Square', symbol_diamond: 'Diamond', symbol_heart: 'Heart',
   symbol_club: 'Club', symbol_spade: 'Spade', symbol_sun: 'Sun', symbol_moon: 'Moon', symbol_cross: 'Cross', symbol_note: 'Note',
+  sabotageTitle: 'Sabotage', sabotageReactor: 'Reactor meltdown', sabotageIn: 'You can sabotage in',
+  sabotageHelp: 'Once per round. Everyone hears an alarm; two players must repair it at two different stations before time runs out, or you win.',
+  sabotageUsed: 'You have used your sabotage this round.', sabotagePaused: 'The round is paused, so your timer is stopped.',
+  sabotageConfirmTitle: 'Set off the reactor meltdown?', sabotageConfirmText: 'Every phone sounds the alarm. Nobody is told who did it. You can only do this once per round.',
+  sabotageConfirm: 'Start meltdown',
+  reactorEyebrow: 'SABOTAGE', reactorTitle: 'Reactor meltdown!', reactorLeft: 'Meltdown in',
+  reactorHelp: 'Two players must tap Repair at two different stations within 10 seconds of each other.',
+  reactorPausedNote: 'Play is stopped, so the countdown is stopped too.',
+  reactorPanelAt: 'Repair panel active at', reactorPanelYours: 'You are holding the panel at', reactorPanelNeed: 'Someone else must repair at another station within',
+  reactorRepairAt: 'Repair at', reactorRepairHere: 'Repair here', reactorScanFirst: 'Scan the QR code at a station to repair there.',
+  reactorGhost: 'Ghosts can’t repair the reactor.', reactorRepaired: 'Reactor repaired!', reactorNoEmergency: 'No emergency meetings during a meltdown.',
+  impostorWonReactorMessage: 'The reactor melted down, so the Impostor wins. You can now talk about your roles.',
+  proposedImpostorReactor: 'The reactor melted down before it was repaired. Rejecting switches this meltdown off.',
+  groupSabotage: 'Sabotage', sabotageSetting: 'Reactor meltdown sabotage',
+  sabotageOn: 'On: once per round the Impostor can set off a meltdown that two players must repair at two stations in time.',
+  sabotageOff: 'Off: no sabotage. Switching it off during a meltdown stops it without a loss.',
+  settingReactor: 'Meltdown countdown (seconds)', settingReactorHelp: 'Counts active play only. Applies to the next meltdown.',
 };
 
 export type Copy = { [Key in keyof typeof en]: string };
@@ -218,4 +235,6 @@ export const enErrors: Record<ErrorCode, string> = {
   REPORTS_OFF: 'Body reports are turned off. Tell the organiser instead.', EMERGENCY_OFF: 'Emergency meetings are turned off.', NO_EMERGENCY_LEFT: 'You have already used your emergency meetings this round.', VOTING_CLOSED: 'Voting is not open right now.', PHONE_VOTING_OFF: 'Voting on phones is turned off. Record the result of the physical vote instead.', NOT_ALIVE: 'You’ve been eliminated, so you can’t do that right now.',
   UNDO_UNAVAILABLE: 'That change can no longer be undone.', PREVIEWS_OFF: 'Previews of fixes are turned off.',
   HELP_CODE_NOT_FOUND: 'No open task has that pairing code. Check the letters on their screen.', OWN_TASK: 'That’s your own task. Someone else has to help you.',
+  SABOTAGE_OFF: 'The organiser has turned sabotage off.', SABOTAGE_USED: 'You have already used your sabotage this round.',
+  REACTOR_ACTIVE: 'No emergency meetings during a reactor meltdown. Repair it first.',
 };

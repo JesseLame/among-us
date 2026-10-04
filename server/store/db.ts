@@ -163,6 +163,18 @@ export function openDatabase(path: string) {
         PRAGMA user_version = 16;
       `);
     }
+    if (version < 17) {
+      // Reactor meltdown sabotage: on by default. The countdown runs on the play clock
+      // (reactor_ends_ms); reactor_panel is the latest repair activation (JSON).
+      db.exec(`
+        ALTER TABLE games ADD COLUMN sabotage INTEGER NOT NULL DEFAULT 1;
+        ALTER TABLE games ADD COLUMN reactor_time INTEGER NOT NULL DEFAULT 90;
+        ALTER TABLE games ADD COLUMN reactor_used INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE games ADD COLUMN reactor_ends_ms INTEGER;
+        ALTER TABLE games ADD COLUMN reactor_panel TEXT;
+        PRAGMA user_version = 17;
+      `);
+    }
   });
   migrate();
   return db;

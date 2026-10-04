@@ -1,0 +1,103 @@
+/* Sabotage: the Impostor's panel in the role card and the public reactor meltdown card. */
+.sabotage {
+  text-align: left;
+  border-top: 1px dashed var(--color-border);
+  padding-top: var(--space-4);
+  margin-bottom: var(--space-5);
+  display: grid;
+  gap: var(--space-3);
+}
+
+.sabotage h3 {
+  margin: 0;
+  font: 600 var(--text-lg) var(--font-heading);
+  color: var(--color-accent);
+}
+
+.sabotage p {
+  margin: 0;
+}
+
+.timer strong {
+  font: 700 var(--text-xl) var(--font-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+.reactorCard {
+  padding: var(--layout-card-padding);
+  box-shadow: var(--shadow-card);
+  border: 2px solid var(--color-danger);
+  display: grid;
+  gap: var(--space-3);
+}
+
+.reactorCard h2 {
+  font: 600 var(--text-card-title)/1.2 var(--font-heading);
+  color: var(--color-danger);
+  margin: 0;
+}
+
+.reactorCard p {
+  margin: 0;
+  line-height: var(--leading-help);
+}
+
+.reactorTimer strong {
+  font: 700 var(--text-title) var(--font-heading);
+  font-variant-numeric: tabular-nums;
+  display: block;
+}
+
+.panel {
+  background: var(--color-error-surface);
+  color: var(--color-error-text);
+  border-radius: var(--radius-control);
+  padding: var(--space-3);
+}
+
+.panel strong {
+  overflow-wrap: anywhere;
+}
+
+.repairActions {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.repairActions > button,
+.repairStations button {
+  width: 100%;
+  min-height: var(--control-height);
+  justify-content: center;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.repairStations {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: var(--space-2);
+}
+
+.repaired {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-control);
+  background: var(--color-notice-surface);
+  color: var(--color-success);
+  font: 600 var(--text-lg)/1.4 var(--font-heading);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .reactorCard {
+    animation: alarm 1.2s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes alarm {
+  from { border-color: var(--color-danger); }
+  to { border-color: var(--color-danger-border); }
+}

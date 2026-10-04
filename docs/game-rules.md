@@ -8,7 +8,7 @@ Default house rules for the first playable version. This is a family game: timin
 
 Start with 6–8 players and one Impostor. For testing, the app also allows starting with 1–5 players; a solo tester is the Impostor. Everyone can play, including the organiser. Aim for rounds of about 15–25 minutes, then adjust based on playtests. Keep movement and conversation central; use clear puzzles without fiddly controls or fast reactions.
 
-The first version has tasks, eliminations and meetings. **No control room or sabotage is needed for the first playtest.** Their designs remain below and in the task document as later ideas.
+The first version has tasks, eliminations and meetings. Reactor sabotage is built and can be switched off by the organiser; the control room and communications sabotage remain later ideas, below and in the task document.
 
 | Setting | Starting value, adjustable by the organiser |
 | --- | --- |
@@ -68,15 +68,15 @@ With six players, five Crewmates receive 20 tasks and need to complete 16 at the
 
 The organiser can adjust the goal or end the round manually, including without a winner. Task removal, departures and corrections follow [organiser controls](organiser-controls.md), so the goal stays reachable. A temporary disconnect never counts as death or departure.
 
-## Later — sabotage, outside the first build
+## Sabotage
 
-Keep these ideas for after the basic round has been playtested. Communications sabotage depends on adding the control room. Reactor sabotage can be evaluated separately. If implemented, both are optional and their settings are organiser-adjustable.
+**Built: reactor meltdown, once per round** (organiser switch, on by default; countdown adjustable). The repair window is fixed at 10 seconds and there is no sabotage cooldown, because the Impostor gets one meltdown per round. Any two different stations work as repair panels. If the organiser rejects a proposed meltdown win, that meltdown is switched off. Communications sabotage depends on adding the control room and remains a later idea.
 
-| Later setting | Proposed starting value |
+| Setting | Value |
 | --- | --- |
-| Reactor countdown | 90 seconds |
-| Sabotage cooldown | 2 minutes after repair |
-| Reactor repair activation window | 10 seconds |
+| Reactor countdown | 90 seconds of active play (organiser: 30–600) |
+| Reactor repair activation window | 10 seconds (fixed) |
+| Sabotage cooldown | Not needed while there is one meltdown per round |
 
 The Impostor secretly triggers sabotage. Everyone sees the same alert without learning who caused it. Only one sabotage can be active; none starts during opening protection, meetings or an organiser pause.
 

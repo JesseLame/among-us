@@ -24,10 +24,14 @@ export function createRules({ db, now, gameFor }: Base) {
   function endRound(code: string, winner: RoundResult['winner'], reason: RoundResult['reason']) {
     db.prepare("UPDATE games SET phase = 'ended', pause_reason = NULL, proposed_winner = NULL, proposed_reason = NULL, winner = ?, end_reason = ?, revision = revision + 1 WHERE code = ?").run(winner, reason, code);
   }
+  // A reactor meltdown whose countdown ran out in active play.
+  const meltedDown = (game: Game) => game.reactor_ends_ms !== null && elapsed(game) >= game.reactor_ends_ms;
   // A caught Impostor (a ghost after an ejection or correction) wins for the crew first.
+  // During a meltdown a task win waits until the reactor is repaired.
   function winFor(game: Game): Win | null {
     if (db.prepare("SELECT 1 FROM players WHERE game_code = ? AND playing = 1 AND removed = 0 AND role = 'impostor' AND status = 'ghost'").get(game.code)) return { winner: 'crew', reason: 'ejected' };
-    if (tasksWon(game)) return { winner: 'crew', reason: 'tasks' };
+    if (meltedDown(game)) return { winner: 'impostor', reason: 'reactor' };
+    if (game.reactor_ends_ms === null && tasksWon(game)) return { winner: 'crew', reason: 'tasks' };
     if (impostorWon(game)) return { winner: 'impostor', reason: 'eliminations' };
     return null;
   }

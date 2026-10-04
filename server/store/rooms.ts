@@ -145,13 +145,19 @@ export function createRooms({ db, now, gameFor, alreadyApplied, recordCommand, o
       progress_interval = COALESCE(?, progress_interval), tasks_per_player = COALESCE(?, tasks_per_player),
       task_goal_percent = COALESCE(?, task_goal_percent), confirm_victory = COALESCE(?, confirm_victory),
       change_previews = COALESCE(?, change_previews), change_history = COALESCE(?, change_history), task_games_off = COALESCE(?, task_games_off),
-      delivery_mode = COALESCE(?, delivery_mode), delivery_object = COALESCE(?, delivery_object), revision = revision + 1 WHERE code = ?`)
+      delivery_mode = COALESCE(?, delivery_mode), delivery_object = COALESCE(?, delivery_object),
+      sabotage = COALESCE(?, sabotage), reactor_time = COALESCE(?, reactor_time), revision = revision + 1 WHERE code = ?`)
       .run(input.stationAccess ?? null, flag(input.eliminations), flag(input.bodyReports), flag(input.emergencyMeetings), flag(input.phoneVoting),
         input.openingProtection ?? null, input.killCooldown ?? null, input.discussionTime ?? null, input.emergencyAllowance ?? null,
         input.progressInterval ?? null, input.tasksPerPlayer ?? null, input.taskGoalPercent ?? null,
         flag(input.confirmVictory), flag(input.changePreviews), flag(input.changeHistory),
         input.taskGames ? JSON.stringify(taskKinds.filter(kind => !input.taskGames!.includes(kind))) : null,
-        input.deliveryMode ?? null, input.deliveryObject ?? null, game.code);
+        input.deliveryMode ?? null, input.deliveryObject ?? null, flag(input.sabotage), input.reactorTime ?? null, game.code);
+    // Switching sabotage off stops a meltdown without a loss; a task win that waited for it counts now.
+    if (input.sabotage === false && game.reactor_ends_ms !== null) {
+      db.prepare('UPDATE games SET reactor_ends_ms = NULL, reactor_panel = NULL WHERE code = ?').run(game.code);
+      if (game.phase === 'active' || game.phase === 'paused' || game.phase === 'meeting') settle(game.code);
+    }
     recordCommand(input.commandId, game.code, organiser.id, payload);
     return lobby(token)!;
   });

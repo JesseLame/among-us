@@ -10,6 +10,7 @@ import GameSettings from '../lobby/Settings';
 import { CallMeetingButtons, MeetingCard } from '../meeting/Meeting';
 import PrivateRole from './PrivateRole';
 import RoundControls from './RoundControls';
+import ReactorCard from '../sabotage/ReactorCard';
 
 type Props = {
   lobby: Lobby; language: Language; connected: boolean; onUpdate: (lobby: Lobby) => void; onExit: (reason: SessionEndReason) => void;
@@ -25,18 +26,21 @@ export default function RoundView(props: Props) {
   const title = lobby.phase === 'meeting' ? t.meetingTitle : lobby.phase === 'paused' ? t.pausedTitle : lobby.phase === 'ended' ? winner === 'crew' ? t.crewWonTitle : winner === 'impostor' ? t.impostorWonTitle : t.endedTitle : t.roundTitle;
   const declared = lobby.result?.reason === 'organiser';
   const endedMessage = declared && winner ? winner === 'crew' ? t.declaredCrewMessage : t.declaredImpostorMessage
-    : winner === 'crew' ? lobby.result?.reason === 'ejected' ? t.crewWonEjectMessage : t.crewWonMessage : winner === 'impostor' ? t.impostorWonMessage : lobby.result?.reason === 'departure' ? t.departureMessage : t.endedMessage;
+    : winner === 'crew' ? lobby.result?.reason === 'ejected' ? t.crewWonEjectMessage : t.crewWonMessage : winner === 'impostor' ? lobby.result?.reason === 'reactor' ? t.impostorWonReactorMessage : t.impostorWonMessage : lobby.result?.reason === 'departure' ? t.departureMessage : t.endedMessage;
   const tasks = <Tasks key={`tasks:${lobby.roundId}:${lobby.phase}`} lobby={lobby} language={language} connected={connected} onUpdate={props.onUpdate} scan={props.scan} onScanHandled={props.onScanHandled} onStationScanned={props.onStationScanned}/>;
 
   // An eliminated player sees that first; everyone else starts with their role card.
   // A meeting comes first for everyone.
   const body = lobby.you.status === 'body';
   const meeting = <MeetingCard lobby={lobby} language={language} connected={connected} onUpdate={props.onUpdate} className={styles.meetingCard}/>;
+  const reactor = <ReactorCard lobby={lobby} language={language} connected={connected} onUpdate={props.onUpdate}
+    here={props.scan?.stationId ?? null} onStationScanned={props.onStationScanned} className={styles.meetingCard}/>;
   const calls = <CallMeetingButtons lobby={lobby} language={language} connected={connected} onUpdate={props.onUpdate}/>;
   if (!lobby.you.organiser && lobby.phase !== 'ended') return <main className={styles.playerRound}>
     {meeting}
+    {reactor}
     {body && tasks}
-    <PrivateRole key={`${lobby.roundId}:${lobby.phase}`} lobby={lobby} language={language} connected={connected} languageControl={props.languageControl}/>
+    <PrivateRole key={`${lobby.roundId}:${lobby.phase}`} lobby={lobby} language={language} connected={connected} onUpdate={props.onUpdate} languageControl={props.languageControl}/>
     <SharedProgress lobby={lobby} language={language} className={styles.progress}/>
     {calls}
     {!body && tasks}
@@ -48,6 +52,7 @@ export default function RoundView(props: Props) {
       <h1 ref={heading} tabIndex={-1}>{title}</h1>
       {lobby.phase !== 'meeting' && <p className={shared.intro} role="status">{lobby.phase === 'paused' ? lobby.pauseReason === 'restart' ? t.restartMessage : lobby.pauseReason === 'victory' ? t.checkingResult : t.pausedMessage : lobby.phase === 'ended' ? endedMessage : lobby.you.playing ? t.roundMessage : t.hostRoundMessage}</p>}
       {meeting}
+      {lobby.phase !== 'ended' && !lobby.you.playing && reactor}
       <p className={shared.connection} role="status"><i data-connected={connected}/>{connected ? t.connected : t.reconnecting}</p>
       <SharedProgress lobby={lobby} language={language} className={styles.progress}/>
       <RoundControls lobby={lobby} language={language} connected={connected} onUpdate={props.onUpdate} onExit={props.onExit}/>
@@ -69,7 +74,8 @@ export default function RoundView(props: Props) {
         {player.out && <span className={ui.badge}>{t.ghostBadge}</span>}
       </li>)}</ul>
     </section> : <div className={styles.roundColumn}>
-      <PrivateRole key={`${lobby.roundId}:${lobby.phase}`} lobby={lobby} language={language} connected={connected}/>
+      {reactor}
+      <PrivateRole key={`${lobby.roundId}:${lobby.phase}`} lobby={lobby} language={language} connected={connected} onUpdate={props.onUpdate}/>
       {calls}
       {tasks}
     </div>}

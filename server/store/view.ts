@@ -1,11 +1,11 @@
-import type { HistoryEntry, Lobby, Task, TaskPuzzle } from '../../shared/protocol.js';
+import { REPAIR_WINDOW_MS, type HistoryEntry, type Lobby, type Task, type TaskPuzzle } from '../../shared/protocol.js';
 import { reveal } from '../tasks/index.js';
 import type { Base } from './base.js';
 import type { Rules } from './rules.js';
-import { enabledKinds, type ChangeRow, type Game, type Player, type TaskRow } from './shared.js';
+import { enabledKinds, type ChangeRow, type Game, type Player, type ReactorPanel, type TaskRow } from './shared.js';
 
 // The lobby snapshot each player receives: only what that player may see.
-export function createView({ db, now, playerFor, gameFor }: Base, { progress, votesOf, voters }: Rules) {
+export function createView({ db, now, playerFor, gameFor }: Base, { progress, votesOf, voters, elapsed }: Rules) {
   function lobby(token: string | undefined): Lobby | null {
     const player = playerFor(token);
     if (!player) return null;
@@ -34,6 +34,7 @@ export function createView({ db, now, playerFor, gameFor }: Base, { progress, vo
         tasksPerPlayer: game.tasks_per_player, taskGoalPercent: game.task_goal_percent,
         confirmVictory: Boolean(game.confirm_victory), changePreviews: Boolean(game.change_previews), changeHistory: Boolean(game.change_history), taskGames: enabledKinds(game),
         deliveryMode: game.delivery_mode, deliveryObject: game.delivery_object,
+        sabotage: Boolean(game.sabotage), reactorTime: game.reactor_time,
       },
       // The proposed winning team and the change history are for the organiser only.
       ...(player.organiser && game.pause_reason === 'victory' && game.proposed_winner ? { proposedResult: { winner: game.proposed_winner, reason: game.proposed_reason ?? 'organiser' } } : {}),
@@ -45,6 +46,7 @@ export function createView({ db, now, playerFor, gameFor }: Base, { progress, vo
         ...(game.meeting_stage === 'voting' ? { votes: { cast: Object.keys(votesOf(game)).length, eligible: voters(game).length } } : {}),
         ...(game.meeting_result ? { result: JSON.parse(game.meeting_result) as NonNullable<NonNullable<Lobby['meeting']>['result']> } : {}),
       } } : {}),
+      ...(playing && game.reactor_ends_ms !== null ? { reactor: reactor(game, player) } : {}),
       progress: totals && { done: game.phase === 'ended' ? totals.done : Math.min(game.progress_shown, totals.goal), goal: totals.goal },
       // Status is private to its owner: an undiscovered body looks alive to everyone else.
       you: {
@@ -56,6 +58,15 @@ export function createView({ db, now, playerFor, gameFor }: Base, { progress, vo
         revealedRoles: players.filter(p => p.playing && p.role).map(p => ({ id: p.id, role: p.role! })),
         result: { winner: game.winner, reason: game.end_reason ?? 'organiser' },
       } : {}),
+    };
+  }
+  // A meltdown is public; the repair panel shows only while its window is open in active play.
+  function reactor(game: Game, player: Player): NonNullable<Lobby['reactor']> {
+    const panel = game.reactor_panel ? JSON.parse(game.reactor_panel) as ReactorPanel : null;
+    const panelLeft = panel && game.phase === 'active' ? REPAIR_WINDOW_MS - (now() - panel.at) : 0;
+    return {
+      msLeft: Math.max(0, game.reactor_ends_ms! - elapsed(game)), running: game.phase === 'active',
+      panel: panel && panelLeft > 0 ? { stationId: panel.station, msLeft: panelLeft, yours: panel.player === player.id } : null,
     };
   }
   // Only the latest change that is still in effect can be undone, and only if it is a correction.

@@ -104,7 +104,8 @@ export function CallMeetingButtons({ lobby, language, connected, onUpdate }: Pro
   const pending = useRef<CallMeeting | null>(null);
   const { bodyReports, emergencyMeetings } = lobby.settings;
   const canReport = bodyReports;
-  const canEmergency = emergencyMeetings && lobby.you.emergencyLeft > 0;
+  // No emergency meetings during a reactor meltdown: players must repair it.
+  const canEmergency = emergencyMeetings && lobby.you.emergencyLeft > 0 && !lobby.reactor;
   if (!lobby.you.playing || lobby.you.status !== 'alive' || lobby.phase !== 'active' || (!canReport && !canEmergency)) return null;
 
   async function call(kind: Kind) {

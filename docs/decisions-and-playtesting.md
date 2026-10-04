@@ -51,7 +51,6 @@ Note settings changed during the round and what happened afterward. Adjust task 
 | --- | --- |
 | Anonymous control room | If players lack useful clues; test whether recent task activity actually helps. |
 | Communications sabotage | Only after the control room proves useful. |
-| Reactor sabotage | After the basic round works; test repair travel time and the revised body-report pause rule. |
 | Trust-based task types | If more physical variety is needed beyond answer-based puzzles. |
 | In-app voting | If physical voting repeatedly causes problems. |
 | Paired and multi-room tasks | Once basic puzzles and station flow work well. |

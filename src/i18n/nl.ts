@@ -196,6 +196,23 @@ export const nl: Copy = {
   colour_red: 'Rood', colour_blue: 'Blauw', colour_yellow: 'Geel', colour_green: 'Groen', colour_purple: 'Paars', colour_orange: 'Oranje',
   symbol_star: 'Ster', symbol_circle: 'Cirkel', symbol_triangle: 'Driehoek', symbol_square: 'Vierkant', symbol_diamond: 'Ruit', symbol_heart: 'Hart',
   symbol_club: 'Klaver', symbol_spade: 'Schoppen', symbol_sun: 'Zon', symbol_moon: 'Maan', symbol_cross: 'Kruis', symbol_note: 'Noot',
+  sabotageTitle: 'Sabotage', sabotageReactor: 'Kernsmelting', sabotageIn: 'Je kunt saboteren over',
+  sabotageHelp: 'Eén keer per ronde. Iedereen hoort een alarm; twee spelers moeten het bij twee verschillende stations repareren voordat de tijd op is, anders win jij.',
+  sabotageUsed: 'Je hebt je sabotage deze ronde gebruikt.', sabotagePaused: 'De ronde staat op pauze, dus je timer staat stil.',
+  sabotageConfirmTitle: 'De kernsmelting starten?', sabotageConfirmText: 'Elke telefoon laat het alarm horen. Niemand hoort wie het deed. Dit kan maar één keer per ronde.',
+  sabotageConfirm: 'Start kernsmelting',
+  reactorEyebrow: 'SABOTAGE', reactorTitle: 'Kernsmelting!', reactorLeft: 'Kernsmelting over',
+  reactorHelp: 'Twee spelers moeten binnen 10 seconden van elkaar op Repareer tikken, bij twee verschillende stations.',
+  reactorPausedNote: 'Het spel staat stil, dus het aftellen ook.',
+  reactorPanelAt: 'Reparatiepaneel actief bij', reactorPanelYours: 'Jij houdt het paneel vast bij', reactorPanelNeed: 'Iemand anders moet bij een ander station repareren binnen',
+  reactorRepairAt: 'Repareer bij', reactorRepairHere: 'Repareer hier', reactorScanFirst: 'Scan de QR-code bij een station om daar te repareren.',
+  reactorGhost: 'Geesten kunnen de reactor niet repareren.', reactorRepaired: 'Reactor gerepareerd!', reactorNoEmergency: 'Geen noodoverleg tijdens een kernsmelting.',
+  impostorWonReactorMessage: 'De reactor is gesmolten, dus de Bedrieger wint. Jullie mogen nu over jullie rollen praten.',
+  proposedImpostorReactor: 'De reactor is gesmolten voordat hij gerepareerd was. Afwijzen zet deze kernsmelting uit.',
+  groupSabotage: 'Sabotage', sabotageSetting: 'Sabotage: kernsmelting',
+  sabotageOn: 'Aan: één keer per ronde kan de Bedrieger een kernsmelting starten die twee spelers op tijd bij twee stations moeten repareren.',
+  sabotageOff: 'Uit: geen sabotage. Uitzetten tijdens een kernsmelting stopt hem zonder verlies.',
+  settingReactor: 'Aftellen kernsmelting (seconden)', settingReactorHelp: 'Telt alleen actief spel. Geldt vanaf de volgende kernsmelting.',
 };
 
 export const nlErrors: Record<ErrorCode, string> = {
@@ -217,4 +234,6 @@ export const nlErrors: Record<ErrorCode, string> = {
   REPORTS_OFF: 'Lichamen melden staat uit. Zeg het tegen de organisator.', EMERGENCY_OFF: 'Noodoverleg staat uit.', NO_EMERGENCY_LEFT: 'Je hebt je noodoverleggen deze ronde al gebruikt.', VOTING_CLOSED: 'De stemming is nu niet open.', PHONE_VOTING_OFF: 'Stemmen op telefoons staat uit. Leg de uitslag van de stemming met handen vast.', NOT_ALIVE: 'Je bent uitgeschakeld, dus dit kan nu niet.',
   UNDO_UNAVAILABLE: 'Deze wijziging kan niet meer ongedaan worden gemaakt.', PREVIEWS_OFF: 'Gevolgen vooraf tonen staat uit.',
   HELP_CODE_NOT_FOUND: 'Geen open taak heeft die koppelcode. Controleer de letters op hun scherm.', OWN_TASK: 'Dat is je eigen taak. Iemand anders moet je helpen.',
+  SABOTAGE_OFF: 'De organisator heeft sabotage uitgezet.', SABOTAGE_USED: 'Je hebt je sabotage deze ronde al gebruikt.',
+  REACTOR_ACTIVE: 'Geen noodoverleg tijdens een kernsmelting. Repareer eerst de reactor.',
 };

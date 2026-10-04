@@ -1,12 +1,12 @@
 import { randomInt, randomUUID } from 'node:crypto';
-import type { CompleteTask, Eliminate, HelpTask, Lobby, Role, RoleInfo, RoundCommand, RoundResult, TaskPuzzle } from '../../shared/protocol.js';
+import { REPAIR_WINDOW_MS, type CompleteTask, type Eliminate, type HelpTask, type Lobby, type RepairReactor, type Role, type RoleInfo, type RoundCommand, type RoundResult, type Sabotage, type TaskPuzzle } from '../../shared/protocol.js';
 import { advance, puzzle, shuffle, solved, type Codebook } from '../tasks/index.js';
 import type { Base } from './base.js';
 import type { Rules } from './rules.js';
-import { GameError, taskContext, taskKindsFor, type Game, type Player, type TaskRow } from './shared.js';
+import { GameError, taskContext, taskKindsFor, type Game, type Player, type ReactorPanel, type TaskRow } from './shared.js';
 import type { View } from './view.js';
 
-// A round: starting and running it, private roles, eliminations, tasks and the progress tick.
+// A round: starting and running it, private roles, eliminations, sabotage, tasks and the progress tick.
 export function createRound({ db, now, playerFor, gameFor, alreadyApplied, recordCommand, organiserFor }: Base, { progress, elapsed, settle }: Rules, { lobby }: View) {
   function assignTasks(game: Game, roundId: string, players: { id: string; role: Role }[]) {
     const stations = shuffle(db.prepare('SELECT id FROM stations WHERE game_code = ?').all(game.code) as { id: string }[]);
@@ -40,6 +40,9 @@ export function createRound({ db, now, playerFor, gameFor, alreadyApplied, recor
         .all(game.code, player.id) as { id: string; name: string }[];
       info.elimination = { readyInMs: Math.max(0, ready - elapsed(game)), running: game.phase === 'active', targets };
     }
+    if (player.role === 'impostor' && game.sabotage) {
+      info.sabotage = { used: Boolean(game.reactor_used), readyInMs: Math.max(0, game.opening_protection * 1000 - elapsed(game)), running: game.phase === 'active' };
+    }
     return info;
   }
   // The Impostor records an elimination after the physical signal. Only the victim's
@@ -64,6 +67,52 @@ export function createRound({ db, now, playerFor, gameFor, alreadyApplied, recor
     recordCommand(input.commandId, game.code, player.id, payload);
     const ended = settle(game.code);
     return { code: game.code, victim: target.id, ended };
+  });
+  // The Impostor sets off the reactor meltdown: once per round, after opening protection,
+  // during active play. Everyone sees the same alarm without learning who caused it.
+  const startSabotage = db.transaction((token: string | undefined, input: Sabotage) => {
+    const player = playerFor(token);
+    if (!player) throw new GameError('NO_SESSION', 401);
+    const game = gameFor(player.game_code)!;
+    if (game.round_id !== input.roundId) throw new GameError('STALE_COMMAND', 409);
+    if (player.role !== 'impostor' || !player.playing) throw new GameError('FORBIDDEN', 403);
+    const payload = JSON.stringify(input);
+    if (alreadyApplied(input.commandId, player.id, payload)) return game.code;
+    if (game.phase !== 'active') throw new GameError('INVALID_PHASE', 409);
+    if (!game.sabotage) throw new GameError('SABOTAGE_OFF', 409);
+    if (game.reactor_used) throw new GameError('SABOTAGE_USED', 409);
+    if (player.status !== 'alive') throw new GameError('NOT_ALIVE', 409);
+    const at = elapsed(game);
+    if (at < game.opening_protection * 1000) throw new GameError('NOT_READY', 409);
+    db.prepare('UPDATE games SET reactor_used = 1, reactor_ends_ms = ?, reactor_panel = NULL, revision = revision + 1 WHERE code = ?')
+      .run(at + game.reactor_time * 1000, game.code);
+    recordCommand(input.commandId, game.code, player.id, payload);
+    return game.code;
+  });
+  // A living player activates the repair panel at their station. A second player at another
+  // station within the window repairs the reactor; a lapsed activation can simply be repeated.
+  // Repairing is idempotent: once repaired, a late tap changes nothing.
+  const repairReactor = db.transaction((token: string | undefined, input: RepairReactor) => {
+    const player = playerFor(token);
+    if (!player) throw new GameError('NO_SESSION', 401);
+    const game = gameFor(player.game_code)!;
+    if (game.round_id !== input.roundId) throw new GameError('STALE_COMMAND', 409);
+    if (game.phase !== 'active') throw new GameError('INVALID_PHASE', 409);
+    if (!player.playing) throw new GameError('NOT_PLAYING', 409);
+    if (player.status !== 'alive') throw new GameError('NOT_ALIVE', 409);
+    if (!db.prepare('SELECT 1 FROM stations WHERE id = ? AND game_code = ?').get(input.stationId, game.code)) throw new GameError('INVALID_INPUT');
+    if (game.reactor_ends_ms === null) return { code: game.code, repaired: false };
+    const panel = game.reactor_panel ? JSON.parse(game.reactor_panel) as ReactorPanel : null;
+    const repaired = panel !== null && now() - panel.at <= REPAIR_WINDOW_MS && panel.player !== player.id && panel.station !== input.stationId;
+    if (repaired) {
+      db.prepare('UPDATE games SET reactor_ends_ms = NULL, reactor_panel = NULL, revision = revision + 1 WHERE code = ?').run(game.code);
+      // A task win that waited for the repair is checked now.
+      settle(game.code);
+    } else {
+      const next: ReactorPanel = { player: player.id, station: input.stationId, at: now() };
+      db.prepare('UPDATE games SET reactor_panel = ?, revision = revision + 1 WHERE code = ?').run(JSON.stringify(next), game.code);
+    }
+    return { code: game.code, repaired };
   });
   const command = db.transaction((token: string | undefined, input: RoundCommand) => {
     const { player, game } = organiserFor(token);
@@ -91,13 +140,15 @@ export function createRound({ db, now, playerFor, gameFor, alreadyApplied, recor
         // Test players get no tasks, so the shared goal depends only on real players.
         assignTasks(game, roundId, roles.filter(p => !players.find(other => other.id === p.id)!.test));
         db.prepare("UPDATE players SET status = 'alive', emergency_used = 0 WHERE game_code = ?").run(game.code);
-        db.prepare('UPDATE games SET winner = NULL, progress_shown = 0, progress_shown_at = ?, clock_ms = 0, clock_at = ?, eliminate_ready_ms = opening_protection * 1000 WHERE code = ?')
+        db.prepare(`UPDATE games SET winner = NULL, progress_shown = 0, progress_shown_at = ?, clock_ms = 0, clock_at = ?, eliminate_ready_ms = opening_protection * 1000,
+          reactor_used = 0, reactor_ends_ms = NULL, reactor_panel = NULL WHERE code = ?`)
           .run(now(), now(), game.code);
         break;
       }
       case 'pause':
         if (phase !== 'active') throw new GameError('INVALID_PHASE', 409);
-        db.prepare('UPDATE games SET clock_ms = ? WHERE code = ?').run(elapsed(game), game.code);
+        // A repair activation does not survive a pause; the meltdown countdown just stops.
+        db.prepare('UPDATE games SET clock_ms = ?, reactor_panel = NULL WHERE code = ?').run(elapsed(game), game.code);
         phase = 'paused'; pauseReason = 'organiser'; break;
       case 'resume':
         // A detected win must be confirmed or rejected first.
@@ -119,8 +170,10 @@ export function createRound({ db, now, playerFor, gameFor, alreadyApplied, recor
         db.prepare('UPDATE games SET winner = ? WHERE code = ?').run(game.proposed_winner, game.code);
         phase = 'ended'; endReason = game.proposed_reason; break;
       // Play stays paused so the organiser can correct the cause; resuming checks again.
+      // A rejected meltdown is switched off, so resuming does not melt down again.
       case 'rejectResult':
         if (phase !== 'paused' || game.pause_reason !== 'victory') throw new GameError('INVALID_PHASE', 409);
+        if (game.proposed_reason === 'reactor') db.prepare('UPDATE games SET reactor_ends_ms = NULL, reactor_panel = NULL WHERE code = ?').run(game.code);
         pauseReason = 'organiser'; break;
       case 'reset':
         if (phase !== 'ended') throw new GameError('INVALID_PHASE', 409);
@@ -188,6 +241,10 @@ export function createRound({ db, now, playerFor, gameFor, alreadyApplied, recor
     const changed: string[] = [];
     // Keep the play clock current so a crash loses at most one tick of active time.
     db.prepare("UPDATE games SET clock_ms = clock_ms + MAX(0, ? - clock_at), clock_at = ? WHERE phase = 'active'").run(now(), now());
+    // A reactor meltdown whose countdown ran out ends the round (or stops for confirmation).
+    for (const { code } of db.prepare("SELECT code FROM games WHERE phase = 'active' AND reactor_ends_ms IS NOT NULL AND clock_ms >= reactor_ends_ms").all() as { code: string }[]) {
+      if (settle(code)) changed.push(code);
+    }
     const due = db.prepare("SELECT * FROM games WHERE phase = 'active' AND ? - progress_shown_at >= progress_interval * 1000").all(now()) as Game[];
     for (const game of due) {
       const { done } = progress(game);
@@ -197,5 +254,5 @@ export function createRound({ db, now, playerFor, gameFor, alreadyApplied, recor
     return changed;
   }
 
-  return { command, role, eliminatePlayer, completeTask, help, tick };
+  return { command, role, eliminatePlayer, startSabotage, repairReactor, completeTask, help, tick };
 }

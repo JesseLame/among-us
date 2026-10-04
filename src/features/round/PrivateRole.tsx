@@ -7,11 +7,12 @@ import shared from '../../App.module.css';
 import styles from './round.module.css';
 import ui from '../../styles/ui.module.css';
 import EliminatePanel from './Eliminate';
+import SabotagePanel from '../sabotage/SabotagePanel';
 
-type Props = { lobby: Lobby; language: Language; connected: boolean; languageControl?: ReactNode };
+type Props = { lobby: Lobby; language: Language; connected: boolean; onUpdate: (lobby: Lobby) => void; languageControl?: ReactNode };
 
 // The player's own role, fetched only on request and hidden again when the phone is put away.
-export default function PrivateRole({ lobby, language, connected, languageControl }: Props) {
+export default function PrivateRole({ lobby, language, connected, onUpdate, languageControl }: Props) {
   const t = translations[language];
   const [info, setInfo] = useState<RoleInfo | null>(null);
   const role = info?.role ?? null;
@@ -61,6 +62,7 @@ export default function PrivateRole({ lobby, language, connected, languageContro
     </div>
     {role === 'impostor' && !lobby.settings.eliminations && <p className={`${ui.note} ${styles.eliminationsOff}`}>{t.eliminationsOffImpostor}</p>}
     {info?.elimination && lobby.roundId && <EliminatePanel roundId={lobby.roundId} elimination={info.elimination} language={language} connected={connected} onInfo={setInfo}/>}
+    {info?.sabotage && lobby.roundId && <SabotagePanel roundId={lobby.roundId} sabotage={info.sabotage} language={language} connected={connected} onInfo={setInfo} onUpdate={onUpdate}/>}
     <Button className={ui.primary} isDisabled={!connected || busy} onPress={() => { if (role) hide(); else void reveal(); }}>{busy ? t.working : role ? t.hideRole : t.revealRole}<span aria-hidden="true">{role ? '×' : '→'}</span></Button>
     {error && <p className={ui.error} role="alert">{errorMessages[language][error]}</p>}
     <p className={ui.note}>{t.autoHide}</p>

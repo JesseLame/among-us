@@ -26,7 +26,11 @@ export type Game = {
   delivery_mode: DeliveryMode; delivery_object: string;
   // The win the app detected while waiting for the organiser to confirm it (pause_reason 'victory').
   proposed_winner: 'crew' | 'impostor' | null; proposed_reason: RoundResult['reason'] | null;
+  // Reactor meltdown: the setting and countdown length, whether this round's one meltdown was
+  // used, the play-clock time it melts down (null when none is on) and the latest repair activation.
+  sabotage: number; reactor_time: number; reactor_used: number; reactor_ends_ms: number | null; reactor_panel: string | null;
 };
+export type ReactorPanel = { player: string; station: string; at: number };
 export type Win = { winner: 'crew' | 'impostor'; reason: RoundResult['reason'] };
 // `undo` holds what is needed to revert a correction; it never leaves the server.
 export type ChangeRow = { id: number; at: number; action: HistoryEntry['action']; detail: string; undo: string | null; undone: number };

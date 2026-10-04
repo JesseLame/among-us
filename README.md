@@ -2,7 +2,7 @@
 
 A social deduction game for our family, played throughout the house and supported by a simple phone web app. Crewmates move between rooms to complete tasks while a secret Impostor blends in and eliminates players. Discussion and detective work happen face to face.
 
-Start with **6–8 players and one Impostor**, combining phone puzzles with physical puzzles whose answers the app can verify. QR codes open room tasks. Sabotage and a control room are ideas for later.
+Start with **6–8 players and one Impostor**, combining phone puzzles with physical puzzles whose answers the app can verify. QR codes open room tasks. The Impostor can set off one reactor meltdown per round; a control room is an idea for later.
 
 ## Project status
 
@@ -18,6 +18,8 @@ Working now: create a lobby, either as a host-only screen (for example a laptop 
 
 A full round is now playable. **Stage 4 (organiser flexibility):** under **Fix a problem** the organiser can credit, remove or replace a broken station's tasks for everyone (replacement gives every unfinished task there a new puzzle at another station), mark a player back in the game or out, and restore emergency meetings, without seeing roles or hidden states; **End round** can declare a winner; and **Rejoin** in Room management shows a one-time QR code that puts a player who lost their phone or session back in their place. Three **Organiser help** switches in Settings: **Confirm wins before they end the round** (off by default) stops play when the app detects a win and shows only the organiser the proposed result to confirm or reject; **Preview fixes** (on) says in each fix or removal confirmation whether it would end the round and what the task goal becomes; **Change history and undo** (on) lists this round's fixes and removals and undoes the latest fix. No hosting has been purchased or deployment performed.
 
+**Sabotage (reactor meltdown):** once per round, after opening protection, the Impostor can set off a reactor meltdown from their revealed role card. Every phone and the host screen show the alarm and a countdown (90 s of active play by default) without saying who caused it. Two different living players must tap **Repair** at two different stations within 10 seconds of each other: at the station they scanned, or at any station when tasks open without scanning. If the countdown runs out, the Impostor wins. Meetings and pauses stop the countdown and clear a half-done repair; emergency meetings are unavailable during a meltdown, body reports still work. A task win waits until the reactor is repaired. The Impostor may help repair, and ghosts cannot. The organiser switches it with **Reactor meltdown sabotage** (on by default) and sets the countdown; switching it off during a meltdown stops it without a loss, and rejecting a proposed meltdown win switches that meltdown off.
+
 Roles stay out of public updates and ordinary organiser views. Each phone fetches only its own role after an explicit reveal, and hides it when focus/visibility is lost, the connection drops, or the phase changes. Ending the round reveals all roles to everyone and prevents resuming that round. After a server restart, active rounds recover paused with the same roles; the organiser decides when to resume. Existing lobby databases are migrated automatically, preserving sessions.
 
 Organisers can open **Room management / Kamerbeheer** in any phase to remove a player or delete the whole room. Both actions require confirmation. Removing a player revokes their session; during a round, a Crewmate departure pauses play and an Impostor departure ends the round without a winner. Confirmation wording does not disclose the departing role. Departed players appear as removed in the final role reveal, then are excluded from the next lobby. Removing a player is not a ban: they may join again with a new session when the lobby is open. The organiser cannot remove themselves; deleting the room returns everyone to the join screen and deletes its players, round and command history. Offline players lose access when they reconnect.
@@ -28,7 +30,7 @@ This is a personal home game, not a product being prepared for public release. T
 
 | File | Purpose |
 | --- | --- |
-| [Game rules](docs/game-rules.md) | Default rules, setup, roles, meetings, winning and later sabotage ideas. |
+| [Game rules](docs/game-rules.md) | Default rules, setup, roles, meetings, winning and sabotage. |
 | [Tasks and the control room](docs/tasks-and-control-room.md) | First-version puzzles and ghost tasks; later control-room and task ideas. |
 | [App requirements](docs/app-requirements.md) | Scope and interaction requirements for the first app version. |
 | [App plan and recommended stack](docs/app-plan.md) | Proposed stack, accessibility and performance requirements, hosting and build stages. |
@@ -41,7 +43,7 @@ This is a personal home game, not a product being prepared for public release. T
 
 The first version covers joining, secret roles, tasks, eliminations, body reports, meetings, physical vote recording and victory checks. Organiser settings, manual assistance and recovery controls are part of this version, so a broken puzzle or awkward timer does not spoil the evening.
 
-**Later, outside the first build:** the control room, communications and reactor sabotage, trust-based task types, in-app voting, paired and multi-room tasks, and additional roles. These ideas remain documented under clearly labelled later sections. Named scan history is parked and not recommended unless playtests establish a need.
+**Later, outside the first build:** the control room, communications sabotage, trust-based task types, in-app voting, paired and multi-room tasks, and additional roles. These ideas remain documented under clearly labelled later sections. Named scan history is parked and not recommended unless playtests establish a need.
 
 ## Next steps
 
@@ -49,7 +51,7 @@ The first version covers joining, secret roles, tasks, eliminations, body report
 2. ~~Build the first phone puzzle and physical-answer puzzle, with assignments, believable fake tasks and shared progress.~~ Done.
 3. ~~Eliminations, bodies, the Impostor win, body reports, emergency meetings, discussion timer and ghosts~~ done. ~~Vote entry and ejection~~ done. ~~Core corrections and rejoining~~ done. ~~Task replacement, confirmed victory, previews and change history~~ done. Next: a family playtest. New mechanics from here on each get an organiser on/off switch.
 4. Build the first playable version, run a practice round and tune it through family playtests.
-5. Use those playtests to decide whether the control room or sabotage would improve the game.
+5. Use those playtests to decide whether the control room or more sabotage would improve the game, and tune the reactor countdown.
 
 ## Play on your home network (no hosting needed)
 

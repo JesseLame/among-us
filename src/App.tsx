@@ -12,7 +12,7 @@ import RoundView from './features/round/RoundView';
 import type { Scan } from './features/tasks/Tasks';
 import PrintSheets from './features/print/PrintSheets';
 import Practice from './features/practice/Practice';
-import { playMeetingAlarm, unlockAudio } from './lib/sound';
+import { playMeetingAlarm, playReactorAlarm, unlockAudio } from './lib/sound';
 
 // Started once per page load (React may run start-up effects twice in development), and
 // before the session check so the new session cookie is in place.
@@ -70,6 +70,13 @@ export default function App() {
     if (lobby?.phase === 'meeting' && previousPhase.current && previousPhase.current !== 'meeting') playMeetingAlarm();
     previousPhase.current = lobby?.phase;
   }, [lobby?.phase]);
+  // A reactor meltdown is public: every phone sounds its alarm when it starts.
+  const reactorOn = Boolean(lobby?.reactor);
+  const previousReactor = useRef(reactorOn);
+  useEffect(() => {
+    if (reactorOn && !previousReactor.current) playReactorAlarm();
+    previousReactor.current = reactorOn;
+  }, [reactorOn]);
   const sessionRequest = useRef(0);
   const lobbyCode = lobby?.code;
   const privatePlayerScreen = lobby && !lobby.you.organiser && (lobby.phase === 'active' || lobby.phase === 'paused' || lobby.phase === 'meeting');

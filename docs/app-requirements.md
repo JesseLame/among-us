@@ -51,7 +51,6 @@ Announce only public rule changes and public outcomes to the group. Never announ
 
 - Control-room activity display and session tracking.
 - Communications sabotage, dependent on the control room being useful.
-- Reactor sabotage, countdowns and repair panels.
 - Trust-based task types with a normal player-facing Completed button. An organiser bypass for a broken task is still required in the first version.
 - In-app voting, paired tasks, multi-room tasks and additional roles or Impostors.
 

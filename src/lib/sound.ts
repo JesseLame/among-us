@@ -31,6 +31,30 @@ export function playMeetingAlarm() {
   oscillator.stop(end + 0.02);
 }
 
+// A reactor meltdown: a rising and falling whoop, distinct from the meeting siren.
+export function playReactorAlarm() {
+  navigator.vibrate?.([600, 200, 600, 200, 600]);
+  if (!context || context.state !== 'running') return;
+  const start = context.currentTime + 0.05;
+  const gain = context.createGain();
+  gain.connect(context.destination);
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(0.3, start + 0.05);
+  const oscillator = context.createOscillator();
+  oscillator.type = 'sawtooth';
+  oscillator.connect(gain);
+  const whoop = 0.6;
+  for (let index = 0; index < 4; index++) {
+    oscillator.frequency.setValueAtTime(300, start + index * whoop);
+    oscillator.frequency.exponentialRampToValueAtTime(900, start + (index + 0.8) * whoop);
+  }
+  const end = start + 4 * whoop;
+  gain.gain.setValueAtTime(0.3, end - 0.08);
+  gain.gain.exponentialRampToValueAtTime(0.0001, end);
+  oscillator.start(start);
+  oscillator.stop(end + 0.02);
+}
+
 // Simon says: one soft tone per pad, rising from the first pad to the fourth.
 const PAD_TONES = [330, 392, 494, 587];
 export function playPadTone(pad: number, seconds = 0.3) {

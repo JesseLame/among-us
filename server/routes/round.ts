@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import { completeTask, eliminate, helpTask, roundCommand } from '../../shared/protocol.js';
+import { completeTask, eliminate, helpTask, repairReactor, roundCommand, sabotage } from '../../shared/protocol.js';
 import { sessionToken } from '../session.js';
 import { GameError } from '../store/index.js';
 import type { RouteContext } from './context.js';
 
-// The round: private roles, organiser round commands, task answers and eliminations.
+// The round: private roles, organiser round commands, task answers, eliminations and sabotage.
 export function roundRoutes({ store, broadcast, syncPlayer }: RouteContext) {
   const router = Router();
   router.get('/api/role', (req, res, next) => {
@@ -54,6 +54,29 @@ export function roundRoutes({ store, broadcast, syncPlayer }: RouteContext) {
       res.json(result.ended ? { ended: true } : { ended: false, role: store.role(token, parsed.data.roundId) });
       if (result.ended) broadcast(result.code);
       else syncPlayer(result.victim);
+    } catch (error) { next(error); }
+  });
+
+  // The meltdown alarm is public, so every phone gets it; the reply refreshes the Impostor's role card.
+  router.post('/api/sabotage', (req, res, next) => {
+    try {
+      const parsed = sabotage.safeParse(req.body);
+      if (!parsed.success) throw new GameError('INVALID_INPUT');
+      const token = sessionToken(req.headers.cookie);
+      const code = store.startSabotage(token, parsed.data);
+      res.json({ lobby: store.lobby(token), role: store.role(token, parsed.data.roundId) });
+      broadcast(code);
+    } catch (error) { next(error); }
+  });
+
+  router.post('/api/reactor/repair', (req, res, next) => {
+    try {
+      const parsed = repairReactor.safeParse(req.body);
+      if (!parsed.success) throw new GameError('INVALID_INPUT');
+      const token = sessionToken(req.headers.cookie);
+      const result = store.repairReactor(token, parsed.data);
+      res.json({ lobby: store.lobby(token), repaired: result.repaired });
+      broadcast(result.code);
     } catch (error) { next(error); }
   });
   return router;

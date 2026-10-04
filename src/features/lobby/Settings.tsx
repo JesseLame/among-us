@@ -29,7 +29,7 @@ export default function GameSettings({ lobby, language, connected, onUpdate }: P
     finally { inFlight.current = false; setBusy(false); }
   }
 
-  const { stationAccess, eliminations, bodyReports, emergencyMeetings, phoneVoting, confirmVictory, changePreviews, changeHistory, taskGames, deliveryMode, deliveryObject } = lobby.settings;
+  const { stationAccess, eliminations, bodyReports, emergencyMeetings, phoneVoting, confirmVictory, changePreviews, changeHistory, taskGames, deliveryMode, deliveryObject, sabotage } = lobby.settings;
   // The object name saves when the field is left (or Enter), not on every keystroke.
   const [objectDraft, setObjectDraft] = useState<string | null>(null);
   const saveObject = () => {
@@ -43,7 +43,7 @@ export default function GameSettings({ lobby, language, connected, onUpdate }: P
     <p className={ui.note}>{help}</p>
   </div>;
   // Number fields save shortly after the last change, so tapping + several times sends one update.
-  type NumberKey = 'openingProtection' | 'killCooldown' | 'discussionTime' | 'emergencyAllowance' | 'tasksPerPlayer' | 'taskGoalPercent' | 'progressInterval';
+  type NumberKey = 'openingProtection' | 'killCooldown' | 'discussionTime' | 'emergencyAllowance' | 'tasksPerPlayer' | 'taskGoalPercent' | 'progressInterval' | 'reactorTime';
   const [draft, setDraft] = useState<Partial<Record<NumberKey, number>>>({});
   // Always save with the latest room revision, not the one from when the timer started.
   const latestChange = useRef(change);
@@ -120,6 +120,10 @@ export default function GameSettings({ lobby, language, connected, onUpdate }: P
         {number('emergencyAllowance', t.settingEmergency, t.settingEmergencyHelp, 0, 5, 1)}
         {setting(t.phoneVotingSetting, phoneVoting, phoneVoting ? t.phoneVotingOn : t.phoneVotingOff, on => void change({ phoneVoting: on }))}
         {number('discussionTime', t.settingDiscussion, t.settingDiscussionHelp, 0, 600, 15)}
+      </>)}
+      {group('settings-sabotage', t.groupSabotage, <>
+        {setting(t.sabotageSetting, sabotage, sabotage ? t.sabotageOn : t.sabotageOff, on => void change({ sabotage: on }))}
+        {sabotage && number('reactorTime', t.settingReactor, t.settingReactorHelp, 30, 600, 15)}
       </>)}
       {group('settings-organiser', t.groupOrganiser, <>
         {setting(t.confirmVictorySetting, confirmVictory, confirmVictory ? t.confirmVictoryOn : t.confirmVictoryOff, on => void change({ confirmVictory: on }))}

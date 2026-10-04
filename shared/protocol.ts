@@ -7,7 +7,7 @@ export const language = z.enum(['en', 'nl']);
 export const createGame = z.object({ name: playerName, language: language.optional(), playing: z.boolean().optional() });
 export const joinGame = z.object({ name: playerName, code: gameCode });
 
-export const errors = ['INVALID_INPUT', 'GAME_NOT_FOUND', 'GAME_FULL', 'NAME_TAKEN', 'NO_SESSION', 'SERVER_ERROR', 'CONNECTION_ERROR', 'ALREADY_JOINED', 'FORBIDDEN', 'NOT_ENOUGH_PLAYERS', 'ROUND_IN_PROGRESS', 'STALE_COMMAND', 'INVALID_PHASE', 'PLAYER_NOT_FOUND', 'CANNOT_REMOVE_ORGANISER', 'NO_STATIONS', 'TOO_MANY_STATIONS', 'STATION_EXISTS', 'TASK_NOT_FOUND', 'WRONG_ANSWER', 'NOT_PLAYING', 'NOT_READY', 'NOT_ALIVE', 'ELIMINATIONS_OFF', 'REPORTS_OFF', 'EMERGENCY_OFF', 'NO_EMERGENCY_LEFT', 'VOTING_CLOSED', 'PHONE_VOTING_OFF', 'REJOIN_EXPIRED', 'UNDO_UNAVAILABLE', 'PREVIEWS_OFF', 'HELP_CODE_NOT_FOUND', 'OWN_TASK'] as const;
+export const errors = ['INVALID_INPUT', 'GAME_NOT_FOUND', 'GAME_FULL', 'NAME_TAKEN', 'NO_SESSION', 'SERVER_ERROR', 'CONNECTION_ERROR', 'ALREADY_JOINED', 'FORBIDDEN', 'NOT_ENOUGH_PLAYERS', 'ROUND_IN_PROGRESS', 'STALE_COMMAND', 'INVALID_PHASE', 'PLAYER_NOT_FOUND', 'CANNOT_REMOVE_ORGANISER', 'NO_STATIONS', 'TOO_MANY_STATIONS', 'STATION_EXISTS', 'TASK_NOT_FOUND', 'WRONG_ANSWER', 'NOT_PLAYING', 'NOT_READY', 'NOT_ALIVE', 'ELIMINATIONS_OFF', 'REPORTS_OFF', 'EMERGENCY_OFF', 'NO_EMERGENCY_LEFT', 'VOTING_CLOSED', 'PHONE_VOTING_OFF', 'REJOIN_EXPIRED', 'UNDO_UNAVAILABLE', 'PREVIEWS_OFF', 'HELP_CODE_NOT_FOUND', 'OWN_TASK', 'SABOTAGE_OFF', 'SABOTAGE_USED', 'REACTOR_ACTIVE'] as const;
 export type ErrorCode = typeof errors[number];
 // Every task game. Adding a game: its puzzle type below, its rules in server/tasks/<kind>.ts
 // (registered in server/tasks/index.ts), its game in src/features/tasks/games/<kind>/
@@ -68,6 +68,9 @@ export const settingsCommand = roundCommand.omit({ action: true }).extend({
   taskGames: z.array(z.enum(taskKinds)).min(1).refine(games => new Set(games).size === games.length).optional(),
   // Delivery: carried in the app, or a real object from the house that players carry around.
   deliveryMode: deliveryMode.optional(), deliveryObject: z.string().trim().max(40).optional(),
+  // Reactor meltdown: whether the Impostor may set it off (once per round) and its countdown.
+  // Switching it off during a meltdown stops it without a loss.
+  sabotage: z.boolean().optional(), reactorTime: z.number().int().min(30).max(600).optional(),
 });
 export type SettingsCommand = z.infer<typeof settingsCommand>;
 
@@ -160,7 +163,7 @@ export function mazeStep(size: number, open: number[], cell: number, move: numbe
 export type Task = { id: string; stationId: string; done: boolean; puzzle: TaskPuzzle };
 export type Station = { id: string; name: string };
 export type PrintableStation = Station & { codebook: Record<SymbolId, number> };
-export type RoundResult = { winner: 'crew' | 'impostor' | null; reason: 'tasks' | 'eliminations' | 'ejected' | 'organiser' | 'departure' };
+export type RoundResult = { winner: 'crew' | 'impostor' | null; reason: 'tasks' | 'eliminations' | 'ejected' | 'organiser' | 'departure' | 'reactor' };
 // A body waits silently to be found; it becomes a ghost at the next meeting.
 export type PlayerStatus = 'alive' | 'body' | 'ghost';
 export type MeetingKind = 'report' | 'emergency' | 'organiser';
@@ -206,11 +209,21 @@ export const castVote = z.object({ roundId: z.uuid(), target: z.union([z.uuid(),
 export type CastVote = z.infer<typeof castVote>;
 export const eliminate = z.object({ commandId: z.uuid(), roundId: z.uuid(), targetId: z.uuid() });
 export type Eliminate = z.infer<typeof eliminate>;
+// The Impostor sets off the reactor meltdown, once per round.
+export const sabotage = z.object({ commandId: z.uuid(), roundId: z.uuid() });
+export type Sabotage = z.infer<typeof sabotage>;
+// A living player activates the repair panel at the station they are at. Two players at two
+// different stations within REPAIR_WINDOW_MS of each other repair the reactor.
+export const repairReactor = z.object({ roundId: z.uuid(), stationId: z.uuid() });
+export type RepairReactor = z.infer<typeof repairReactor>;
+export const REPAIR_WINDOW_MS = 10_000;
 // Returned only to the player who reveals their own role. The Impostor also learns
 // when they may eliminate next (active play time) and who they can choose.
 export type RoleInfo = {
   roundId: string; role: Role;
   elimination?: { readyInMs: number; running: boolean; targets: { id: string; name: string }[] };
+  // With sabotage on: whether the reactor meltdown is still unused, and when it may first start.
+  sabotage?: { used: boolean; readyInMs: number; running: boolean };
 };
 
 export type SessionEndReason = 'removed' | 'destroyed' | 'unavailable';
@@ -231,7 +244,7 @@ export type Lobby = {
     openingProtection: number; killCooldown: number; discussionTime: number;
     emergencyAllowance: number; progressInterval: number; tasksPerPlayer: number; taskGoalPercent: number;
     confirmVictory: boolean; changePreviews: boolean; changeHistory: boolean; taskGames: TaskKind[];
-    deliveryMode: DeliveryMode; deliveryObject: string;
+    deliveryMode: DeliveryMode; deliveryObject: string; sabotage: boolean; reactorTime: number;
   };
   // Organiser only: the result the app detected, waiting for confirmation (pauseReason 'victory').
   proposedResult?: { winner: 'crew' | 'impostor'; reason: RoundResult['reason'] };
@@ -250,6 +263,9 @@ export type Lobby = {
   // Shared progress is published in batches during a round so a single
   // completion cannot prove innocence. It is exact once the round has ended.
   progress: { done: number; goal: number } | null;
+  // Public during a reactor meltdown: the countdown left when this snapshot was made (it runs
+  // only in active play) and the repair panel someone activated, if its window is still open.
+  reactor?: { msLeft: number; running: boolean; panel: { stationId: string; msLeft: number; yours: boolean } | null };
   result?: RoundResult;
   // vote: this player's own vote while voting is open ('skip' or a player id).
   you: { id: string; organiser: boolean; playing: boolean; status: PlayerStatus; emergencyLeft: number; tasks: Task[]; vote?: string };
