@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Button } from 'react-aria-components';
-import QRCode from 'qrcode';
+import { LanHint, QrCode } from './Qr';
 import { symbolGlyphs, symbols, type ErrorCode, type Lobby, type PrintableStation } from '../shared/protocol';
 import { codeFor, request } from './api';
 import { errorMessages, translations, type Language } from './i18n';
@@ -9,33 +9,19 @@ import ui from './styles/ui.module.css';
 
 type Copy = typeof translations.en;
 type Documents = { join: boolean; stations: boolean; markers: boolean };
-const LOCAL_HOSTS = ['localhost', '127.0.0.1', '[::1]'];
-
-function QrCode({ value, label }: { value: string; label: string }) {
-  const [svg, setSvg] = useState('');
-  useEffect(() => {
-    let current = true;
-    void QRCode.toString(value, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' }).then(result => { if (current) setSvg(result); });
-    return () => { current = false; };
-  }, [value]);
-  // The SVG markup comes from the QR library, not from user input.
-  return <div className={styles.qr} role="img" aria-label={label} dangerouslySetInnerHTML={{ __html: svg }}/>;
-}
 
 // Organiser-only print materials: join poster, one sheet per station (QR code and
 // codebook), and cut-out body/ghost markers. Print, or save as PDF from the dialog.
 export default function PrintSheets({ language, languageControl }: { language: Language; languageControl: ReactNode }) {
   const t = translations[language];
   const [stations, setStations] = useState<PrintableStation[] | null>(null);
-  const [lanAddresses, setLanAddresses] = useState<string[]>([]);
   const [code, setCode] = useState('');
   const [error, setError] = useState<ErrorCode | null>(null);
   const [documents, setDocuments] = useState<Documents>({ join: true, stations: true, markers: true });
   const origin = location.origin;
-  const local = LOCAL_HOSTS.includes(location.hostname);
   useEffect(() => {
     request<{ stations: PrintableStation[]; lanAddresses: string[] }>('/api/stations/print')
-      .then(result => { setStations(result.stations); setLanAddresses(result.lanAddresses); })
+      .then(result => setStations(result.stations))
       .catch(failure => setError(codeFor(failure)));
     request<{ lobby: Lobby | null }>('/api/session').then(result => setCode(result.lobby?.code ?? '')).catch(() => undefined);
   }, []);
@@ -48,13 +34,7 @@ export default function PrintSheets({ language, languageControl }: { language: L
     <header className={styles.printHeader}>
       <h1>{t.printTitle}</h1>
       <p className={ui.note}>{t.printIntro}</p>
-      {local && <div className={ui.sessionNotice} role="note">
-        <p>{t.localhostWarning}</p>
-        {lanAddresses.length > 0 && <ul>{lanAddresses.map(address => {
-          const url = `${location.protocol}//${address}${location.port ? `:${location.port}` : ''}/print`;
-          return <li key={address}><a href={url}>{url}</a></li>;
-        })}</ul>}
-      </div>}
+      <LanHint message={t.localhostWarning} path="/print"/>
       <fieldset className={styles.printChoices}>
         <legend>{t.printChoose}</legend>
         {choice('join', t.docJoin)}

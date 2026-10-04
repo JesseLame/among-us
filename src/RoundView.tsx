@@ -53,7 +53,7 @@ export function RoundControls({ lobby, language, connected, onUpdate, onExit }: 
   return <section className={styles.roundControls} aria-label={t.organiserControls}>
     <ControlsHeading>{t.organiserControls}</ControlsHeading>
     {lobby.phase === 'lobby' && <>
-      <p className={ui.note}>{lobby.players.length < 6 ? t.smallGroupTest : t.readyToStart}</p>
+      <p className={ui.note}>{lobby.players.filter(player => player.playing).length < 6 ? t.smallGroupTest : t.readyToStart}</p>
       <Button className={ui.primary} isDisabled={disabled} onPress={() => void act('start')}>{busy ? t.working : t.startRound}<span aria-hidden="true">→</span></Button>
     </>}
     {lobby.phase === 'active' && <Button className={ui.primary} isDisabled={disabled} onPress={() => void act('pause')}>{busy ? t.working : t.pauseRound}<span aria-hidden="true">Ⅱ</span></Button>}
@@ -154,7 +154,7 @@ export default function RoundView(props: Props) {
     <section>
       <p className={styles.eyebrow}>{t.invite} · {lobby.code}</p>
       <h1 ref={heading} tabIndex={-1}>{title}</h1>
-      <p className={styles.intro} role="status">{lobby.phase === 'paused' ? lobby.pauseReason === 'restart' ? t.restartMessage : t.pausedMessage : lobby.phase === 'ended' ? endedMessage : t.roundMessage}</p>
+      <p className={styles.intro} role="status">{lobby.phase === 'paused' ? lobby.pauseReason === 'restart' ? t.restartMessage : t.pausedMessage : lobby.phase === 'ended' ? endedMessage : lobby.you.playing ? t.roundMessage : t.hostRoundMessage}</p>
       <p className={styles.connection} role="status"><i data-connected={connected}/>{connected ? t.connected : t.reconnecting}</p>
       <SharedProgress lobby={lobby} language={language}/>
       <RoundControls {...props}/>
@@ -165,8 +165,14 @@ export default function RoundView(props: Props) {
       <ul className={styles.roster}>{lobby.players.map((player, index) => <li key={player.id}>
         <span className={styles.avatar} data-color={index % 4} aria-hidden="true">{player.name.charAt(0).toUpperCase()}</span>
         <span className={styles.playerName}>{player.name}{player.id === lobby.you.id && <small> · {t.you}</small>}{player.removed && <small> · {t.removedPlayer}</small>}</span>
-        <span className={ui.badge}>{lobby.revealedRoles?.find(role => role.id === player.id)?.role === 'impostor' ? t.impostor : t.crewmate}</span>
+        <span className={ui.badge}>{!player.playing ? t.hostBadge : lobby.revealedRoles?.find(role => role.id === player.id)?.role === 'impostor' ? t.impostor : t.crewmate}</span>
       </li>)}</ul><p className={ui.note}>{t.newRoundNote}</p>
+    </section> : !lobby.you.playing ? <section className={`${ui.card} ${styles.lobbyCard} ${styles.hostRoster}`} aria-labelledby="playing-title">
+      <div className={styles.cardTop}><h2 id="playing-title">{t.playingNow}</h2><span>{lobby.players.filter(player => player.playing).length}</span></div>
+      <ul className={styles.roster}>{lobby.players.filter(player => player.playing).map((player, index) => <li key={player.id}>
+        <span className={styles.avatar} data-color={index % 4} aria-hidden="true">{player.name.charAt(0).toUpperCase()}</span>
+        <span className={styles.playerName}>{player.name}</span>
+      </li>)}</ul>
     </section> : <div className={styles.roundColumn}>
       <PrivateRole key={`${lobby.roundId}:${lobby.phase}`} lobby={lobby} language={language} connected={connected}/>
       {tasks}

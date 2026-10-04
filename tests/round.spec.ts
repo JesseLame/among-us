@@ -5,11 +5,12 @@ test('six players start, privately reveal, pause, end, and prepare another round
   await page.goto('/');
   await page.getByText('NL', { exact: true }).click();
   await page.getByRole('tab', { name: 'Spel organiseren' }).click();
+  await page.getByRole('radio', { name: /Hosten en meespelen/ }).check();
   await page.getByRole('textbox', { name: 'Je naam' }).fill('Organisator');
   await page.getByRole('button', { name: 'Maak een lobby' }).click();
   await expect(page.getByRole('button', { name: 'Start de ronde', exact: true })).toBeEnabled();
   await expect(page.getByText('Je kunt met 1–5 spelers starten om te testen.', { exact: false })).toBeVisible();
-  const code = await page.locator('strong').innerText();
+  const code = await page.locator('[class*=invite] strong').innerText();
   const contexts = [];
   try {
     for (let index = 1; index <= 5; index++) {

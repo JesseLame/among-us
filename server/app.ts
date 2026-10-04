@@ -68,7 +68,7 @@ export function createApp(options: { databasePath: string; production?: boolean;
         }
         const parsed = createGame.safeParse(req.body);
         if (!parsed.success) throw new GameError('INVALID_INPUT');
-        return store.create(parsed.data.name, parsed.data.language);
+        return store.create(parsed.data.name, parsed.data.language, parsed.data.playing);
       })();
       res.cookie('home_session', result.token, {
         httpOnly: true, secure: Boolean(options.production), sameSite: 'lax',

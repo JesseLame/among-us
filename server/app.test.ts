@@ -219,7 +219,7 @@ describe('private roles and round lifecycle', () => {
     expect(lobby.phase).toBe('lobby');
     expect(lobby.roundId).toBeNull();
     const originalSession = (await (await fetch(`${app.url}/api/session`, { headers: { Cookie: 'home_session=old-session' } })).json()).lobby;
-    expect(originalSession.you).toEqual({ id: 'original', organiser: true, tasks: [] });
+    expect(originalSession.you).toEqual({ id: 'original', organiser: true, playing: true, tasks: [] });
     expect(originalSession.settings).toEqual({ stationAccess: 'qr' });
     expect(originalSession.stations.map((station: { name: string }) => station.name)).toEqual(['Kitchen', 'Living room', 'Hallway', 'Study']);
   });
@@ -444,5 +444,35 @@ describe('stations and tasks', () => {
     const paused: Lobby = (await (await app.post('/api/room/commands', roomInput(active, target), game.cookies[0])).json()).lobby;
     expect(paused.phase).toBe('paused');
     expect(paused.progress?.goal).toBe(Math.ceil(16 * 0.8));
+  });
+});
+
+describe('host-only organiser', () => {
+  it('hosts without a role, tasks or a player place', async () => {
+    const app = await start();
+    const created = await app.post('/api/games', { name: 'Laptop', playing: false });
+    const host = created.headers.get('set-cookie')!;
+    let lobby: Lobby = (await created.json()).lobby;
+    expect(lobby.you).toMatchObject({ organiser: true, playing: false });
+    expect((await app.post('/api/round/commands', roundInput(lobby, 'start'), host)).status).toBe(400);
+    const guests: string[] = [];
+    for (let index = 1; index <= 8; index++) {
+      const response = await app.post('/api/games/join', { name: `Guest ${index}`, code: lobby.code });
+      expect(response.status).toBe(201);
+      guests.push(response.headers.get('set-cookie')!);
+    }
+    expect((await (await app.post('/api/games/join', { name: 'Extra', code: lobby.code })).json()).error).toBe('GAME_FULL');
+    lobby = (await (await fetch(`${app.url}/api/session`, { headers: { Cookie: host } })).json()).lobby;
+    lobby = (await (await app.post('/api/round/commands', roundInput(lobby, 'start'), host)).json()).lobby;
+    expect(lobby.phase).toBe('active');
+    expect(lobby.you.tasks).toEqual([]);
+    expect(lobby.progress).toEqual({ done: 0, goal: Math.ceil(7 * 4 * 0.8) });
+    expect(JSON.stringify(lobby)).not.toMatch(/crewmate|impostor|"role"/);
+    expect((await (await fetch(`${app.url}/api/role?roundId=${lobby.roundId}`, { headers: { Cookie: host } })).json()).error).toBe('NOT_PLAYING');
+    const roles = await Promise.all(guests.map(async cookie => (await (await fetch(`${app.url}/api/role?roundId=${lobby.roundId}`, { headers: { Cookie: cookie } })).json()).role));
+    expect(roles.filter(role => role === 'impostor')).toHaveLength(1);
+    lobby = (await (await app.post('/api/round/commands', roundInput(lobby, 'end'), host)).json()).lobby;
+    expect(lobby.revealedRoles).toHaveLength(8);
+    expect(lobby.revealedRoles!.some(role => role.id === lobby.you.id)).toBe(false);
   });
 });

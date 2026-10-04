@@ -8,7 +8,7 @@ import { codebook, puzzle, shuffle, solved, type Codebook, type TaskKind } from 
 export class GameError extends Error {
   constructor(public code: ErrorCode, public status = 400) { super(code); }
 }
-type Player = { id: string; game_code: string; name: string; organiser: number; role: Role | null; removed: number };
+type Player = { id: string; game_code: string; name: string; organiser: number; playing: number; role: Role | null; removed: number };
 type Game = {
   code: string; phase: Phase; round_id: string | null; revision: number; pause_reason: Lobby['pauseReason'];
   winner: RoundResult['winner']; end_reason: RoundResult['reason'] | null;
@@ -85,6 +85,10 @@ export function createStore(path: string, now: () => number = Date.now) {
     if (version < 4) {
       db.exec("ALTER TABLE games ADD COLUMN station_access TEXT NOT NULL DEFAULT 'qr'; PRAGMA user_version = 4;");
     }
+    if (version < 5) {
+      // Existing organisers keep playing; a host-only organiser has playing = 0.
+      db.exec('ALTER TABLE players ADD COLUMN playing INTEGER NOT NULL DEFAULT 1; PRAGMA user_version = 5;');
+    }
   });
   function addStations(code: string, names: string[]) {
     const insert = db.prepare('INSERT INTO stations (id, game_code, name, position, codebook) VALUES (?, ?, ?, (SELECT COALESCE(MAX(position), -1) + 1 FROM stations WHERE game_code = ?), ?)');
@@ -102,7 +106,7 @@ export function createStore(path: string, now: () => number = Date.now) {
     const player = playerFor(token);
     if (!player) return null;
     const game = gameFor(player.game_code)!;
-    const players = db.prepare('SELECT id, name, organiser, role, removed FROM players WHERE game_code = ? AND (removed = 0 OR ? = 1) ORDER BY joined_at, rowid').all(player.game_code, Number(game.phase === 'ended')) as Player[];
+    const players = db.prepare('SELECT id, name, organiser, playing, role, removed FROM players WHERE game_code = ? AND (removed = 0 OR ? = 1) ORDER BY joined_at, rowid').all(player.game_code, Number(game.phase === 'ended')) as Player[];
     const playing = game.phase === 'active' || game.phase === 'paused';
     const tasks = playing
       ? (db.prepare('SELECT * FROM tasks WHERE player_id = ? AND round_id = ? ORDER BY position').all(player.id, game.round_id) as TaskRow[])
@@ -113,13 +117,13 @@ export function createStore(path: string, now: () => number = Date.now) {
     return {
       code: player.game_code, phase: game.phase, roundId: game.round_id,
       revision: game.revision, pauseReason: game.pause_reason,
-      players: players.map(p => ({ id: p.id, name: p.name, organiser: Boolean(p.organiser), ...(p.removed ? { removed: true } : {}) })),
+      players: players.map(p => ({ id: p.id, name: p.name, organiser: Boolean(p.organiser), playing: Boolean(p.playing), ...(p.removed ? { removed: true } : {}) })),
       stations: db.prepare('SELECT id, name FROM stations WHERE game_code = ? ORDER BY position').all(game.code) as Lobby['stations'],
       settings: { stationAccess: game.station_access },
       progress: totals && { done: game.phase === 'ended' ? totals.done : Math.min(game.progress_shown, totals.goal), goal: totals.goal },
-      you: { id: player.id, organiser: Boolean(player.organiser), tasks },
+      you: { id: player.id, organiser: Boolean(player.organiser), playing: Boolean(player.playing), tasks },
       ...(game.phase === 'ended' ? {
-        revealedRoles: players.map(p => ({ id: p.id, role: p.role! })),
+        revealedRoles: players.filter(p => p.playing && p.role).map(p => ({ id: p.id, role: p.role! })),
         result: { winner: game.winner, reason: game.end_reason ?? 'organiser' },
       } : {}),
     };
@@ -167,30 +171,31 @@ export function createStore(path: string, now: () => number = Date.now) {
     return { player, game: gameFor(player.game_code)! };
   }
 
-  function addPlayer(code: string, name: string, organiser: boolean) {
+  function addPlayer(code: string, name: string, organiser: boolean, playing = true) {
     const token = randomBytes(32).toString('hex');
-    db.prepare('INSERT INTO players (id, game_code, name, organiser, session_hash, joined_at) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(randomUUID(), code, name, Number(organiser), hash(token), Date.now());
+    db.prepare('INSERT INTO players (id, game_code, name, organiser, playing, session_hash, joined_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(randomUUID(), code, name, Number(organiser), Number(playing), hash(token), Date.now());
     db.prepare('UPDATE games SET revision = revision + 1 WHERE code = ?').run(code);
     return { token, lobby: lobby(token)! };
   }
 
-  const create = db.transaction((name: string, language: keyof typeof DEFAULT_STATIONS = 'en') => {
+  const create = db.transaction((name: string, language: keyof typeof DEFAULT_STATIONS = 'en', playing = true) => {
     const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
     let code: string;
     do { code = Array.from({ length: 5 }, () => alphabet[randomInt(alphabet.length)]).join(''); }
     while (db.prepare('SELECT code FROM games WHERE code = ?').get(code));
     db.prepare('INSERT INTO games (code) VALUES (?)').run(code);
     addStations(code, DEFAULT_STATIONS[language]);
-    return addPlayer(code, name, true);
+    return addPlayer(code, name, true, playing);
   });
 
   const join = db.transaction((code: string, name: string) => {
     const game = gameFor(code);
     if (!game) throw new GameError('GAME_NOT_FOUND', 404);
     if (game.phase !== 'lobby') throw new GameError('ROUND_IN_PROGRESS', 409);
-    const players = db.prepare('SELECT name FROM players WHERE game_code = ? AND removed = 0').all(code) as { name: string }[];
-    if (players.length >= 8) throw new GameError('GAME_FULL');
+    const players = db.prepare('SELECT name, playing FROM players WHERE game_code = ? AND removed = 0').all(code) as { name: string; playing: number }[];
+    // A host-only organiser does not take one of the eight player places.
+    if (players.filter(p => p.playing).length >= 8) throw new GameError('GAME_FULL');
     if (players.some(p => p.name.toLocaleLowerCase('en') === name.toLocaleLowerCase('en'))) throw new GameError('NAME_TAKEN');
     return addPlayer(code, name, false);
   });
@@ -203,6 +208,7 @@ export function createStore(path: string, now: () => number = Date.now) {
     const game = gameFor(player.game_code)!;
     if (game.round_id !== roundId) throw new GameError('STALE_COMMAND', 409);
     if (game.phase !== 'active' && game.phase !== 'paused') throw new GameError('INVALID_PHASE', 409);
+    if (!player.playing) throw new GameError('NOT_PLAYING', 409);
     return { roundId, role: player.role! };
   }
 
@@ -219,7 +225,7 @@ export function createStore(path: string, now: () => number = Date.now) {
     switch (input.action) {
       case 'start': {
         if (phase !== 'lobby') throw new GameError('INVALID_PHASE', 409);
-        const players = db.prepare('SELECT id FROM players WHERE game_code = ? AND removed = 0 ORDER BY rowid').all(game.code) as { id: string }[];
+        const players = db.prepare('SELECT id FROM players WHERE game_code = ? AND removed = 0 AND playing = 1 ORDER BY rowid').all(game.code) as { id: string }[];
         if (players.length < 1) throw new GameError('NOT_ENOUGH_PLAYERS');
         if (!db.prepare('SELECT 1 FROM stations WHERE game_code = ?').get(game.code)) throw new GameError('NO_STATIONS');
         const impostor = randomInt(players.length);

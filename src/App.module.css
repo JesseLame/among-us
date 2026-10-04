@@ -1088,6 +1088,50 @@
   margin: 0;
 }
 
+/* Lobby: join QR code shown on the organiser's screen, beside the game code */
+.inviteRow {
+  margin-top: 35px;
+  border-top: 1px dashed var(--color-border-dashed);
+  padding-top: var(--space-6);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-6);
+}
+
+.inviteRow .invite {
+  margin-top: 0;
+  border-top: 0;
+  padding-top: 0;
+}
+
+.joinQr {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+}
+
+.joinQr .qr {
+  width: 180px;
+  border-radius: var(--radius-small);
+}
+
+.hostRoster {
+  align-self: start;
+}
+
+.joinQr p {
+  margin: 0;
+  font: 600 var(--text-sm) var(--font-heading);
+}
+
+.lanLinks {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-5);
+  overflow-wrap: anywhere;
+}
+
 /* Organiser controls: settings */
 .setting {
   margin-top: var(--space-4);

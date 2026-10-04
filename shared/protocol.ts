@@ -3,10 +3,11 @@ import { z } from 'zod';
 export const playerName = z.string().trim().min(1).max(24);
 export const gameCode = z.string().trim().toUpperCase().regex(/^[A-Z]{5}$/);
 export const language = z.enum(['en', 'nl']);
-export const createGame = z.object({ name: playerName, language: language.optional() });
+// `playing: false` creates a host-only organiser (for example on a laptop) with no role or tasks.
+export const createGame = z.object({ name: playerName, language: language.optional(), playing: z.boolean().optional() });
 export const joinGame = z.object({ name: playerName, code: gameCode });
 
-export const errors = ['INVALID_INPUT', 'GAME_NOT_FOUND', 'GAME_FULL', 'NAME_TAKEN', 'NO_SESSION', 'SERVER_ERROR', 'CONNECTION_ERROR', 'ALREADY_JOINED', 'FORBIDDEN', 'NOT_ENOUGH_PLAYERS', 'ROUND_IN_PROGRESS', 'STALE_COMMAND', 'INVALID_PHASE', 'PLAYER_NOT_FOUND', 'CANNOT_REMOVE_ORGANISER', 'NO_STATIONS', 'TOO_MANY_STATIONS', 'STATION_EXISTS', 'TASK_NOT_FOUND', 'WRONG_ANSWER'] as const;
+export const errors = ['INVALID_INPUT', 'GAME_NOT_FOUND', 'GAME_FULL', 'NAME_TAKEN', 'NO_SESSION', 'SERVER_ERROR', 'CONNECTION_ERROR', 'ALREADY_JOINED', 'FORBIDDEN', 'NOT_ENOUGH_PLAYERS', 'ROUND_IN_PROGRESS', 'STALE_COMMAND', 'INVALID_PHASE', 'PLAYER_NOT_FOUND', 'CANNOT_REMOVE_ORGANISER', 'NO_STATIONS', 'TOO_MANY_STATIONS', 'STATION_EXISTS', 'TASK_NOT_FOUND', 'WRONG_ANSWER', 'NOT_PLAYING'] as const;
 export type ErrorCode = typeof errors[number];
 export type Role = 'crewmate' | 'impostor';
 export type Phase = 'lobby' | 'active' | 'paused' | 'ended';
@@ -71,14 +72,14 @@ export type Lobby = {
   revision: number;
   pauseReason: 'organiser' | 'restart' | null;
   revealedRoles?: { id: string; role: Role }[];
-  players: { id: string; name: string; organiser: boolean; removed?: boolean }[];
+  players: { id: string; name: string; organiser: boolean; playing: boolean; removed?: boolean }[];
   stations: Station[];
   settings: { stationAccess: StationAccess };
   // Shared progress is published in batches during a round so a single
   // completion cannot prove innocence. It is exact once the round has ended.
   progress: { done: number; goal: number } | null;
   result?: RoundResult;
-  you: { id: string; organiser: boolean; tasks: Task[] };
+  you: { id: string; organiser: boolean; playing: boolean; tasks: Task[] };
 };
 
 export interface ServerEvents {

@@ -10,6 +10,7 @@ import RoundView, { RoundControls } from './RoundView';
 import type { Scan } from './Tasks';
 import Stations from './Stations';
 import PrintSheets from './PrintSheets';
+import { LanHint, QrCode } from './Qr';
 
 export default function App() {
   const [language, setLanguage] = useState<Language>(initialLanguage);
@@ -19,6 +20,7 @@ export default function App() {
   const [loadError, setLoadError] = useState<ErrorCode | null>(null);
   const [error, setError] = useState<ErrorCode | null>(null);
   const [mode, setMode] = useState('join');
+  const [hostMode, setHostMode] = useState<'host' | 'play'>('host');
   const [name, setName] = useState('');
   const [code, setCode] = useState(() => new URLSearchParams(location.search).get('code')?.toUpperCase().slice(0, 5) || '');
   const [busy, setBusy] = useState(false);
@@ -49,6 +51,7 @@ export default function App() {
   const entryHeading = useRef<HTMLHeadingElement>(null);
   const sessionRequest = useRef(0);
   const lobbyCode = lobby?.code;
+  const playingCount = lobby?.players.filter(player => player.playing).length ?? 0;
   const privatePlayerScreen = lobby && !lobby.you.organiser && (lobby.phase === 'active' || lobby.phase === 'paused');
   const updateLobby = useCallback((next: Lobby) => {
     // Ignore late responses from a removed session or a previously visited room.
@@ -96,7 +99,7 @@ export default function App() {
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (busy) return;
-    const data = mode === 'join' ? { name, code } : { name, language };
+    const data = mode === 'join' ? { name, code } : { name, language, playing: hostMode === 'play' };
     if (!(mode === 'join' ? joinGame : createGame).safeParse(data).success) { setError('INVALID_INPUT'); return; }
     sessionRequest.current++;
     setBusy(true); setError(null);
@@ -134,22 +137,29 @@ export default function App() {
         <p className={styles.eyebrow}>{t.edition}</p>
         <h1 ref={lobbyHeading} tabIndex={-1}>{t.lobbyTitle}</h1>
         <p className={styles.intro}>{t.lobbyIntro}</p>
-        <div className={styles.invite}>
-          <span className={styles.eyebrow}>{t.invite}</span><strong>{lobby.code}</strong>
-          <Button className={ui.secondary} onPress={() => void copyInvite()}>{copyState === 'copied' ? t.copied : t.copy} <span aria-hidden="true">↗</span></Button>
-          <span role="status">{copyState === 'failed' ? t.copyFailed : copyState === 'copied' ? t.copied : ''}</span>
+        <div className={styles.inviteRow}>
+          <div className={styles.invite}>
+            <span className={styles.eyebrow}>{t.invite}</span><strong>{lobby.code}</strong>
+            <Button className={ui.secondary} onPress={() => void copyInvite()}>{copyState === 'copied' ? t.copied : t.copy} <span aria-hidden="true">↗</span></Button>
+            <span role="status">{copyState === 'failed' ? t.copyFailed : copyState === 'copied' ? t.copied : ''}</span>
+          </div>
+          {lobby.you.organiser && <div className={styles.joinQr}>
+            <QrCode value={`${location.origin}/?code=${lobby.code}`} label={`${t.scanToJoin}: ${lobby.code}`}/>
+            <p>{t.scanToJoin}</p>
+          </div>}
         </div>
-        <p className={ui.note}>{lobby.you.organiser ? t.hostNote : t.playerNote}</p>
+        {lobby.you.organiser && <LanHint message={t.localhostJoinWarning} path="/"/>}
+        <p className={ui.note}>{lobby.you.organiser ? lobby.you.playing ? t.hostNote : t.hostOnlyNote : t.playerNote}</p>
       </section>
       <section className={`${ui.card} ${styles.lobbyCard}`} aria-labelledby="roster">
-        <div className={styles.cardTop}><h2 id="roster">{t.roster}</h2><span>{lobby.players.length} / 8</span></div>
+        <div className={styles.cardTop}><h2 id="roster">{t.roster}</h2><span>{playingCount} / 8</span></div>
         <p className={styles.connection} role="status"><i data-connected={connected} />{connected ? t.connected : t.reconnecting}</p>
         <ul className={styles.roster}>{lobby.players.map((player, i) => <li key={player.id}>
           <span className={styles.avatar} data-color={i % 4} aria-hidden="true">{player.name.charAt(0).toUpperCase()}</span>
           <span className={styles.playerName}>{player.name}{player.id === lobby.you.id && <small> · {t.you}</small>}</span>
-          {player.organiser && <span className={ui.badge}>{t.organiser}</span>}
+          {player.organiser && <span className={ui.badge}>{player.playing ? t.organiser : t.hostBadge}</span>}
         </li>)}</ul>
-        {lobby.players.length < 8 && <p className={styles.waiting}><span aria-hidden="true">+ </span>{t.waiting}</p>}
+        {playingCount < 8 && <p className={styles.waiting}><span aria-hidden="true">+ </span>{t.waiting}</p>}
         <p className={ui.note}>{t.lobbyHint}</p>
         {lobby.you.organiser && <Stations lobby={lobby} language={language} connected={connected} onUpdate={updateLobby}/>}
         <RoundControls lobby={lobby} language={language} connected={connected} onUpdate={updateLobby} onExit={exitLobby}/>
@@ -188,7 +198,16 @@ export default function App() {
                 {tab === 'join' ? <TextField className={ui.field} value={code} onChange={value => setCode(value.toUpperCase())} isRequired maxLength={5} autoComplete="off">
                   <Label>{t.code}</Label><Input className={ui.codeInput} placeholder={t.codePlaceholder} name="code" autoCapitalize="characters" spellCheck={false} aria-describedby="code-help"/>
                   <small id="code-help">{t.codeHelp}</small>
-                </TextField> : <p className={styles.createHelp}>{t.createHelp}</p>}
+                </TextField> : <>
+                  <fieldset className={ui.choices}>
+                    <legend>{t.hostChoice}</legend>
+                    {([['host', t.hostOnly, t.hostOnlyHelp], ['play', t.hostAndPlay, t.hostAndPlayHelp]] as const).map(([value, label, help]) => <label key={value}>
+                      <input type="radio" name="host-mode" value={value} checked={hostMode === value} onChange={() => setHostMode(value)}/>
+                      <span><strong>{label}</strong><small>{help}</small></span>
+                    </label>)}
+                  </fieldset>
+                  <p className={styles.createHelp}>{t.createHelp}</p>
+                </>}
                 {error && <p className={ui.error} role="alert">{errorMessages[language][error]}</p>}
                 <Button type="submit" className={ui.primary} isDisabled={busy}>{busy ? t.working : tab === 'join' ? t.joinButton : t.createButton}<span aria-hidden="true">→</span></Button>
               </form>

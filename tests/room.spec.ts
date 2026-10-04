@@ -8,7 +8,7 @@ test('organiser removes a player and deletes the room with bilingual confirmatio
   await page.getByRole('tab', { name: 'Spel organiseren' }).click();
   await page.getByRole('textbox', { name: 'Je naam' }).fill('Jesse');
   await page.getByRole('button', { name: 'Maak een lobby', exact: true }).click();
-  const code = await page.locator('strong').innerText();
+  const code = await page.locator('[class*=invite] strong').innerText();
   const guestContext = await browser.newContext({ baseURL, locale: 'en-GB' });
   const offlineContext = await browser.newContext({ baseURL, locale: 'en-GB' });
   try {

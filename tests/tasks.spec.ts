@@ -31,7 +31,7 @@ test('organiser edits stations and prints sheets; a player completes phone and c
   await print.screenshot({ path: testInfo.outputPath('station-sheets.png'), fullPage: true });
   const stations: PrintableStation[] = (await (await page.request.get('/api/stations/print')).json()).stations;
 
-  const code = await page.locator('strong').first().innerText();
+  const code = await page.locator('[class*=invite] strong').innerText();
   const context = await browser.newContext({ baseURL, locale: 'en-GB', viewport: { width: 390, height: 844 } });
   try {
     expect((await context.request.post('/api/games/join', { data: { code, name: 'Guest' } })).status()).toBe(201);

@@ -20,7 +20,7 @@ Use this file to resolve open questions and record changes after family trial ro
 
 ## Decisions before implementation
 
-- Hosting provider and running cost remain open before deployment.
+- Hosting: playing from a laptop on the home Wi-Fi works without deployment (see the README). A hosted deployment remains optional.
 - The family's phone/browser baseline (both interface languages are already supported).
 - ~~Small initial puzzle library~~: number order, wiring and printable codebooks. Physical materials beyond the printed sheets and station placement remain open.
 - Exact screens for private elimination entry, reconnecting and organiser recovery.

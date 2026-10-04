@@ -11,7 +11,7 @@ test('English and Dutch persist, invitations join live, and refresh restores eac
   await page.getByRole('textbox', { name: 'Je naam' }).fill('Jesse');
   await page.getByRole('button', { name: 'Maak een lobby' }).click();
   await expect(page.getByRole('heading', { name: 'Het team komt samen.' })).toBeVisible();
-  const code = await page.locator('strong').innerText();
+  const code = await page.locator('[class*=invite] strong').innerText();
   const guestContext = await browser.newContext({ locale: 'en-GB' });
   const guest = await guestContext.newPage();
   await guest.goto(`/?code=${code}`);
@@ -38,4 +38,30 @@ test('mobile entry is accessible and translates validation errors', async ({ pag
   await expect(page.getByRole('alert')).toContainText('Vul een naam');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+});
+
+test('a host-only organiser shows a join QR code and runs the round without a role', async ({ page, browser, baseURL }) => {
+  await page.goto('/');
+  await page.getByText('EN', { exact: true }).click();
+  await page.getByRole('tab', { name: 'Host a game' }).click();
+  await expect(page.getByRole('radio', { name: /Just host on this screen/ })).toBeChecked();
+  await page.getByRole('textbox', { name: 'Your name' }).fill('Laptop');
+  await page.getByRole('button', { name: 'Create a lobby' }).click();
+  const code = await page.locator('[class*=invite] strong').innerText();
+  await expect(page.getByRole('img', { name: `Scan to join: ${code}` })).toBeVisible();
+  await expect(page.getByText('Host', { exact: true })).toBeVisible();
+  await expect(page.getByText('0 / 8', { exact: true })).toBeVisible();
+  const context = await browser.newContext({ baseURL });
+  try {
+    expect((await context.request.post('/api/games/join', { data: { code, name: 'Phone' } })).status()).toBe(201);
+    await expect(page.getByText('1 / 8', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Start round', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Playing' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Your secret role' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Your tasks' })).toHaveCount(0);
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    const guest = await context.newPage();
+    await guest.goto('/');
+    await expect(guest.getByRole('heading', { name: 'Your secret role' })).toBeVisible();
+  } finally { await context.close(); }
 });

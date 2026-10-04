@@ -8,7 +8,7 @@ Start with **6–8 players and one Impostor**, combining phone puzzles with phys
 
 The app scaffold is implemented with the confirmed React/TypeScript + Vite, React Aria, CSS Modules, Node/Express, Socket.IO, SQLite and Zod stack. English and Dutch are available per phone, with a persistent language switch and translated errors.
 
-Working now: create a lobby, share an invitation link or five-letter code, join with up to eight players, receive live roster updates, and restore the same identity after refresh or server restart. With 1–8 players, the organiser can start a round with one random Impostor, pause/resume it, end it with a confirmed role reveal, and return everyone to the same lobby for another round. SQLite persists lobbies, roles, tasks and hashed session credentials; players receive HttpOnly session cookies. The organiser joins as a player with a separate organiser flag.
+Working now: create a lobby, either as a host-only screen (for example a laptop that runs the game without playing) or as an organiser who also plays, share an invitation link or five-letter code, join with up to eight players, receive live roster updates, and restore the same identity after refresh or server restart. With 1–8 players, the organiser can start a round with one random Impostor, pause/resume it, end it with a confirmed role reveal, and return everyone to the same lobby for another round. SQLite persists lobbies, roles, tasks and hashed session credentials; players receive HttpOnly session cookies. The organiser joins as a player with a separate organiser flag.
 
 **Tasks (stage 3, first slice):** the organiser edits the task stations (house rooms) in the lobby. **Print materials** in the organiser controls generates everything to print, or save as PDF from the print dialog: a join poster with QR code, one A4 sheet per station with its QR code and codebook, and cut-out body/ghost markers. Scanning a station QR code with the phone camera opens that player's task at the station. By default tasks open **only** by scanning; the organiser can switch on **Open tasks without scanning**. Starting a round gives every player four tasks spread over the stations: *Number order* and *Fix the wiring* on the phone, and *Codebook*, where the player looks up four symbols on that room's printed sheet. The Impostor receives identical-looking fake tasks that never count. Shared crew progress is published every 30 seconds rather than after each task, and the crew wins automatically once 80% of real tasks (rounded up) are done.
 
@@ -46,6 +46,19 @@ The first version covers joining, secret roles, tasks, eliminations, body report
 3. Add eliminations, bodies and ghosts, then reports, meetings, vote entry and the Impostor win, alongside the corresponding organiser settings and recovery controls.
 4. Build the first playable version, run a practice round and tune it through family playtests.
 5. Use those playtests to decide whether the control room or sabotage would improve the game.
+
+## Play on your home network (no hosting needed)
+
+The game runs fine from a laptop on your own Wi-Fi; nothing has to be deployed.
+
+1. Put the laptop and all phones on the same Wi-Fi (not a guest network that isolates devices).
+2. Run `npm ci` once, then `npm run play`. It builds the app and serves it on port 3001, printing addresses such as `On your network: http://192.168.1.18:3001`. On macOS, allow incoming connections if the firewall asks.
+3. On the laptop, open that network address (not `localhost`, or the QR codes will not work on phones), choose **Host a game → Just host on this screen**, and keep this screen as the organiser view. It does not get a role or tasks.
+4. Players scan the QR code on the laptop screen (or the printed join poster) with their phone camera. Use the phone's default browser, because station QR codes open there too.
+5. Open **Print materials** from the same address and print the station sheets.
+6. Keep the laptop awake and plugged in, for example `caffeinate -i npm run play` on macOS. Give the laptop a fixed IP address in your router (a DHCP reservation); the printed QR codes contain this address and stop working if it changes.
+
+Lobbies, roles and progress are saved in `data/game.sqlite`; if the laptop restarts, run `npm start` (or `npm run play`) again and the round resumes paused. The connection is plain HTTP, which is fine on a home network.
 
 ## Working locally
 
