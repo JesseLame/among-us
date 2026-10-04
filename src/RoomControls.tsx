@@ -4,6 +4,7 @@ import type { ErrorCode, Lobby, RoomCommand, SessionEndReason } from '../shared/
 import { codeFor, commandId, request } from './api';
 import { errorMessages, translations, type Language } from './i18n';
 import styles from './App.module.css';
+import { QrCode, usableOrigin, usePhoneOrigin } from './Qr';
 import ui from './styles/ui.module.css';
 
 type Props = {
@@ -19,6 +20,8 @@ export default function RoomControls({ lobby, language, connected, onUpdate, onE
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ErrorCode | null>(null);
   const inFlight = useRef(false);
+  const [rejoin, setRejoin] = useState<{ name: string; code: string } | null>(null);
+  const origin = usableOrigin(usePhoneOrigin(lobby.code)) ?? location.origin;
   useEffect(() => { setSelection(null); setError(null); }, [lobby.revision]);
   if (!lobby.you.organiser) return null;
 
@@ -28,6 +31,17 @@ export default function RoomControls({ lobby, language, connected, onUpdate, onE
     setSelection(player
       ? { input: { ...base, action: 'remove', playerId: player.id }, name: player.name }
       : { input: { ...base, action: 'destroy' } });
+  }
+
+  // A one-time code (shown as a QR code) puts a player who lost their session back in their place.
+  async function rejoinCode(player: Lobby['players'][number]) {
+    if (inFlight.current || !connected) return;
+    inFlight.current = true; setBusy(true); setError(null);
+    try {
+      const result = await request<{ lobby: Lobby | null; rejoin?: string }>('/api/room/commands', { action: 'rejoinCode', playerId: player.id, commandId: commandId(), code: lobby.code, expectedRevision: lobby.revision, roundId: lobby.roundId });
+      if (result.rejoin) setRejoin({ name: player.name, code: result.rejoin });
+    } catch (failure) { setError(codeFor(failure)); }
+    finally { inFlight.current = false; setBusy(false); }
   }
 
   // Adding a test player needs no confirmation; it is undone with Remove.
@@ -69,6 +83,7 @@ export default function RoomControls({ lobby, language, connected, onUpdate, onE
     <ul className={styles.managePlayers}>
       {lobby.players.filter(player => !player.removed).map(player => <li key={player.id}>
         <span>{player.name}{player.test && <small> · {t.testBadge}</small>}</span>
+        {!player.organiser && !player.test && <Button className={ui.secondary} isDisabled={busy || !connected} aria-label={`${t.rejoin}: ${player.name}`} onPress={() => void rejoinCode(player)}>{t.rejoin}</Button>}
         {player.organiser ? <small>{t.you}</small> : <Button className={ui.removeButton} isDisabled={busy || !connected} aria-label={`${t.removePlayer} ${player.name}`} onPress={() => choose(player)}>{t.removePlayer}</Button>}
       </li>)}
     </ul>
@@ -78,6 +93,17 @@ export default function RoomControls({ lobby, language, connected, onUpdate, onE
     </div>}
     {error && !selection && <p className={ui.error} role="alert">{errorMessages[language][error]}</p>}
     <Button className={ui.endButton} isDisabled={busy || !connected} onPress={() => choose()}>{t.deleteRoom}</Button>
+    <ModalOverlay className={ui.modalOverlay} isOpen={Boolean(rejoin)} onOpenChange={open => { if (!open) setRejoin(null); }} isDismissable>
+      <Modal className={ui.modal}>
+        <Dialog aria-describedby="rejoin-description">
+          <Heading slot="title">{t.rejoinTitle} {rejoin?.name}</Heading>
+          <p id="rejoin-description">{t.rejoinText}</p>
+          {rejoin && <QrCode className={styles.rejoinQr} value={`${origin}/?rejoin=${rejoin.code}`} label={`${t.rejoinTitle} ${rejoin.name}`}/>}
+          <p className={ui.note}>{t.rejoinCodeLabel} <strong className={styles.phoneAddress}>{origin}/?rejoin={rejoin?.code}</strong></p>
+          <div className={ui.dialogActions}><Button className={ui.secondary} autoFocus onPress={() => setRejoin(null)}>{t.cancel}</Button></div>
+        </Dialog>
+      </Modal>
+    </ModalOverlay>
     <ModalOverlay className={ui.modalOverlay} isOpen={Boolean(selection)} onOpenChange={open => { if (!open && !busy) setSelection(null); }} isDismissable={!busy} isKeyboardDismissDisabled={busy}>
       <Modal className={ui.modal}>
         <Dialog aria-describedby="room-action-description">

@@ -14,6 +14,19 @@ import PrintSheets from './PrintSheets';
 import { PhoneAddressNote, QrCode, usableOrigin, usePhoneOrigin } from './Qr';
 import { playMeetingAlarm, unlockAudio } from './sound';
 
+// Started once per page load (React may run start-up effects twice in development), and
+// before the session check so the new session cookie is in place.
+const rejoinRequest = (() => {
+  const params = new URLSearchParams(location.search);
+  const code = params.get('rejoin');
+  if (!code) return null;
+  params.delete('rejoin');
+  window.history.replaceState(null, '', `${location.pathname}${params.size ? `?${params}` : ''}`);
+  const pending = request('/api/games/rejoin', { code });
+  pending.catch(() => undefined);
+  return pending;
+})();
+
 export default function App() {
   const [language, setLanguage] = useState<Language>(initialLanguage);
   const t = translations[language];
@@ -91,6 +104,14 @@ export default function App() {
     const current = ++sessionRequest.current;
     setLoading(true); setLoadError(null);
     try {
+      // A rejoin link from the organiser replaces this browser's session with that player's place.
+      if (rejoinRequest) {
+        try {
+          const rejoined = await rejoinRequest;
+          if (current === sessionRequest.current) { setLobby(rejoined.lobby); setSessionNotice(null); }
+          return;
+        } catch (failure) { if (current === sessionRequest.current) setError(codeFor(failure)); }
+      }
       const result = await request('/api/session');
       if (current === sessionRequest.current) setLobby(result.lobby);
     }

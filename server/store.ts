@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { dirname } from 'node:path';
 import { mkdirSync } from 'node:fs';
-import type { CallMeeting, CastVote, CompleteTask, Eliminate, MeetingCommand, MeetingKind, MeetingStage, ErrorCode, Lobby, PlayerStatus, RoleInfo, Phase, PrintableStation, Role, RoundCommand, RoomCommand, RoundResult, SettingsCommand, StationAccess, StationCommand, Task, TaskPuzzle } from '../shared/protocol.js';
+import type { CallMeeting, CastVote, Correction, CompleteTask, Eliminate, MeetingCommand, MeetingKind, MeetingStage, ErrorCode, Lobby, PlayerStatus, RoleInfo, Phase, PrintableStation, Role, RoundCommand, RoomCommand, RoundResult, SettingsCommand, StationAccess, StationCommand, Task, TaskPuzzle } from '../shared/protocol.js';
 import { codebook, puzzle, shuffle, solved, type Codebook, type TaskKind } from './puzzles.js';
 
 export class GameError extends Error {
@@ -143,6 +143,13 @@ export function createStore(path: string, now: () => number = Date.now) {
         ALTER TABLE games ADD COLUMN meeting_result TEXT;
         UPDATE games SET meeting_stage = 'discussion' WHERE phase = 'meeting';
         PRAGMA user_version = 11;
+      `);
+    }
+    if (version < 12) {
+      db.exec(`
+        ALTER TABLE players ADD COLUMN rejoin_code TEXT;
+        ALTER TABLE players ADD COLUMN rejoin_expires INTEGER;
+        PRAGMA user_version = 12;
       `);
     }
   });
@@ -377,6 +384,7 @@ export function createStore(path: string, now: () => number = Date.now) {
         phase = 'active'; break;
       case 'end':
         if (phase !== 'active' && phase !== 'paused' && phase !== 'meeting') throw new GameError('INVALID_PHASE', 409);
+        db.prepare('UPDATE games SET winner = ? WHERE code = ?').run(input.winner ?? null, game.code);
         phase = 'ended'; endReason = 'organiser'; break;
       case 'reset':
         if (phase !== 'ended') throw new GameError('INVALID_PHASE', 409);
@@ -418,6 +426,16 @@ export function createStore(path: string, now: () => number = Date.now) {
       db.prepare('UPDATE games SET revision = revision + 1 WHERE code = ?').run(game.code);
       recordCommand(input.commandId, game.code, organiser.id, payload);
       return { code: game.code, lobby: lobby(token) };
+    }
+    if (input.action === 'rejoinCode') {
+      const player = db.prepare('SELECT * FROM players WHERE id = ? AND game_code = ? AND removed = 0 AND test = 0 AND organiser = 0').get(input.playerId, game.code) as Player | undefined;
+      if (!player) throw new GameError('PLAYER_NOT_FOUND', 404);
+      // Unambiguous characters only; valid for one use within ten minutes.
+      const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+      const code = Array.from({ length: 8 }, () => alphabet[randomInt(alphabet.length)]).join('');
+      db.prepare('UPDATE players SET rejoin_code = ?, rejoin_expires = ? WHERE id = ?').run(code, now() + 10 * 60 * 1000, player.id);
+      recordCommand(input.commandId, game.code, organiser.id, payload);
+      return { code: game.code, lobby: lobby(token), rejoin: code };
     }
     const target = db.prepare('SELECT * FROM players WHERE id = ? AND game_code = ? AND removed = 0').get(input.playerId, game.code) as Player | undefined;
     if (!target) throw new GameError('PLAYER_NOT_FOUND', 404);
@@ -604,6 +622,58 @@ export function createStore(path: string, now: () => number = Date.now) {
     return game.code;
   });
 
+  // Organiser corrections. Each is applied to the whole room and returns no detail
+  // about the hidden state it touched; win conditions are checked afterwards.
+  const correct = db.transaction((token: string | undefined, input: Correction) => {
+    const { player: organiser, game } = organiserFor(token);
+    const payload = JSON.stringify(input);
+    if (alreadyApplied(input.commandId, organiser.id, payload)) return game.code;
+    if (game.round_id !== input.roundId || game.revision !== input.expectedRevision) throw new GameError('STALE_COMMAND', 409);
+    if (game.phase !== 'active' && game.phase !== 'paused' && game.phase !== 'meeting') throw new GameError('INVALID_PHASE', 409);
+    switch (input.action) {
+      case 'creditStation':
+      case 'removeStationTasks': {
+        if (!db.prepare('SELECT 1 FROM stations WHERE id = ? AND game_code = ?').get(input.stationId, game.code)) throw new GameError('INVALID_INPUT');
+        if (input.action === 'creditStation') {
+          db.prepare('UPDATE tasks SET done_at = ? WHERE station_id = ? AND round_id = ? AND done_at IS NULL').run(now(), input.stationId, game.round_id);
+        } else {
+          db.prepare('DELETE FROM tasks WHERE station_id = ? AND round_id = ? AND done_at IS NULL').run(input.stationId, game.round_id);
+        }
+        break;
+      }
+      case 'setStatus': {
+        const target = db.prepare('SELECT * FROM players WHERE id = ? AND game_code = ? AND playing = 1 AND removed = 0').get(input.playerId, game.code) as Player | undefined;
+        if (!target) throw new GameError('PLAYER_NOT_FOUND', 404);
+        // Marking the Impostor out records a catch the app missed: the crew wins.
+        if (input.status === 'ghost' && target.role === 'impostor') {
+          endRound(game.code, 'crew', 'ejected');
+          recordCommand(input.commandId, game.code, organiser.id, payload);
+          return game.code;
+        }
+        db.prepare('UPDATE players SET status = ? WHERE id = ?').run(input.status, target.id);
+        break;
+      }
+      case 'restoreEmergency':
+        db.prepare('UPDATE players SET emergency_used = 0 WHERE game_code = ?').run(game.code);
+        break;
+    }
+    if (tasksWon(game)) endRound(game.code, 'crew', 'tasks');
+    else if (impostorWon(game)) endRound(game.code, 'impostor', 'eliminations');
+    else db.prepare('UPDATE games SET revision = revision + 1 WHERE code = ?').run(game.code);
+    recordCommand(input.commandId, game.code, organiser.id, payload);
+    return game.code;
+  });
+
+  // A player who lost their session (phone died, browser closed) takes their place again
+  // with a one-time code from the organiser. Their old session stops working.
+  const rejoinPlayer = db.transaction((code: string) => {
+    const player = db.prepare('SELECT * FROM players WHERE rejoin_code = ? AND removed = 0').get(code) as (Player & { rejoin_expires: number }) | undefined;
+    if (!player || player.rejoin_expires < now()) throw new GameError('REJOIN_EXPIRED', 404);
+    const token = randomBytes(32).toString('hex');
+    db.prepare('UPDATE players SET session_hash = ?, rejoin_code = NULL, rejoin_expires = NULL WHERE id = ?').run(hash(token), player.id);
+    return { token, lobby: lobby(token)! };
+  });
+
   // Completing a task changes only the player's own list unless it wins the round.
   // Retrying a completed task is harmless, so no command receipt is needed.
   const completeTask = db.transaction((token: string | undefined, input: CompleteTask) => {
@@ -640,5 +710,5 @@ export function createStore(path: string, now: () => number = Date.now) {
     return changed;
   }
 
-  return { lobby, create, join, role, eliminatePlayer, startMeeting, runMeeting, vote, command, manageRoom, manageStations, changeSettings, printableStations, completeTask, tick, close: () => db.close() };
+  return { lobby, create, join, role, eliminatePlayer, startMeeting, runMeeting, vote, correct, rejoinPlayer, command, manageRoom, manageStations, changeSettings, printableStations, completeTask, tick, close: () => db.close() };
 }

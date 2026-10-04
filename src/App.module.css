@@ -615,6 +615,7 @@
 .managePlayers li > span {
   overflow-wrap: anywhere;
   min-width: 0;
+  margin-right: auto;
 }
 
 .managePlayers small {
@@ -625,6 +626,49 @@
   display: grid;
   gap: var(--space-2);
   margin: var(--space-2) 0 var(--space-4);
+}
+
+.corrections {
+  display: grid;
+  gap: var(--space-5);
+  padding-bottom: var(--space-4);
+}
+
+.corrections section {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.corrections h3 {
+  font: 600 var(--text-sm) var(--font-heading);
+  margin: 0;
+}
+
+.selectField {
+  display: grid;
+  gap: var(--space-1);
+  font: 600 var(--text-xs) var(--font-heading);
+}
+
+.selectField select {
+  min-height: var(--control-height);
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-control);
+  background: var(--color-input);
+  color: var(--color-text);
+  font: 400 var(--text-md) var(--font-body);
+  padding: 0 var(--space-3);
+}
+
+.correctionActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.rejoinQr {
+  width: min(240px, 100%);
+  margin: var(--space-3) auto;
 }
 
 .roomCode {

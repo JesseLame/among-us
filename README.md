@@ -16,7 +16,7 @@ Working now: create a lobby, either as a host-only screen (for example a laptop 
 
 **Meetings and voting (stage 3, third slice):** living players can **Report body** or call an **Emergency meeting**; the organiser can always **Call meeting**. Play stops, a siren sounds and everyone gathers. The host then taps **Start meeting**, ticking who was found eliminated (recorded bodies are included automatically, and the list never shows who the app knows is dead); those players become ghosts, shown to everyone, and the discussion countdown starts. With **Vote on phones** on, the host starts the vote, living players vote on their phones (changeable until closed), and closing the vote shows who voted for whom on the host screen. Otherwise everyone votes by pointing and the host records the result. The unique highest vote is ejected (tie or Skip: nobody); ejecting the Impostor wins for the crew. Ghosts may do tasks after the meeting but not talk, vote or call meetings. Body reports and emergency meetings each have an organiser on/off switch. A meeting sounds a short siren on every open phone and the host screen (and vibrates Android phones). Browsers only allow sound after someone has tapped the page once, and a locked phone or an iPhone on silent stays quiet.
 
-A full round is now playable. Organiser corrections and recovery tools (stage 4) are still to come. No hosting has been purchased or deployment performed.
+A full round is now playable. **Stage 4, first part:** under **Fix a problem** the organiser can credit or remove a broken station's tasks for everyone, mark a player back in the game or out, and restore emergency meetings, without seeing roles or hidden states; **End round** can declare a winner; and **Rejoin** in Room management shows a one-time QR code that puts a player who lost their phone or session back in their place. No hosting has been purchased or deployment performed.
 
 Roles stay out of public updates and ordinary organiser views. Each phone fetches only its own role after an explicit reveal, and hides it when focus/visibility is lost, the connection drops, or the phase changes. Ending the round reveals all roles to everyone and prevents resuming that round. After a server restart, active rounds recover paused with the same roles; the organiser decides when to resume. Existing lobby databases are migrated automatically, preserving sessions.
 
@@ -47,7 +47,7 @@ The first version covers joining, secret roles, tasks, eliminations, body report
 
 1. ~~Choose a small puzzle set and initial rooms.~~ Done: number order, wiring and printable codebooks; stations are edited in the lobby.
 2. ~~Build the first phone puzzle and physical-answer puzzle, with assignments, believable fake tasks and shared progress.~~ Done.
-3. ~~Eliminations, bodies, the Impostor win, body reports, emergency meetings, discussion timer and ghosts~~ done. ~~Vote entry and ejection~~ done. Next: organiser corrections and recovery controls.
+3. ~~Eliminations, bodies, the Impostor win, body reports, emergency meetings, discussion timer and ghosts~~ done. ~~Vote entry and ejection~~ done. ~~Core corrections and rejoining~~ done. Next: a family playtest, then the remaining stage 4 items (task replacement, confirmed victory, change history).
 4. Build the first playable version, run a practice round and tune it through family playtests.
 5. Use those playtests to decide whether the control room or sabotage would improve the game.
 

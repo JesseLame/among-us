@@ -7,13 +7,15 @@ export const language = z.enum(['en', 'nl']);
 export const createGame = z.object({ name: playerName, language: language.optional(), playing: z.boolean().optional() });
 export const joinGame = z.object({ name: playerName, code: gameCode });
 
-export const errors = ['INVALID_INPUT', 'GAME_NOT_FOUND', 'GAME_FULL', 'NAME_TAKEN', 'NO_SESSION', 'SERVER_ERROR', 'CONNECTION_ERROR', 'ALREADY_JOINED', 'FORBIDDEN', 'NOT_ENOUGH_PLAYERS', 'ROUND_IN_PROGRESS', 'STALE_COMMAND', 'INVALID_PHASE', 'PLAYER_NOT_FOUND', 'CANNOT_REMOVE_ORGANISER', 'NO_STATIONS', 'TOO_MANY_STATIONS', 'STATION_EXISTS', 'TASK_NOT_FOUND', 'WRONG_ANSWER', 'NOT_PLAYING', 'NOT_READY', 'NOT_ALIVE', 'ELIMINATIONS_OFF', 'REPORTS_OFF', 'EMERGENCY_OFF', 'NO_EMERGENCY_LEFT', 'VOTING_CLOSED', 'PHONE_VOTING_OFF'] as const;
+export const errors = ['INVALID_INPUT', 'GAME_NOT_FOUND', 'GAME_FULL', 'NAME_TAKEN', 'NO_SESSION', 'SERVER_ERROR', 'CONNECTION_ERROR', 'ALREADY_JOINED', 'FORBIDDEN', 'NOT_ENOUGH_PLAYERS', 'ROUND_IN_PROGRESS', 'STALE_COMMAND', 'INVALID_PHASE', 'PLAYER_NOT_FOUND', 'CANNOT_REMOVE_ORGANISER', 'NO_STATIONS', 'TOO_MANY_STATIONS', 'STATION_EXISTS', 'TASK_NOT_FOUND', 'WRONG_ANSWER', 'NOT_PLAYING', 'NOT_READY', 'NOT_ALIVE', 'ELIMINATIONS_OFF', 'REPORTS_OFF', 'EMERGENCY_OFF', 'NO_EMERGENCY_LEFT', 'VOTING_CLOSED', 'PHONE_VOTING_OFF', 'REJOIN_EXPIRED'] as const;
 export type ErrorCode = typeof errors[number];
 export type Role = 'crewmate' | 'impostor';
 export type Phase = 'lobby' | 'active' | 'paused' | 'meeting' | 'ended';
 export const roundCommand = z.object({
   commandId: z.uuid(),
   action: z.enum(['start', 'pause', 'resume', 'endMeeting', 'end', 'reset']),
+  // Only for 'end': the organiser may declare a winner; otherwise the round ends without one.
+  winner: z.enum(['crew', 'impostor']).nullable().optional(),
   expectedRevision: z.number().int().nonnegative(),
   roundId: z.uuid().nullable(),
 });
@@ -24,6 +26,8 @@ export const roomCommand = z.discriminatedUnion('action', [
   roomCommandBase.extend({ action: z.literal('destroy') }),
   // A test player for trying rounds with few phones: always a Crewmate, without tasks.
   roomCommandBase.extend({ action: z.literal('addTestPlayer') }),
+  // A one-time code that lets a player who lost their session take their place again.
+  roomCommandBase.extend({ action: z.literal('rejoinCode'), playerId: z.uuid() }),
 ]);
 export type RoomCommand = z.infer<typeof roomCommand>;
 export const stationName = z.string().trim().min(1).max(24);
@@ -92,6 +96,17 @@ export const meetingCommand = z.discriminatedUnion('action', [
   meetingCommandBase.extend({ action: z.literal('record'), ejected: z.uuid().nullable() }),
 ]);
 export type MeetingCommand = z.infer<typeof meetingCommand>;
+// Organiser corrections during a round. None of them reveals roles or hidden states:
+// station fixes apply to everyone's tasks there, real and fake alike.
+const correctionBase = z.object({ commandId: z.uuid(), roundId: z.uuid(), expectedRevision: z.number().int().nonnegative() });
+export const correction = z.discriminatedUnion('action', [
+  correctionBase.extend({ action: z.literal('creditStation'), stationId: z.uuid() }),
+  correctionBase.extend({ action: z.literal('removeStationTasks'), stationId: z.uuid() }),
+  correctionBase.extend({ action: z.literal('setStatus'), playerId: z.uuid(), status: z.enum(['alive', 'ghost']) }),
+  correctionBase.extend({ action: z.literal('restoreEmergency') }),
+]);
+export type Correction = z.infer<typeof correction>;
+export const rejoin = z.object({ code: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{8}$/) });
 export const castVote = z.object({ roundId: z.uuid(), target: z.union([z.uuid(), z.literal('skip')]) });
 export type CastVote = z.infer<typeof castVote>;
 export const eliminate = z.object({ commandId: z.uuid(), roundId: z.uuid(), targetId: z.uuid() });

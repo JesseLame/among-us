@@ -751,3 +751,83 @@ describe('voting', () => {
     expect(ended.result).toEqual({ winner: 'crew', reason: 'ejected' });
   });
 });
+
+describe('organiser corrections and recovery', () => {
+  async function round() {
+    const app = await start();
+    const game = await crew(app);
+    let lobby: Lobby = (await (await app.post('/api/settings/commands', { commandId: randomUUID(), expectedRevision: game.lobby.revision, roundId: null, openingProtection: 0 }, game.cookies[0])).json()).lobby;
+    lobby = (await (await app.post('/api/round/commands', roundInput(lobby, 'start'), game.cookies[0])).json()).lobby;
+    const roles = await Promise.all(game.cookies.map(async cookie => (await (await fetch(`${app.url}/api/role?roundId=${lobby.roundId}`, { headers: { Cookie: cookie } })).json()).role as string));
+    const ids = await Promise.all(game.cookies.map(async cookie => (await game.snapshot(cookie)).you.id));
+    const fix = async (change: object, cookie = game.cookies[0]) => {
+      const current = await game.snapshot();
+      return (await app.post('/api/corrections', { ...change, commandId: randomUUID(), roundId: current.roundId, expectedRevision: current.revision }, cookie)).json();
+    };
+    return { app, game, lobby, roles, ids, fix };
+  }
+
+  it('credits or removes a broken station for everyone and rechecks the task goal', async () => {
+    const { game, lobby, fix } = await round();
+    expect((await fix({ action: 'restoreEmergency' }, game.cookies[1])).error).toBe('FORBIDDEN');
+    const [first, ...others] = lobby.stations;
+    const before = (await game.snapshot()).progress!;
+    await fix({ action: 'removeStationTasks', stationId: first.id });
+    for (const cookie of game.cookies) expect((await game.snapshot(cookie)).you.tasks.some(task => task.stationId === first.id)).toBe(false);
+    const after = (await game.snapshot()).progress!;
+    expect(after.goal).toBeLessThan(before.goal);
+    // Crediting every other station completes all remaining real tasks: the crew wins.
+    let result: { lobby: Lobby } = { lobby };
+    for (const station of others) result = await fix({ action: 'creditStation', stationId: station.id });
+    expect(result.lobby.phase).toBe('ended');
+    expect(result.lobby.result).toEqual({ winner: 'crew', reason: 'tasks' });
+  });
+
+  it('corrects player states without revealing them, restores emergency meetings, and ends with a chosen winner', async () => {
+    const { app, game, roles, ids, fix } = await round();
+    const crewIndex = roles.indexOf('crewmate');
+    const impostorIndex = roles.indexOf('impostor');
+    const roundId = (await game.snapshot()).roundId;
+    await app.post('/api/eliminate', { commandId: randomUUID(), roundId, targetId: ids[crewIndex] }, game.cookies[impostorIndex]);
+    expect((await game.snapshot(game.cookies[crewIndex])).you.status).toBe('body');
+    // The response looks the same whatever the previous state was.
+    const revived = await fix({ action: 'setStatus', playerId: ids[crewIndex], status: 'alive' });
+    const unchanged = await fix({ action: 'setStatus', playerId: ids[crewIndex], status: 'alive' });
+    expect(Object.keys(revived.lobby).sort()).toEqual(Object.keys(unchanged.lobby).sort());
+    expect((await game.snapshot(game.cookies[crewIndex])).you.status).toBe('alive');
+    await fix({ action: 'setStatus', playerId: ids[crewIndex], status: 'ghost' });
+    expect((await game.snapshot()).players.find(player => player.id === ids[crewIndex])!.out).toBe(true);
+
+    const emergency = await (await app.post('/api/meetings', { commandId: randomUUID(), roundId, kind: 'emergency' }, game.cookies[(crewIndex + 1) % 6 === impostorIndex ? (crewIndex + 2) % 6 : (crewIndex + 1) % 6])).json();
+    expect(emergency.lobby.you.emergencyLeft).toBe(0);
+    await fix({ action: 'restoreEmergency' });
+    expect((await game.snapshot(game.cookies[(crewIndex + 1) % 6 === impostorIndex ? (crewIndex + 2) % 6 : (crewIndex + 1) % 6])).you.emergencyLeft).toBe(1);
+
+    const lobby = await game.snapshot();
+    const ended = (await (await app.post('/api/round/commands', { ...roundInput(lobby, 'end'), winner: 'impostor' }, game.cookies[0])).json()).lobby as Lobby;
+    expect(ended.result).toEqual({ winner: 'impostor', reason: 'organiser' });
+  });
+
+  it('marking the Impostor out counts as catching them', async () => {
+    const { roles, ids, fix } = await round();
+    const result = await fix({ action: 'setStatus', playerId: ids[roles.indexOf('impostor')], status: 'ghost' });
+    expect(result.lobby.result).toEqual({ winner: 'crew', reason: 'ejected' });
+  });
+
+  it('lets a player who lost their session rejoin once with a code from the organiser', async () => {
+    const { app, game, ids, lobby } = await round();
+    const code = async () => (await (await app.post('/api/room/commands', { action: 'rejoinCode', playerId: ids[2], commandId: randomUUID(), code: lobby.code, expectedRevision: (await game.snapshot()).revision, roundId: lobby.roundId }, game.cookies[0])).json()).rejoin as string;
+    expect((await app.post('/api/room/commands', { action: 'rejoinCode', playerId: ids[2], commandId: randomUUID(), code: lobby.code, expectedRevision: (await game.snapshot()).revision, roundId: lobby.roundId }, game.cookies[1])).status).toBe(403);
+    const rejoinCode = await code();
+    expect(rejoinCode).toMatch(/^[A-Z0-9]{8}$/);
+    const response = await app.post('/api/games/rejoin', { code: rejoinCode.toLowerCase() });
+    expect(response.status).toBe(200);
+    const cookie = response.headers.get('set-cookie')!;
+    const restored = await game.snapshot(cookie);
+    expect(restored.you.id).toBe(ids[2]);
+    expect(restored.you.tasks).toEqual((await game.snapshot(cookie)).you.tasks);
+    // The old session no longer works, and the code works only once.
+    expect(await game.snapshot(game.cookies[2])).toBeNull();
+    expect((await (await app.post('/api/games/rejoin', { code: rejoinCode })).json()).error).toBe('REJOIN_EXPIRED');
+  });
+});

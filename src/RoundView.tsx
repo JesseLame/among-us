@@ -11,6 +11,7 @@ import GameSettings from './Settings';
 import EliminatePanel from './Eliminate';
 import { CallMeetingButtons, MeetingCard } from './Meeting';
 import MeetingControls from './MeetingControls';
+import Corrections from './Corrections';
 
 type Props = {
   lobby: Lobby; language: Language; connected: boolean; onUpdate: (lobby: Lobby) => void; onExit: (reason: SessionEndReason) => void;
@@ -22,6 +23,7 @@ export function RoundControls({ lobby, language, connected, onUpdate, onExit }: 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ErrorCode | null>(null);
   const [confirmEnd, setConfirmEnd] = useState(false);
+  const [endWinner, setEndWinner] = useState<'' | 'crew' | 'impostor'>('');
   const inFlight = useRef(false);
   // Retain the original command ID after an ambiguous network failure. A manual
   // retry cannot apply the same command twice, even if its first response was lost.
@@ -29,11 +31,11 @@ export function RoundControls({ lobby, language, connected, onUpdate, onExit }: 
 
   useEffect(() => { setConfirmEnd(false); setError(null); pending.current = null; }, [lobby.revision]);
 
-  async function act(action: RoundCommand['action']) {
+  async function act(action: RoundCommand['action'], extra: Pick<RoundCommand, 'winner'> = {}) {
     if (inFlight.current || !connected) return;
     inFlight.current = true; setBusy(true); setError(null);
     const input: RoundCommand = pending.current?.action === action ? pending.current : {
-      commandId: commandId(), action, expectedRevision: lobby.revision, roundId: lobby.roundId,
+      commandId: commandId(), action, expectedRevision: lobby.revision, roundId: lobby.roundId, ...extra,
     };
     pending.current = input;
     try {
@@ -83,10 +85,16 @@ export function RoundControls({ lobby, language, connected, onUpdate, onExit }: 
         <Dialog aria-describedby="end-description">
           <Heading slot="title">{t.endTitle}</Heading>
           <p id="end-description">{t.endDescription}</p>
+          <fieldset className={ui.choices}>
+            <legend>{t.endResult}</legend>
+            {([['', t.noWinner], ['crew', t.crewWins], ['impostor', t.impostorWins]] as const).map(([value, label]) => <label key={value || 'none'}>
+              <input type="radio" name="end-winner" value={value} checked={endWinner === value} onChange={() => setEndWinner(value)}/><span>{label}</span>
+            </label>)}
+          </fieldset>
           {error && <p className={ui.error} role="alert">{errorMessages[language][error]}</p>}
           <div className={ui.dialogActions}>
             <Button className={ui.secondary} autoFocus isDisabled={busy} onPress={() => setConfirmEnd(false)}>{t.keepPlaying}</Button>
-            <Button className={ui.dangerButton} isDisabled={disabled} onPress={() => void act('end')}>{busy ? t.working : t.confirmEnd}</Button>
+            <Button className={ui.dangerButton} isDisabled={disabled} onPress={() => void act('end', { winner: endWinner || null })}>{busy ? t.working : t.confirmEnd}</Button>
           </div>
         </Dialog>
       </Modal>
@@ -95,6 +103,7 @@ export function RoundControls({ lobby, language, connected, onUpdate, onExit }: 
       <a className={ui.secondary} href="/print" target="_blank" rel="noopener">{t.printSheets}<span aria-hidden="true">↗</span></a>
       <p className={ui.note}>{t.printSheetsHelp}</p>
     </div>
+    {(lobby.phase === 'active' || lobby.phase === 'paused' || lobby.phase === 'meeting') && <Corrections lobby={lobby} language={language} connected={connected} onUpdate={onUpdate}/>}
     <RoomControls lobby={lobby} language={language} connected={connected} onUpdate={onUpdate} onExit={onExit}/>
   </section>;
 }
@@ -163,7 +172,9 @@ export default function RoundView(props: Props) {
   useEffect(() => { heading.current?.focus(); }, [lobby.phase]);
   const winner = lobby.result?.winner;
   const title = lobby.phase === 'meeting' ? t.meetingTitle : lobby.phase === 'paused' ? t.pausedTitle : lobby.phase === 'ended' ? winner === 'crew' ? t.crewWonTitle : winner === 'impostor' ? t.impostorWonTitle : t.endedTitle : t.roundTitle;
-  const endedMessage = winner === 'crew' ? lobby.result?.reason === 'ejected' ? t.crewWonEjectMessage : t.crewWonMessage : winner === 'impostor' ? t.impostorWonMessage : lobby.result?.reason === 'departure' ? t.departureMessage : t.endedMessage;
+  const declared = lobby.result?.reason === 'organiser';
+  const endedMessage = declared && winner ? winner === 'crew' ? t.declaredCrewMessage : t.declaredImpostorMessage
+    : winner === 'crew' ? lobby.result?.reason === 'ejected' ? t.crewWonEjectMessage : t.crewWonMessage : winner === 'impostor' ? t.impostorWonMessage : lobby.result?.reason === 'departure' ? t.departureMessage : t.endedMessage;
   const tasks = <Tasks key={`tasks:${lobby.roundId}:${lobby.phase}`} lobby={lobby} language={language} connected={connected} onUpdate={props.onUpdate} scan={props.scan} onScanHandled={props.onScanHandled} onStationScanned={props.onStationScanned}/>;
 
   // An eliminated player sees that first; everyone else starts with their role card.

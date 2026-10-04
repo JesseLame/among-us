@@ -94,6 +94,14 @@ Each control must say whether it affects the current round, an active timer or t
 - Preview changes that could immediately end the round. Confirm the change and its consequence together; routine adjustments should not require repeated confirmations. Previews must not disclose a secret role or the winning team before the change is applied.
 - Keep a small organiser change history without secret roles or hidden-state details. Allow undoing the latest correction where consistent; do not silently resume a round after roles have been revealed.
 
+## Corrections and recovery — implemented (first part)
+
+- **Fix a problem** (organiser controls, during a round): give everyone credit for, or remove, all unfinished tasks at a station (real and fake alike); mark a player back in the game or out (ghost), from a list that never shows current states; restore everyone's emergency meetings. Each needs a confirmation and rechecks the win conditions. Marking the Impostor out counts as catching them (crew wins).
+- **End round** lets the organiser choose no winner, a crew win or an Impostor win.
+- **Rejoin** (Room management, any phase): shows a one-time QR code and link, valid for 10 minutes, that puts a phone back in a player's place with the same role and tasks; the old session stops working.
+
+Still to build: replacing a broken task with a new one, organiser-confirmed victory mode, previews of changes that would end the round, and a change history with undo.
+
 ## Rescue a round
 
 The organiser needs controls to:

@@ -3,7 +3,7 @@ import { createServer } from 'node:http';
 import { createServer as createSecureServer } from 'node:https';
 import { resolve } from 'node:path';
 import { Server } from 'socket.io';
-import { callMeeting, castVote, completeTask, createGame, eliminate, meetingCommand, joinGame, roomCommand, roundCommand, settingsCommand, stationCommand, type ClientEvents, type ServerEvents, type SessionEndReason } from '../shared/protocol.js';
+import { callMeeting, castVote, completeTask, correction, createGame, eliminate, meetingCommand, rejoin, joinGame, roomCommand, roundCommand, settingsCommand, stationCommand, type ClientEvents, type ServerEvents, type SessionEndReason } from '../shared/protocol.js';
 import { createStore, GameError } from './store.js';
 import { lanAddresses } from './network.js';
 
@@ -80,12 +80,38 @@ export function createApp(options: { databasePath: string; production?: boolean;
         if (!parsed.success) throw new GameError('INVALID_INPUT');
         return store.create(parsed.data.name, parsed.data.language, parsed.data.playing);
       })();
-      res.cookie('home_session', result.token, {
-        httpOnly: true, secure: Boolean(options.production || options.tls), sameSite: 'lax',
-        maxAge: 30 * 24 * 60 * 60 * 1000, path: '/',
-      });
+      setSession(res, result.token);
       res.status(201).json({ lobby: result.lobby });
       broadcast(result.lobby.code);
+    } catch (error) { next(error); }
+  });
+
+  const setSession = (res: express.Response, token: string) => res.cookie('home_session', token, {
+    httpOnly: true, secure: Boolean(options.production || options.tls), sameSite: 'lax',
+    maxAge: 30 * 24 * 60 * 60 * 1000, path: '/',
+  });
+
+  // Rejoining replaces whatever session this browser had: the phone becomes that player again.
+  app.post('/api/games/rejoin', (req, res, next) => {
+    try {
+      const parsed = rejoin.safeParse(req.body);
+      if (!parsed.success) throw new GameError('INVALID_INPUT');
+      const result = store.rejoinPlayer(parsed.data.code);
+      setSession(res, result.token);
+      res.json({ lobby: result.lobby });
+      // The player's old phone, if still connected, is signed out.
+      broadcast(result.lobby.code, 'unavailable');
+    } catch (error) { next(error); }
+  });
+
+  app.post('/api/corrections', (req, res, next) => {
+    try {
+      const parsed = correction.safeParse(req.body);
+      if (!parsed.success) throw new GameError('INVALID_INPUT');
+      const token = sessionToken(req.headers.cookie);
+      const code = store.correct(token, parsed.data);
+      res.json({ lobby: store.lobby(token) });
+      broadcast(code);
     } catch (error) { next(error); }
   });
 
@@ -208,7 +234,7 @@ export function createApp(options: { databasePath: string; production?: boolean;
       if (!parsed.success) throw new GameError('INVALID_INPUT');
       const result = store.manageRoom(sessionToken(req.headers.cookie), parsed.data);
       if (!result.lobby) res.clearCookie('home_session', { path: '/' });
-      res.json({ lobby: result.lobby });
+      res.json({ lobby: result.lobby, ...('rejoin' in result ? { rejoin: result.rejoin } : {}) });
       broadcast(result.code, parsed.data.action === 'destroy' ? 'destroyed' : 'removed');
     } catch (error) { next(error); }
   });
