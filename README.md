@@ -54,7 +54,7 @@ The game runs fine from a laptop on your own Wi-Fi; nothing has to be deployed.
 1. Put the laptop and all phones on the same Wi-Fi (not a guest network that isolates devices).
 2. Stop `npm run dev` if it is running (both use port 3001). Run `npm ci` once, then `npm run play`. It builds the app and serves it on port 3001, printing addresses such as `On your network: http://192.168.1.18:3001`. On macOS, allow incoming connections if the firewall asks.
 3. On the laptop, open `http://localhost:3001` or the network address. On `localhost`, QR codes and invite links automatically use the laptop's network address so phones can open them; the screen shows which address. Choose **Host a game → Just host on this screen**, and keep this screen as the organiser view. It does not get a role or tasks.
-4. Players scan the QR code on the laptop screen (or the printed join poster) with their phone camera. Use the phone's default browser, because station QR codes open there too.
+4. Players scan the QR code on the laptop screen (or the printed join poster) with their phone camera. At stations they use **Scan station QR** in the app; on the home network this takes a photo of the code, because browsers only allow live camera scanning over HTTPS.
 5. Open **Print materials** from the same address and print the station sheets.
 6. Keep the laptop awake and plugged in, for example `caffeinate -i npm run play` on macOS. Give the laptop a fixed IP address in your router (a DHCP reservation); the printed QR codes contain this address and stop working if it changes.
 

@@ -11,7 +11,7 @@ import StationAccessSwitch from './Settings';
 
 type Props = {
   lobby: Lobby; language: Language; connected: boolean; onUpdate: (lobby: Lobby) => void; onExit: (reason: SessionEndReason) => void;
-  languageControl?: ReactNode; scan?: Scan | null; onScanHandled?: () => void;
+  languageControl?: ReactNode; scan?: Scan | null; onScanHandled?: () => void; onStationScanned?: (stationId: string) => void;
 };
 
 export function RoundControls({ lobby, language, connected, onUpdate, onExit }: Props) {
@@ -142,7 +142,7 @@ export default function RoundView(props: Props) {
   const crewWon = lobby.result?.winner === 'crew';
   const title = lobby.phase === 'paused' ? t.pausedTitle : lobby.phase === 'ended' ? crewWon ? t.crewWonTitle : t.endedTitle : t.roundTitle;
   const endedMessage = crewWon ? t.crewWonMessage : lobby.result?.reason === 'departure' ? t.departureMessage : t.endedMessage;
-  const tasks = <Tasks key={`tasks:${lobby.roundId}:${lobby.phase}`} lobby={lobby} language={language} connected={connected} onUpdate={props.onUpdate} scan={props.scan} onScanHandled={props.onScanHandled}/>;
+  const tasks = <Tasks key={`tasks:${lobby.roundId}:${lobby.phase}`} lobby={lobby} language={language} connected={connected} onUpdate={props.onUpdate} scan={props.scan} onScanHandled={props.onScanHandled} onStationScanned={props.onStationScanned}/>;
 
   if (!lobby.you.organiser && lobby.phase !== 'ended') return <main className={styles.playerRound}>
     <PrivateRole key={`${lobby.roundId}:${lobby.phase}`} lobby={lobby} language={language} connected={connected} languageControl={props.languageControl}/>

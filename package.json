@@ -20,6 +20,7 @@
   "dependencies": {
     "better-sqlite3": "^12.4.1",
     "express": "^5.2.1",
+    "jsqr": "^1.4.0",
     "qrcode": "^1.5.4",
     "react": "^19.3.0",
     "react-aria-components": "^1.21.1",

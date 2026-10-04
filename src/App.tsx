@@ -134,7 +134,7 @@ export default function App() {
     {loading || loadError ? <main className={styles.loading} aria-live="polite">
       <h1>{loading ? t.loading : errorMessages[language][loadError!]}</h1>
       {loadError && <Button className={ui.primary} onPress={() => void restore()}>{t.retry}</Button>}
-    </main> : lobby && lobby.phase !== 'lobby' ? <RoundView lobby={lobby} language={language} connected={connected} onUpdate={updateLobby} onExit={exitLobby} languageControl={privatePlayerScreen ? languageControl : undefined} scan={scan} onScanHandled={() => setScan(current => current && { ...current, fresh: false })}/> : lobby ? <main className={styles.lobby}>
+    </main> : lobby && lobby.phase !== 'lobby' ? <RoundView lobby={lobby} language={language} connected={connected} onUpdate={updateLobby} onExit={exitLobby} languageControl={privatePlayerScreen ? languageControl : undefined} scan={scan} onScanHandled={() => setScan(current => current && { ...current, fresh: false })} onStationScanned={stationId => setScan({ stationId, fresh: true })}/> : lobby ? <main className={styles.lobby}>
       <section className={styles.lobbyIntro}>
         <p className={styles.eyebrow}>{t.edition}</p>
         <h1 ref={lobbyHeading} tabIndex={-1}>{t.lobbyTitle}</h1>

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import QRCode from 'qrcode';
 import type { Lobby, PrintableStation, Task } from '../shared/protocol';
 
 test('organiser edits stations and prints sheets; a player completes phone and codebook tasks', async ({ page, browser, baseURL }, testInfo) => {
@@ -50,8 +51,19 @@ test('organiser edits stations and prints sheets; a player completes phone and c
     const name = (task: Task) => lobby.stations.find(station => station.id === task.stationId)!.name;
     const kinds = { order: 'Number order', wires: 'Fix the wiring', codebook: 'Codebook' };
 
-    // Scanning a station QR code opens the player's task at that station.
+    // In-app scanner: a photo of an unrelated QR code is rejected, a station code opens its task.
     const scanned = lobby.you.tasks.find(task => lobby.you.tasks.filter(other => other.stationId === task.stationId).length === 1)!;
+    const photo = async (text: string) => ({ name: 'qr.png', mimeType: 'image/png', buffer: await QRCode.toBuffer(text, { width: 600 }) });
+    await guest.getByRole('button', { name: 'Scan station QR' }).click();
+    await expect(guest.getByRole('heading', { name: 'Scan station QR' })).toBeFocused();
+    expect((await new AxeBuilder({ page: guest }).analyze()).violations).toEqual([]);
+    await guest.locator('input[type=file]').setInputFiles(await photo('https://example.com/?station=not-a-station'));
+    await expect(guest.getByText('That QR code isn’t a station in this game.')).toBeVisible();
+    await guest.locator('input[type=file]').setInputFiles(await photo(`http://192.168.1.99:3001/?station=${scanned.stationId}`));
+    await expect(guest.getByRole('heading', { name: kinds[scanned.puzzle.kind] })).toBeVisible();
+    await guest.getByRole('button', { name: 'Back to tasks' }).click();
+
+    // Scanning with the phone's own camera app opens the same task through a link.
     await guest.goto(`/?station=${scanned.stationId}`);
     await expect(guest.getByRole('heading', { name: kinds[scanned.puzzle.kind] })).toBeVisible();
     await expect(guest.getByText(`Do this task at · ${name(scanned)}`)).toBeVisible();
