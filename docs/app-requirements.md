@@ -2,7 +2,7 @@
 
 [Project overview](../README.md)
 
-Requirements for a personal phone web app used at home with family. The confirmed stack now supports a bilingual lobby, private roles and organiser-controlled round lifecycle, including paused restart recovery; tasks and the full game loop are still to be implemented. There is no current plan for public release: prioritise easy setup, clear screens and practical organiser controls over accounts, competitive enforcement or a general-purpose game platform.
+Requirements for a personal phone web app used at home with family. The confirmed stack now supports a bilingual lobby, private roles and organiser-controlled round lifecycle, including paused restart recovery; tasks, fake tasks, printable station sheets and the task victory are implemented; eliminations, meetings and the rest of the game loop are still to be implemented. There is no current plan for public release: prioritise easy setup, clear screens and practical organiser controls over accounts, competitive enforcement or a general-purpose game platform.
 
 English and Dutch are both first-version requirements. Each player chooses independently and can switch at any time without losing their session. Persist that preference, set the page language, and translate labels, instructions, validation and server errors. Keep player-entered names and codes unchanged.
 

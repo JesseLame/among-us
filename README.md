@@ -8,9 +8,11 @@ Start with **6–8 players and one Impostor**, combining phone puzzles with phys
 
 The app scaffold is implemented with the confirmed React/TypeScript + Vite, React Aria, CSS Modules, Node/Express, Socket.IO, SQLite and Zod stack. English and Dutch are available per phone, with a persistent language switch and translated errors.
 
-Working now: create a lobby, share an invitation link or five-letter code, join with up to eight players, receive live roster updates, and restore the same identity after refresh or server restart. With 1–8 players, the organiser can start a round with one random Impostor, pause/resume it, end it with a confirmed role reveal, and return everyone to the same lobby for another round. SQLite persists lobbies, roles and hashed session credentials; players receive HttpOnly session cookies. The organiser joins as a player with a separate organiser flag.
+Working now: create a lobby, share an invitation link or five-letter code, join with up to eight players, receive live roster updates, and restore the same identity after refresh or server restart. With 1–8 players, the organiser can start a round with one random Impostor, pause/resume it, end it with a confirmed role reveal, and return everyone to the same lobby for another round. SQLite persists lobbies, roles, tasks and hashed session credentials; players receive HttpOnly session cookies. The organiser joins as a player with a separate organiser flag.
 
-This is a lobby and round-lifecycle foundation, **not yet a playable game**. Room configuration, puzzles, eliminations, meetings, timers, win conditions and the remaining organiser settings/recovery tools still need implementation. No hosting has been purchased or deployment performed.
+**Tasks (stage 3, first slice):** the organiser edits the task stations (house rooms) in the lobby and prints a codebook sheet per station. Starting a round gives every player four tasks spread over the stations: *Number order* and *Fix the wiring* on the phone, and *Codebook*, where the player looks up four symbols on that room's printed sheet. The Impostor receives identical-looking fake tasks that never count. Shared crew progress is published every 30 seconds rather than after each task, and the crew wins automatically once 80% of real tasks (rounded up) are done.
+
+This is **not yet a full game**: eliminations, bodies, ghosts, meetings, vote entry, the Impostor win condition and most organiser settings/recovery tools still need implementation. No hosting has been purchased or deployment performed.
 
 Roles stay out of public updates and ordinary organiser views. Each phone fetches only its own role after an explicit reveal, and hides it when focus/visibility is lost, the connection drops, or the phase changes. Ending the round reveals all roles to everyone and prevents resuming that round. After a server restart, active rounds recover paused with the same roles; the organiser decides when to resume. Existing lobby databases are migrated automatically, preserving sessions.
 
@@ -39,9 +41,9 @@ The first version covers joining, secret roles, tasks, eliminations, body report
 
 ## Next steps
 
-1. Choose a small puzzle set and initial rooms. Both English and Dutch are supported.
-2. Build the first phone puzzle and physical-answer puzzle, with assignments, believable fake tasks and shared progress.
-3. Add eliminations, reports, meetings and victory checks alongside the corresponding organiser settings and recovery controls.
+1. ~~Choose a small puzzle set and initial rooms.~~ Done: number order, wiring and printable codebooks; stations are edited in the lobby.
+2. ~~Build the first phone puzzle and physical-answer puzzle, with assignments, believable fake tasks and shared progress.~~ Done.
+3. Add eliminations, bodies and ghosts, then reports, meetings, vote entry and the Impostor win, alongside the corresponding organiser settings and recovery controls.
 4. Build the first playable version, run a practice round and tune it through family playtests.
 5. Use those playtests to decide whether the control room or sabotage would improve the game.
 
@@ -69,19 +71,21 @@ The built app is served by Express at `http://localhost:3001`. Set `NODE_ENV=pro
 
 ### Try the round flow
 
-1. Start alone or join a few players using separate phones/browser profiles. Testing supports 1–5 players; 6–8 remains the recommendation for a full game. A solo tester is always the Impostor. Several tabs or private windows in the same browser can share a session, so they do not necessarily represent separate players.
-2. The organiser selects **Start round / Start de ronde**. Each player can reveal and hide their own role. Refreshing keeps their identity and role but hides the role card again.
-3. Pause and resume from the organiser's phone; everyone should see the change. Stop and restart `npm run dev` during an active round to check paused recovery.
-4. Select **End round / Beëindig de ronde**, then confirm to reveal everyone. Prepare another round to keep the same players and invite code; roles are assigned anew only when starting.
-5. Expand **Room management / Kamerbeheer** to remove a player. To start over completely, choose **Delete room / Verwijder kamer**, review the confirmation, and delete it for everyone. You can then create a fresh lobby immediately.
+1. As organiser, review **Task stations / Taakstations** in the lobby, then open **Print station sheets** and place each sheet in its room.
+2. Start alone or join a few players using separate phones/browser profiles. Testing supports 1–5 players; 6–8 remains the recommendation for a full game. A solo tester is always the Impostor. Several tabs or private windows in the same browser can share a session, so they do not necessarily represent separate players.
+3. The organiser selects **Start round / Start de ronde**. Each player can reveal and hide their own role. Refreshing keeps their identity and role but hides the role card again.
+4. Each phone lists its tasks. Walk to the station, open the task and solve it; codebook tasks need that room's printed sheet. Shared progress updates every 30 seconds. Completing enough real tasks ends the round with a crew win.
+5. Pause and resume from the organiser's phone; everyone should see the change. Stop and restart `npm run dev` during an active round to check paused recovery.
+6. Select **End round / Beëindig de ronde**, then confirm to reveal everyone. Prepare another round to keep the same players and invite code; roles are assigned anew only when starting.
+7. Expand **Room management / Kamerbeheer** to remove a player. To start over completely, choose **Delete room / Verwijder kamer**, review the confirmation, and delete it for everyone. You can then create a fresh lobby immediately.
 
 For an automated multiplayer check without six phones, `npm run test:e2e` creates six isolated player sessions and exercises this flow automatically, along with both languages and accessibility checks. The backend tests also check role privacy, permissions, duplicate/stale commands, restart recovery and migration from the original database format.
 
 Source layout:
 
-- `src/`: React screens, CSS Modules and typed EN/NL translations.
+- `src/`: React screens, CSS Modules and typed EN/NL translations. `Tasks.tsx` holds the task list and puzzles, `Stations.tsx` the lobby station editor and `PrintSheets.tsx` the printable `/print` page.
 - `src/styles/theme.css`: central visual theme; `ui.module.css` contains shared controls and card surfaces, and `fonts.css` handles font loading.
-- `server/`: Express API, authenticated Socket.IO updates and SQLite store.
+- `server/`: Express API, authenticated Socket.IO updates and SQLite store. `puzzles.ts` generates and checks puzzles.
 - `shared/`: shared protocol types and Zod input schemas.
 - `tests/`: browser flows and axe accessibility checks; server integration tests live alongside the server.
 - `docs/`: game rules, requirements and remaining implementation plan.

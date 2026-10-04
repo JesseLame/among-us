@@ -2,15 +2,15 @@ import express from 'express';
 import { createServer } from 'node:http';
 import { resolve } from 'node:path';
 import { Server } from 'socket.io';
-import { createGame, joinGame, roomCommand, roundCommand, type ClientEvents, type ServerEvents, type SessionEndReason } from '../shared/protocol.js';
+import { completeTask, createGame, joinGame, roomCommand, roundCommand, stationCommand, type ClientEvents, type ServerEvents, type SessionEndReason } from '../shared/protocol.js';
 import { createStore, GameError } from './store.js';
 
 export function sessionToken(cookie = '') {
   return cookie.split(';').map(part => part.trim()).find(part => part.startsWith('home_session='))?.slice('home_session='.length);
 }
 
-export function createApp(options: { databasePath: string; production?: boolean; clientPath?: string }) {
-  const store = createStore(options.databasePath);
+export function createApp(options: { databasePath: string; production?: boolean; clientPath?: string; now?: () => number }) {
+  const store = createStore(options.databasePath, options.now);
   const app = express();
   const http = createServer(app);
   const sameOrigin = (origin: string | undefined, host: string | undefined) => {
@@ -67,7 +67,7 @@ export function createApp(options: { databasePath: string; production?: boolean;
         }
         const parsed = createGame.safeParse(req.body);
         if (!parsed.success) throw new GameError('INVALID_INPUT');
-        return store.create(parsed.data.name);
+        return store.create(parsed.data.name, parsed.data.language);
       })();
       res.cookie('home_session', result.token, {
         httpOnly: true, secure: Boolean(options.production), sameSite: 'lax',
@@ -88,6 +88,41 @@ export function createApp(options: { databasePath: string; production?: boolean;
     } catch (error) { next(error); }
   });
 
+  // Only the player's own sockets learn about their task, unless it ended the round.
+  function syncPlayer(playerId: string) {
+    for (const socket of io.sockets.sockets.values()) {
+      if (socket.data.playerId !== playerId) continue;
+      const lobby = store.lobby(sessionToken(socket.request.headers.cookie));
+      if (lobby) socket.emit('lobby:updated', lobby);
+    }
+  }
+
+  app.post('/api/tasks/complete', (req, res, next) => {
+    try {
+      const parsed = completeTask.safeParse(req.body);
+      if (!parsed.success) throw new GameError('INVALID_INPUT');
+      const result = store.completeTask(sessionToken(req.headers.cookie), parsed.data);
+      res.json({ lobby: result.lobby });
+      if (result.ended) broadcast(result.lobby.code);
+      else syncPlayer(result.lobby.you.id);
+    } catch (error) { next(error); }
+  });
+
+  app.post('/api/stations/commands', (req, res, next) => {
+    try {
+      const parsed = stationCommand.safeParse(req.body);
+      if (!parsed.success) throw new GameError('INVALID_INPUT');
+      const lobby = store.manageStations(sessionToken(req.headers.cookie), parsed.data);
+      res.json({ lobby });
+      broadcast(lobby.code);
+    } catch (error) { next(error); }
+  });
+
+  app.get('/api/stations/print', (req, res, next) => {
+    try { res.json({ stations: store.printableStations(sessionToken(req.headers.cookie)) }); }
+    catch (error) { next(error); }
+  });
+
   app.post('/api/room/commands', (req, res, next) => {
     try {
       const parsed = roomCommand.safeParse(req.body);
@@ -103,6 +138,7 @@ export function createApp(options: { databasePath: string; production?: boolean;
     const lobby = store.lobby(sessionToken(socket.request.headers.cookie));
     if (!lobby) return next(new Error('NO_SESSION'));
     socket.data.gameCode = lobby.code;
+    socket.data.playerId = lobby.you.id;
     next();
   });
   io.on('connection', socket => {
@@ -129,5 +165,8 @@ export function createApp(options: { databasePath: string; production?: boolean;
     }
   };
   app.use(errorHandler);
-  return { http, store, close: () => new Promise<void>(resolve => io.close(() => { store.close(); resolve(); })) };
+  const tick = () => { for (const code of store.tick()) broadcast(code); };
+  const ticker = setInterval(tick, 1000);
+  ticker.unref();
+  return { http, store, tick, close: () => new Promise<void>(resolve => { clearInterval(ticker); io.close(() => { store.close(); resolve(); }); }) };
 }

@@ -6,6 +6,7 @@ import { errorMessages, translations, type Language } from './i18n';
 import styles from './App.module.css';
 import ui from './styles/ui.module.css';
 import RoomControls from './RoomControls';
+import Tasks, { SharedProgress } from './Tasks';
 
 type Props = { lobby: Lobby; language: Language; connected: boolean; onUpdate: (lobby: Lobby) => void; onExit: (reason: SessionEndReason) => void; languageControl?: ReactNode };
 
@@ -129,18 +130,24 @@ export default function RoundView(props: Props) {
   const t = translations[language];
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { heading.current?.focus(); }, [lobby.phase]);
-  const title = lobby.phase === 'paused' ? t.pausedTitle : lobby.phase === 'ended' ? t.endedTitle : t.roundTitle;
+  const crewWon = lobby.result?.winner === 'crew';
+  const title = lobby.phase === 'paused' ? t.pausedTitle : lobby.phase === 'ended' ? crewWon ? t.crewWonTitle : t.endedTitle : t.roundTitle;
+  const endedMessage = crewWon ? t.crewWonMessage : lobby.result?.reason === 'departure' ? t.departureMessage : t.endedMessage;
+  const tasks = <Tasks key={`tasks:${lobby.roundId}:${lobby.phase}`} lobby={lobby} language={language} connected={connected} onUpdate={props.onUpdate}/>;
 
   if (!lobby.you.organiser && lobby.phase !== 'ended') return <main className={styles.playerRound}>
     <PrivateRole key={`${lobby.roundId}:${lobby.phase}`} lobby={lobby} language={language} connected={connected} languageControl={props.languageControl}/>
+    <SharedProgress lobby={lobby} language={language}/>
+    {tasks}
   </main>;
 
   return <main className={styles.lobby}>
     <section>
       <p className={styles.eyebrow}>{t.invite} · {lobby.code}</p>
       <h1 ref={heading} tabIndex={-1}>{title}</h1>
-      <p className={styles.intro} role="status">{lobby.phase === 'paused' ? lobby.pauseReason === 'restart' ? t.restartMessage : t.pausedMessage : lobby.phase === 'ended' ? t.endedMessage : t.roundMessage}</p>
+      <p className={styles.intro} role="status">{lobby.phase === 'paused' ? lobby.pauseReason === 'restart' ? t.restartMessage : t.pausedMessage : lobby.phase === 'ended' ? endedMessage : t.roundMessage}</p>
       <p className={styles.connection} role="status"><i data-connected={connected}/>{connected ? t.connected : t.reconnecting}</p>
+      <SharedProgress lobby={lobby} language={language}/>
       <RoundControls {...props}/>
       {lobby.phase !== 'ended' && <aside className={styles.buildNote}><h2>{t.nextTitle}</h2><p>{t.nextText}</p></aside>}
     </section>
@@ -151,6 +158,9 @@ export default function RoundView(props: Props) {
         <span className={styles.playerName}>{player.name}{player.id === lobby.you.id && <small> · {t.you}</small>}{player.removed && <small> · {t.removedPlayer}</small>}</span>
         <span className={ui.badge}>{lobby.revealedRoles?.find(role => role.id === player.id)?.role === 'impostor' ? t.impostor : t.crewmate}</span>
       </li>)}</ul><p className={ui.note}>{t.newRoundNote}</p>
-    </section> : <PrivateRole key={`${lobby.roundId}:${lobby.phase}`} lobby={lobby} language={language} connected={connected}/>}
+    </section> : <div className={styles.roundColumn}>
+      <PrivateRole key={`${lobby.roundId}:${lobby.phase}`} lobby={lobby} language={language} connected={connected}/>
+      {tasks}
+    </div>}
   </main>;
 }

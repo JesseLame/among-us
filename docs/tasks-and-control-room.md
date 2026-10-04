@@ -13,6 +13,16 @@ Manual room selection is available when scanning fails or the organiser prefers 
 | Phone puzzle | Solve a sequence or matching puzzle after scanning the room QR. | App checks the solution. |
 | Physical puzzle with an answer | Use printed clues or arrange pieces to discover a code. | Enter the answer; app checks it. |
 
+### Implemented puzzle set
+
+| Puzzle | Type | How it works |
+| --- | --- | --- |
+| Number order | Phone | Tap six shuffled numbers from smallest to largest. A wrong tap restarts the sequence without penalty. |
+| Fix the wiring | Phone | Connect four named colours on the left to the same colours on the right. Colour names are always shown, not only swatches. |
+| Codebook | Physical answer | Each station has a printed sheet of 12 symbols, each with a digit. The task shows four symbols; the player enters their digits in order. Players share one sheet but get different symbols. |
+
+Each player receives four tasks (one of each kind plus one extra) spread across the stations. The organiser prints the sheets from **Print station sheets** in the lobby; a sheet's numbers stay the same until that station is removed, so reprint only after adding a station. Manual station choice applies: the task list names the station, and players open the task once they are there. QR scanning is still planned for stage 5.
+
 Start with a small puzzle set, mostly short interactions and some longer physical puzzles. Do not require every task to last 45–90 seconds. Give players different questions using shared materials where practical. Make tasks easy to reset or provide duplicate materials to avoid queues.
 
 No host needs to inspect each task by default. The organiser can choose manual completion entry, or credit, replace or exclude a broken task during a round. These recovery controls belong in the first version; a general player-facing trust-based task type is for later. See [organiser controls](organiser-controls.md).
@@ -21,7 +31,7 @@ No host needs to inspect each task by default. The organiser can choose manual c
 
 The Impostor can open and appear to complete fake tasks, but they never increase the crew total. Fake task screens and organiser correction pickers must not identify which tasks contribute to victory.
 
-Avoid public per-player completion indicators. By default, show shared progress in occasional batches so one tap cannot prove innocence; the organiser can change the interval or hide progress. Internal victory checks still happen after each completion, even when the visible progress display is delayed.
+Avoid public per-player completion indicators. By default, show shared progress in occasional batches so one tap cannot prove innocence; the organiser can change the interval or hide progress. Implemented: progress publishes every 30 seconds of active play on a fixed cadence, whether or not it changed; the interval and hiding controls are not built yet. Internal victory checks still happen after each completion, even when the visible progress display is delayed.
 
 ## Ghost activity
 

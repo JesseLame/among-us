@@ -13,7 +13,11 @@ The organiser has a **Room management / Kamerbeheer** panel in the lobby and dur
 - These are server-authorised actions tied to the current room and revision. An old confirmation cannot remove someone or delete a different/newer room. Retried player removals apply once.
 - Removal revokes a session, not the person's ability to join. They can join as a new player with the code while the lobby is open. Lost-session recovery and organiser transfer remain unimplemented.
 
-Task recalculation and departure-triggered victory checks below remain requirements for the future game loop; there are no tasks or victory rules to recalculate in the current scaffold.
+Removing a Crewmate during a round now removes their unfinished tasks from the shared goal (completed work still counts) and rechecks the task victory. The confirmation previews for this are still to be built.
+
+## Task stations — implemented
+
+In the lobby, the organiser adds (up to eight) or removes task stations; new games start with Kitchen, Living room, Hallway and Study in the organiser's language. A round cannot start without a station. **Print station sheets** opens an organiser-only `/print` page with one codebook sheet per station. Stations cannot be edited during a round. Disabling or replacing a broken station or task mid-round is still to be built (stage 4).
 
 ## Choose how much happens in the app
 

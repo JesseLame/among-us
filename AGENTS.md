@@ -16,7 +16,8 @@ This is the shared project instruction file. `CLAUDE.md` imports it; keep shared
 - Start with `src/styles/theme.css` for colours, typography, shared spacing, radii, shadows and sizing. Use semantic CSS variables; do not scatter new palette literals through components.
 - Shared buttons, inputs, tabs, language controls, cards and dialogs live in `src/styles/ui.module.css`. Screen layouts and decorative geometry live in `src/App.module.css`; new features should import the shared styles.
 - Keep `src/global.css` limited to imports, base styles and accessibility defaults. Font loading is in `src/styles/fonts.css`.
-- Keep ordinary joined-player screens minimal during a round: the private role card, its language control, and only necessary pause/disconnection feedback. Organiser controls belong to the organiser view.
+- Keep ordinary joined-player screens minimal during a round: the private role card, its language control, shared crew progress, the player's own task list/puzzle, and only necessary pause/disconnection feedback. Organiser controls belong to the organiser view.
+- Fake tasks must look identical to real ones in every payload and screen. Task completions update only the completing player's view; shared progress is published on a fixed cadence (`tick()` in `server/store.ts`).
 - Use native controls or React Aria for interaction, preserving focus, keyboard behaviour and semantic labels. Keep controls at least 44px tall, normally 48px, and support 320px screens, text zoom and reduced motion. Maintain readable contrast when changing a theme.
 - A visual redesign should not change game rules, session behaviour or server contracts unless requested. Explain any intentional interaction changes separately.
 

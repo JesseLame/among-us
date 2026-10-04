@@ -114,6 +114,16 @@
   --layout-card-padding: var(--space-8);
   --layout-card-padding-mobile: var(--space-6);
 
+  /* Wire-task swatches. Labels always name the colour too. */
+  --color-wire-red: #c8402a;
+  --color-wire-blue: #2f63b5;
+  --color-wire-yellow: #e5b72e;
+  --color-wire-green: #3f8a4b;
+  --color-wire-purple: #7b4fa6;
+  --color-wire-orange: #e07a26;
+  --color-progress-track: var(--color-surface-soft);
+  --color-progress-fill: var(--color-success);
+
   /* Decorative house diagram and player avatars */
   --color-avatar-1: #e8c3a5;
   --color-avatar-2: #d0dbc1;

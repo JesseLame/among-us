@@ -149,6 +149,17 @@
   background: var(--color-secondary-hover);
 }
 
+a.secondary {
+  min-height: var(--control-height);
+  justify-content: space-between;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+a.secondary:hover {
+  background: var(--color-secondary-hover);
+}
+
 .badge {
   margin-left: auto;
   font-size: var(--text-micro);

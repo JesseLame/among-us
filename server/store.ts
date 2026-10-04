@@ -2,16 +2,29 @@ import Database from 'better-sqlite3';
 import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { dirname } from 'node:path';
 import { mkdirSync } from 'node:fs';
-import type { ErrorCode, Lobby, Phase, Role, RoundCommand, RoomCommand } from '../shared/protocol.js';
+import type { CompleteTask, ErrorCode, Lobby, Phase, PrintableStation, Role, RoundCommand, RoomCommand, RoundResult, StationCommand, Task, TaskPuzzle } from '../shared/protocol.js';
+import { codebook, puzzle, shuffle, solved, type Codebook, type TaskKind } from './puzzles.js';
 
 export class GameError extends Error {
   constructor(public code: ErrorCode, public status = 400) { super(code); }
 }
 type Player = { id: string; game_code: string; name: string; organiser: number; role: Role | null; removed: number };
-type Game = { code: string; phase: Phase; round_id: string | null; revision: number; pause_reason: Lobby['pauseReason'] };
+type Game = {
+  code: string; phase: Phase; round_id: string | null; revision: number; pause_reason: Lobby['pauseReason'];
+  winner: RoundResult['winner']; end_reason: RoundResult['reason'] | null;
+  tasks_per_player: number; task_goal_percent: number;
+  progress_interval: number; progress_shown: number; progress_shown_at: number;
+};
+type TaskRow = { id: string; player_id: string; station_id: string; fake: number; puzzle: string; done_at: number | null };
+const MAX_STATIONS = 8;
+const TASK_KINDS: TaskKind[] = ['codebook', 'order', 'wires'];
+const DEFAULT_STATIONS = {
+  en: ['Kitchen', 'Living room', 'Hallway', 'Study'],
+  nl: ['Keuken', 'Woonkamer', 'Gang', 'Werkkamer'],
+};
 const hash = (token: string) => createHash('sha256').update(token).digest('hex');
 
-export function createStore(path: string) {
+export function createStore(path: string, now: () => number = Date.now) {
   if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
   const db = new Database(path);
   db.pragma('journal_mode = WAL');
@@ -45,7 +58,34 @@ export function createStore(path: string) {
     if (version < 2) {
       db.exec('ALTER TABLE players ADD COLUMN removed INTEGER NOT NULL DEFAULT 0; PRAGMA user_version = 2;');
     }
+    if (version < 3) {
+      db.exec(`
+        ALTER TABLE games ADD COLUMN winner TEXT;
+        ALTER TABLE games ADD COLUMN end_reason TEXT;
+        ALTER TABLE games ADD COLUMN tasks_per_player INTEGER NOT NULL DEFAULT 4;
+        ALTER TABLE games ADD COLUMN task_goal_percent INTEGER NOT NULL DEFAULT 80;
+        ALTER TABLE games ADD COLUMN progress_interval INTEGER NOT NULL DEFAULT 30;
+        ALTER TABLE games ADD COLUMN progress_shown INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE games ADD COLUMN progress_shown_at INTEGER NOT NULL DEFAULT 0;
+        CREATE TABLE stations (
+          id TEXT PRIMARY KEY, game_code TEXT NOT NULL REFERENCES games(code),
+          name TEXT NOT NULL, position INTEGER NOT NULL, codebook TEXT NOT NULL
+        );
+        CREATE TABLE tasks (
+          id TEXT PRIMARY KEY, game_code TEXT NOT NULL REFERENCES games(code), round_id TEXT NOT NULL,
+          player_id TEXT NOT NULL REFERENCES players(id), station_id TEXT NOT NULL REFERENCES stations(id),
+          fake INTEGER NOT NULL, puzzle TEXT NOT NULL, position INTEGER NOT NULL, done_at INTEGER
+        );
+        PRAGMA user_version = 3;
+      `);
+      // Existing lobbies receive the default stations so they can start a round with tasks.
+      for (const { code } of db.prepare('SELECT code FROM games').all() as { code: string }[]) addStations(code, DEFAULT_STATIONS.en);
+    }
   });
+  function addStations(code: string, names: string[]) {
+    const insert = db.prepare('INSERT INTO stations (id, game_code, name, position, codebook) VALUES (?, ?, ?, (SELECT COALESCE(MAX(position), -1) + 1 FROM stations WHERE game_code = ?), ?)');
+    for (const name of names) insert.run(randomUUID(), code, name, code, JSON.stringify(codebook()));
+  }
   migrate();
   db.prepare("UPDATE games SET phase = 'paused', pause_reason = 'restart', revision = revision + 1 WHERE phase = 'active'").run();
 
@@ -59,13 +99,67 @@ export function createStore(path: string) {
     if (!player) return null;
     const game = gameFor(player.game_code)!;
     const players = db.prepare('SELECT id, name, organiser, role, removed FROM players WHERE game_code = ? AND (removed = 0 OR ? = 1) ORDER BY joined_at, rowid').all(player.game_code, Number(game.phase === 'ended')) as Player[];
+    const playing = game.phase === 'active' || game.phase === 'paused';
+    const tasks = playing
+      ? (db.prepare('SELECT * FROM tasks WHERE player_id = ? AND round_id = ? ORDER BY position').all(player.id, game.round_id) as TaskRow[])
+        // The fake flag never leaves the server; fake tasks look identical to real ones.
+        .map((task): Task => ({ id: task.id, stationId: task.station_id, done: task.done_at !== null, puzzle: JSON.parse(task.puzzle) as TaskPuzzle }))
+      : [];
+    const totals = game.round_id ? progress(game) : null;
     return {
       code: player.game_code, phase: game.phase, roundId: game.round_id,
       revision: game.revision, pauseReason: game.pause_reason,
       players: players.map(p => ({ id: p.id, name: p.name, organiser: Boolean(p.organiser), ...(p.removed ? { removed: true } : {}) })),
-      you: { id: player.id, organiser: Boolean(player.organiser) },
-      ...(game.phase === 'ended' ? { revealedRoles: players.map(p => ({ id: p.id, role: p.role! })) } : {}),
+      stations: db.prepare('SELECT id, name FROM stations WHERE game_code = ? ORDER BY position').all(game.code) as Lobby['stations'],
+      progress: totals && { done: game.phase === 'ended' ? totals.done : Math.min(game.progress_shown, totals.goal), goal: totals.goal },
+      you: { id: player.id, organiser: Boolean(player.organiser), tasks },
+      ...(game.phase === 'ended' ? {
+        revealedRoles: players.map(p => ({ id: p.id, role: p.role! })),
+        result: { winner: game.winner, reason: game.end_reason ?? 'organiser' },
+      } : {}),
     };
+  }
+
+  // Real-task totals for the current round. Fake tasks never count.
+  function progress(game: Game) {
+    const { total, done } = db.prepare('SELECT COUNT(*) AS total, COUNT(done_at) AS done FROM tasks WHERE game_code = ? AND round_id = ? AND fake = 0')
+      .get(game.code, game.round_id) as { total: number; done: number };
+    return { done, goal: Math.ceil(total * game.task_goal_percent / 100) };
+  }
+  // With no real tasks (for example a solo Impostor) the round never ends by tasks.
+  const tasksWon = (game: Game) => { const { done, goal } = progress(game); return goal > 0 && done >= goal; };
+  function endRound(code: string, winner: RoundResult['winner'], reason: RoundResult['reason']) {
+    db.prepare("UPDATE games SET phase = 'ended', pause_reason = NULL, winner = ?, end_reason = ?, revision = revision + 1 WHERE code = ?").run(winner, reason, code);
+  }
+
+  function assignTasks(game: Game, roundId: string, players: { id: string; role: Role }[]) {
+    const stations = shuffle(db.prepare('SELECT id FROM stations WHERE game_code = ?').all(game.code) as { id: string }[]);
+    const insert = db.prepare('INSERT INTO tasks (id, game_code, round_id, player_id, station_id, fake, puzzle, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    for (const player of players) {
+      // Spread each list across stations, with a mix of puzzle kinds.
+      const offset = randomInt(stations.length);
+      const kinds = shuffle(Array.from({ length: game.tasks_per_player }, (_, index) => TASK_KINDS[index % TASK_KINDS.length]));
+      kinds.forEach((kind, index) => insert.run(
+        randomUUID(), game.code, roundId, player.id, stations[(offset + index) % stations.length].id,
+        Number(player.role === 'impostor'), JSON.stringify(puzzle(kind)), index,
+      ));
+    }
+  }
+
+  // Returns true when the command was already applied by the same player.
+  function alreadyApplied(commandId: string, playerId: string, payload: string) {
+    const receipt = db.prepare('SELECT player_id, payload FROM command_receipts WHERE id = ?').get(commandId) as { player_id: string; payload: string } | undefined;
+    if (!receipt) return false;
+    if (receipt.player_id !== playerId || receipt.payload !== payload) throw new GameError('INVALID_INPUT');
+    return true;
+  }
+  const recordCommand = (commandId: string, code: string, playerId: string, payload: string) =>
+    db.prepare('INSERT INTO command_receipts (id, game_code, player_id, payload) VALUES (?, ?, ?, ?)').run(commandId, code, playerId, payload);
+  function organiserFor(token: string | undefined) {
+    const player = playerFor(token);
+    if (!player) throw new GameError('NO_SESSION', 401);
+    if (!player.organiser) throw new GameError('FORBIDDEN', 403);
+    return { player, game: gameFor(player.game_code)! };
   }
 
   function addPlayer(code: string, name: string, organiser: boolean) {
@@ -76,12 +170,13 @@ export function createStore(path: string) {
     return { token, lobby: lobby(token)! };
   }
 
-  const create = db.transaction((name: string) => {
+  const create = db.transaction((name: string, language: keyof typeof DEFAULT_STATIONS = 'en') => {
     const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
     let code: string;
     do { code = Array.from({ length: 5 }, () => alphabet[randomInt(alphabet.length)]).join(''); }
     while (db.prepare('SELECT code FROM games WHERE code = ?').get(code));
     db.prepare('INSERT INTO games (code) VALUES (?)').run(code);
+    addStations(code, DEFAULT_STATIONS[language]);
     return addPlayer(code, name, true);
   });
 
@@ -107,30 +202,28 @@ export function createStore(path: string) {
   }
 
   const command = db.transaction((token: string | undefined, input: RoundCommand) => {
-    const player = playerFor(token);
-    if (!player) throw new GameError('NO_SESSION', 401);
-    if (!player.organiser) throw new GameError('FORBIDDEN', 403);
-    const game = gameFor(player.game_code)!;
+    const { player, game } = organiserFor(token);
     const payload = JSON.stringify(input);
-    const receipt = db.prepare('SELECT player_id, payload FROM command_receipts WHERE id = ?').get(input.commandId) as { player_id: string; payload: string } | undefined;
-    if (receipt) {
-      if (receipt.player_id !== player.id || receipt.payload !== payload) throw new GameError('INVALID_INPUT');
-      return lobby(token)!;
-    }
+    if (alreadyApplied(input.commandId, player.id, payload)) return lobby(token)!;
     if (input.expectedRevision !== game.revision || input.roundId !== game.round_id) throw new GameError('STALE_COMMAND', 409);
 
     let phase = game.phase;
     let roundId = game.round_id;
     let pauseReason: Lobby['pauseReason'] = null;
+    let endReason: RoundResult['reason'] | null = null;
     switch (input.action) {
       case 'start': {
         if (phase !== 'lobby') throw new GameError('INVALID_PHASE', 409);
         const players = db.prepare('SELECT id FROM players WHERE game_code = ? AND removed = 0 ORDER BY rowid').all(game.code) as { id: string }[];
         if (players.length < 1) throw new GameError('NOT_ENOUGH_PLAYERS');
+        if (!db.prepare('SELECT 1 FROM stations WHERE game_code = ?').get(game.code)) throw new GameError('NO_STATIONS');
         const impostor = randomInt(players.length);
         const assign = db.prepare('UPDATE players SET role = ? WHERE id = ?');
-        players.forEach((p, index) => assign.run(index === impostor ? 'impostor' : 'crewmate', p.id));
+        const roles = players.map((p, index) => ({ id: p.id, role: (index === impostor ? 'impostor' : 'crewmate') as Role }));
+        roles.forEach(p => assign.run(p.role, p.id));
         roundId = randomUUID(); phase = 'active';
+        assignTasks(game, roundId, roles);
+        db.prepare('UPDATE games SET winner = NULL, progress_shown = 0, progress_shown_at = ? WHERE code = ?').run(now(), game.code);
         break;
       }
       case 'pause':
@@ -141,36 +234,31 @@ export function createStore(path: string) {
         phase = 'active'; break;
       case 'end':
         if (phase !== 'active' && phase !== 'paused') throw new GameError('INVALID_PHASE', 409);
-        phase = 'ended'; break;
+        phase = 'ended'; endReason = 'organiser'; break;
       case 'reset':
         if (phase !== 'ended') throw new GameError('INVALID_PHASE', 409);
         phase = 'lobby'; roundId = null;
+        db.prepare('DELETE FROM tasks WHERE game_code = ?').run(game.code);
         db.prepare('DELETE FROM players WHERE game_code = ? AND removed = 1').run(game.code);
         db.prepare('UPDATE players SET role = NULL WHERE game_code = ?').run(game.code);
         break;
     }
-    db.prepare('UPDATE games SET phase = ?, round_id = ?, pause_reason = ?, revision = revision + 1 WHERE code = ?')
-      .run(phase, roundId, pauseReason, game.code);
-    db.prepare('INSERT INTO command_receipts (id, game_code, player_id, payload) VALUES (?, ?, ?, ?)')
-      .run(input.commandId, game.code, player.id, payload);
+    db.prepare('UPDATE games SET phase = ?, round_id = ?, pause_reason = ?, end_reason = ?, revision = revision + 1 WHERE code = ?')
+      .run(phase, roundId, pauseReason, endReason, game.code);
+    recordCommand(input.commandId, game.code, player.id, payload);
     return lobby(token)!;
   });
 
   const manageRoom = db.transaction((token: string | undefined, input: RoomCommand) => {
-    const organiser = playerFor(token);
-    if (!organiser) throw new GameError('NO_SESSION', 401);
-    if (!organiser.organiser) throw new GameError('FORBIDDEN', 403);
-    const game = gameFor(organiser.game_code)!;
+    const { player: organiser, game } = organiserFor(token);
     if (input.code !== game.code) throw new GameError('STALE_COMMAND', 409);
     const payload = JSON.stringify(input);
-    const receipt = db.prepare('SELECT player_id, payload FROM command_receipts WHERE id = ?').get(input.commandId) as { player_id: string; payload: string } | undefined;
-    if (receipt) {
-      if (receipt.player_id !== organiser.id || receipt.payload !== payload) throw new GameError('INVALID_INPUT');
-      return { code: game.code, lobby: lobby(token) };
-    }
+    if (alreadyApplied(input.commandId, organiser.id, payload)) return { code: game.code, lobby: lobby(token) };
     if (game.revision !== input.expectedRevision || game.round_id !== input.roundId) throw new GameError('STALE_COMMAND', 409);
     if (input.action === 'destroy') {
       db.prepare('DELETE FROM command_receipts WHERE game_code = ?').run(game.code);
+      db.prepare('DELETE FROM tasks WHERE game_code = ?').run(game.code);
+      db.prepare('DELETE FROM stations WHERE game_code = ?').run(game.code);
       db.prepare('DELETE FROM players WHERE game_code = ?').run(game.code);
       db.prepare('DELETE FROM games WHERE code = ?').run(game.code);
       return { code: game.code, lobby: null };
@@ -184,17 +272,78 @@ export function createStore(path: string) {
       // Keep the departed player's role for the eventual public reveal. Their
       // session is revoked immediately and their identity is never reclaimable.
       db.prepare('UPDATE players SET removed = 1 WHERE id = ?').run(target.id);
+      // Unfinished tasks leave with the player so the shared goal stays reachable;
+      // completed work still counts.
+      db.prepare('DELETE FROM tasks WHERE player_id = ? AND done_at IS NULL').run(target.id);
     }
-    let phase = game.phase;
-    let pauseReason = game.pause_reason;
-    if (phase === 'active' || phase === 'paused') {
-      phase = target.role === 'impostor' ? 'ended' : 'paused';
-      pauseReason = phase === 'paused' ? 'organiser' : null;
-    }
-    db.prepare('UPDATE games SET phase = ?, pause_reason = ?, revision = revision + 1 WHERE code = ?').run(phase, pauseReason, game.code);
-    db.prepare('INSERT INTO command_receipts (id, game_code, player_id, payload) VALUES (?, ?, ?, ?)').run(input.commandId, game.code, organiser.id, payload);
+    if (game.phase === 'active' || game.phase === 'paused') {
+      if (target.role === 'impostor') endRound(game.code, null, 'departure');
+      else if (tasksWon(game)) endRound(game.code, 'crew', 'tasks');
+      else db.prepare("UPDATE games SET phase = 'paused', pause_reason = 'organiser', revision = revision + 1 WHERE code = ?").run(game.code);
+    } else db.prepare('UPDATE games SET revision = revision + 1 WHERE code = ?').run(game.code);
+    recordCommand(input.commandId, game.code, organiser.id, payload);
     return { code: game.code, lobby: lobby(token) };
   });
 
-  return { lobby, create, join, role, command, manageRoom, close: () => db.close() };
+  const manageStations = db.transaction((token: string | undefined, input: StationCommand) => {
+    const { player: organiser, game } = organiserFor(token);
+    const payload = JSON.stringify(input);
+    if (alreadyApplied(input.commandId, organiser.id, payload)) return lobby(token)!;
+    if (game.revision !== input.expectedRevision || game.round_id !== input.roundId) throw new GameError('STALE_COMMAND', 409);
+    if (game.phase !== 'lobby') throw new GameError('INVALID_PHASE', 409);
+    const stations = db.prepare('SELECT id, name FROM stations WHERE game_code = ?').all(game.code) as { id: string; name: string }[];
+    if (input.action === 'add') {
+      if (stations.length >= MAX_STATIONS) throw new GameError('TOO_MANY_STATIONS');
+      if (stations.some(station => station.name.toLocaleLowerCase('en') === input.name.toLocaleLowerCase('en'))) throw new GameError('STATION_EXISTS');
+      addStations(game.code, [input.name]);
+    } else {
+      if (!stations.some(station => station.id === input.stationId)) throw new GameError('INVALID_INPUT');
+      db.prepare('DELETE FROM stations WHERE id = ?').run(input.stationId);
+    }
+    db.prepare('UPDATE games SET revision = revision + 1 WHERE code = ?').run(game.code);
+    recordCommand(input.commandId, game.code, organiser.id, payload);
+    return lobby(token)!;
+  });
+
+  // Station sheets contain the codebook answers, so only the organiser may print them.
+  function printableStations(token: string | undefined): PrintableStation[] {
+    const { game } = organiserFor(token);
+    return (db.prepare('SELECT id, name, codebook FROM stations WHERE game_code = ? ORDER BY position').all(game.code) as { id: string; name: string; codebook: string }[])
+      .map(station => ({ id: station.id, name: station.name, codebook: JSON.parse(station.codebook) as Codebook }));
+  }
+
+  // Completing a task changes only the player's own list unless it wins the round.
+  // Retrying a completed task is harmless, so no command receipt is needed.
+  const completeTask = db.transaction((token: string | undefined, input: CompleteTask) => {
+    const player = playerFor(token);
+    if (!player) throw new GameError('NO_SESSION', 401);
+    const game = gameFor(player.game_code)!;
+    if (game.round_id !== input.roundId) throw new GameError('STALE_COMMAND', 409);
+    if (game.phase !== 'active') throw new GameError('INVALID_PHASE', 409);
+    const task = db.prepare('SELECT * FROM tasks WHERE id = ? AND player_id = ? AND round_id = ?').get(input.taskId, player.id, game.round_id) as TaskRow | undefined;
+    if (!task) throw new GameError('TASK_NOT_FOUND', 404);
+    if (task.done_at !== null) return { lobby: lobby(token)!, ended: false };
+    const station = db.prepare('SELECT codebook FROM stations WHERE id = ?').get(task.station_id) as { codebook: string } | undefined;
+    if (!solved(JSON.parse(task.puzzle) as TaskPuzzle, input.answer, station && JSON.parse(station.codebook) as Codebook)) throw new GameError('WRONG_ANSWER', 422);
+    db.prepare('UPDATE tasks SET done_at = ? WHERE id = ?').run(now(), task.id);
+    const ended = !task.fake && tasksWon(game);
+    if (ended) endRound(game.code, 'crew', 'tasks');
+    return { lobby: lobby(token)!, ended };
+  });
+
+  // Publishes shared progress on a fixed cadence while play is active, whether or
+  // not it changed, so the publication time does not hint at a recent completion.
+  // Returns the games whose public progress changed.
+  function tick() {
+    const changed: string[] = [];
+    const due = db.prepare("SELECT * FROM games WHERE phase = 'active' AND ? - progress_shown_at >= progress_interval * 1000").all(now()) as Game[];
+    for (const game of due) {
+      const { done } = progress(game);
+      db.prepare('UPDATE games SET progress_shown = ?, progress_shown_at = ? WHERE code = ?').run(done, now(), game.code);
+      if (done !== game.progress_shown) changed.push(game.code);
+    }
+    return changed;
+  }
+
+  return { lobby, create, join, role, command, manageRoom, manageStations, printableStations, completeTask, tick, close: () => db.close() };
 }

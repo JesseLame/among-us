@@ -22,9 +22,9 @@ Use this file to resolve open questions and record changes after family trial ro
 
 - Hosting provider and running cost remain open before deployment.
 - The family's phone/browser baseline (both interface languages are already supported).
-- Small initial puzzle library, physical materials and station placement.
+- ~~Small initial puzzle library~~: number order, wiring and printable codebooks. Physical materials beyond the printed sheets and station placement remain open.
 - Exact screens for private elimination entry, reconnecting and organiser recovery.
-- Shared-progress batch interval and how to explain organiser settings clearly on a phone.
+- Shared-progress batch interval: 30 seconds to start; tune in playtests. How to explain organiser settings clearly on a phone remains open.
 
 The default elimination flow remains Impostor self-recording. The settings and timing rules in [organiser controls](organiser-controls.md) are requirements; screen design and implementation are still open.
 

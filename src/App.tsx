@@ -7,6 +7,8 @@ import styles from './App.module.css';
 import ui from './styles/ui.module.css';
 import { codeFor, request } from './api';
 import RoundView, { RoundControls } from './RoundView';
+import Stations from './Stations';
+import PrintSheets from './PrintSheets';
 
 export default function App() {
   const [language, setLanguage] = useState<Language>(initialLanguage);
@@ -73,7 +75,7 @@ export default function App() {
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (busy) return;
-    const data = mode === 'join' ? { name, code } : { name };
+    const data = mode === 'join' ? { name, code } : { name, language };
     if (!(mode === 'join' ? joinGame : createGame).safeParse(data).success) { setError('INVALID_INPUT'); return; }
     sessionRequest.current++;
     setBusy(true); setError(null);
@@ -92,6 +94,8 @@ export default function App() {
   const languageControl = <RadioGroup className={ui.languages} aria-label={t.language} value={language} onChange={value => setLanguage(value as Language)} orientation="horizontal">
     <Radio value="en" lang="en" aria-label="English">EN</Radio><Radio value="nl" lang="nl" aria-label="Nederlands">NL</Radio>
   </RadioGroup>;
+
+  if (location.pathname === '/print') return <div className={styles.shell}><PrintSheets language={language} languageControl={languageControl}/></div>;
 
   return <div className={styles.shell}>
     {!privatePlayerScreen && <>
@@ -126,6 +130,7 @@ export default function App() {
         </li>)}</ul>
         {lobby.players.length < 8 && <p className={styles.waiting}><span aria-hidden="true">+ </span>{t.waiting}</p>}
         <p className={ui.note}>{t.lobbyHint}</p>
+        {lobby.you.organiser && <Stations lobby={lobby} language={language} connected={connected} onUpdate={updateLobby}/>}
         <RoundControls lobby={lobby} language={language} connected={connected} onUpdate={updateLobby} onExit={exitLobby}/>
         <aside className={styles.buildNote}><h3>{t.nextTitle}</h3><p>{t.nextText}</p></aside>
       </section>

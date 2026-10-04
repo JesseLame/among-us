@@ -5,14 +5,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { createApp } from './app.js';
-import type { Lobby, RoundCommand, RoomCommand } from '../shared/protocol.js';
+import type { Lobby, PrintableStation, RoundCommand, RoomCommand, StationCommand, Task } from '../shared/protocol.js';
 import { createHash, randomUUID } from 'node:crypto';
 import Database from 'better-sqlite3';
 
 const cleanups: (() => Promise<void> | void)[] = [];
 afterEach(async () => { for (const cleanup of cleanups.reverse()) await cleanup(); cleanups.length = 0; });
-async function start(databasePath = ':memory:') {
-  const app = createApp({ databasePath });
+async function start(databasePath = ':memory:', now?: () => number) {
+  const app = createApp({ databasePath, now });
   await new Promise<void>((resolve, reject) => { app.http.once('error', reject); app.http.listen(0, '127.0.0.1', resolve); });
   cleanups.push(app.close);
   const url = `http://127.0.0.1:${(app.http.address() as AddressInfo).port}`;
@@ -219,7 +219,8 @@ describe('private roles and round lifecycle', () => {
     expect(lobby.phase).toBe('lobby');
     expect(lobby.roundId).toBeNull();
     const originalSession = (await (await fetch(`${app.url}/api/session`, { headers: { Cookie: 'home_session=old-session' } })).json()).lobby;
-    expect(originalSession.you).toEqual({ id: 'original', organiser: true });
+    expect(originalSession.you).toEqual({ id: 'original', organiser: true, tasks: [] });
+    expect(originalSession.stations.map((station: { name: string }) => station.name)).toEqual(['Kitchen', 'Living room', 'Hallway', 'Study']);
   });
 });
 
@@ -321,5 +322,115 @@ describe('organiser room management', () => {
     // A delayed delete must not target a newly created lobby with the same revision.
     const replacementCookie = replacement.headers.get('set-cookie')!;
     expect((await (await restarted.post('/api/room/commands', beforeStart, replacementCookie)).json()).error).toBe('STALE_COMMAND');
+  });
+});
+
+function stationInput(lobby: Lobby, change: { action: 'add'; name: string } | { action: 'remove'; stationId: string }): StationCommand {
+  return { ...change, commandId: randomUUID(), expectedRevision: lobby.revision, roundId: lobby.roundId };
+}
+
+function answerFor(task: Task, stations: PrintableStation[]) {
+  const { puzzle } = task;
+  if (puzzle.kind === 'order') return [...puzzle.numbers].sort((a, b) => a - b);
+  if (puzzle.kind === 'wires') return puzzle.left.map(colour => puzzle.right.indexOf(colour));
+  const book = stations.find(station => station.id === task.stationId)!.codebook;
+  return puzzle.symbols.map(symbol => book[symbol]).join('');
+}
+
+describe('stations and tasks', () => {
+  it('lets only the organiser edit stations in the lobby and print codebooks', async () => {
+    const app = await start();
+    const created = await app.post('/api/games', { name: 'Host', language: 'nl' });
+    const host = created.headers.get('set-cookie')!;
+    let lobby: Lobby = (await created.json()).lobby;
+    expect(lobby.stations.map(station => station.name)).toEqual(['Keuken', 'Woonkamer', 'Gang', 'Werkkamer']);
+    const guest = (await app.post('/api/games/join', { name: 'Guest', code: lobby.code })).headers.get('set-cookie')!;
+    lobby = (await (await fetch(`${app.url}/api/session`, { headers: { Cookie: host } })).json()).lobby;
+    expect((await app.post('/api/stations/commands', stationInput(lobby, { action: 'add', name: 'Attic' }), guest)).status).toBe(403);
+    expect((await fetch(`${app.url}/api/stations/print`, { headers: { Cookie: guest } })).status).toBe(403);
+    expect((await (await app.post('/api/stations/commands', stationInput(lobby, { action: 'add', name: 'keuken' }), host)).json()).error).toBe('STATION_EXISTS');
+    const add = stationInput(lobby, { action: 'add', name: 'Zolder' });
+    lobby = (await (await app.post('/api/stations/commands', add, host)).json()).lobby;
+    expect((await (await app.post('/api/stations/commands', add, host)).json()).lobby).toEqual(lobby);
+    expect(lobby.stations).toHaveLength(5);
+    const printable: PrintableStation[] = (await (await fetch(`${app.url}/api/stations/print`, { headers: { Cookie: host } })).json()).stations;
+    expect(printable.map(station => station.name)).toEqual(lobby.stations.map(station => station.name));
+    expect(Object.values(printable[0].codebook).every(digit => Number.isInteger(digit) && digit >= 0 && digit <= 9)).toBe(true);
+    expect(JSON.stringify(lobby)).not.toMatch(/codebook"|"star":/);
+    for (const station of lobby.stations) {
+      lobby = (await (await app.post('/api/stations/commands', stationInput(lobby, { action: 'remove', stationId: station.id }), host)).json()).lobby;
+    }
+    expect(lobby.stations).toEqual([]);
+    expect((await (await app.post('/api/round/commands', roundInput(lobby, 'start'), host)).json()).error).toBe('NO_STATIONS');
+    lobby = (await (await app.post('/api/stations/commands', stationInput(lobby, { action: 'add', name: 'Hal' }), host)).json()).lobby;
+    lobby = (await (await app.post('/api/round/commands', roundInput(lobby, 'start'), host)).json()).lobby;
+    expect((await (await app.post('/api/stations/commands', stationInput(lobby, { action: 'add', name: 'Tuin' }), host)).json()).error).toBe('INVALID_PHASE');
+  });
+
+  it('assigns private tasks, keeps fake tasks out of progress, batches progress, and ends on the task goal', async () => {
+    let clock = 1_000_000;
+    const app = await start(':memory:', () => clock);
+    const game = await crew(app);
+    const active: Lobby = (await (await app.post('/api/round/commands', roundInput(game.lobby, 'start'), game.cookies[0])).json()).lobby;
+    const stations: PrintableStation[] = (await (await fetch(`${app.url}/api/stations/print`, { headers: { Cookie: game.cookies[0] } })).json()).stations;
+    const players = await Promise.all(game.cookies.map(async cookie => ({
+      cookie,
+      role: (await (await fetch(`${app.url}/api/role?roundId=${active.roundId}`, { headers: { Cookie: cookie } })).json()).role as string,
+      lobby: await game.snapshot(cookie),
+    })));
+    for (const player of players) {
+      expect(player.lobby.you.tasks).toHaveLength(4);
+      expect(player.lobby.progress).toEqual({ done: 0, goal: 16 });
+      expect(JSON.stringify(player.lobby)).not.toMatch(/fake|crewmate|impostor|"role"/);
+      expect(new Set(player.lobby.you.tasks.map(task => task.puzzle.kind)).size).toBeGreaterThan(1);
+    }
+    const complete = (cookie: string, task: Task, answer: unknown = answerFor(task, stations)) =>
+      app.post('/api/tasks/complete', { roundId: active.roundId, taskId: task.id, answer }, cookie);
+
+    const impostor = players.find(player => player.role === 'impostor')!;
+    const crewmates = players.filter(player => player !== impostor);
+    const [first] = crewmates[0].lobby.you.tasks;
+    expect((await complete(crewmates[1].cookie, first)).status).toBe(404);
+    expect((await (await complete(crewmates[0].cookie, first, first.puzzle.kind === 'codebook' ? '9999' : [0, 0, 0, 0])).json()).error).toBe('WRONG_ANSWER');
+    for (const task of impostor.lobby.you.tasks) expect((await complete(impostor.cookie, task)).status).toBe(200);
+    expect((await game.snapshot(impostor.cookie)).you.tasks.every(task => task.done)).toBe(true);
+    const done = await (await complete(crewmates[0].cookie, first)).json();
+    expect(done.lobby.you.tasks[0].done).toBe(true);
+    expect((await complete(crewmates[0].cookie, first)).status).toBe(200);
+
+    // Progress is published on the batch cadence, never immediately, and fake tasks never count.
+    app.tick();
+    expect((await game.snapshot()).progress).toEqual({ done: 0, goal: 16 });
+    clock += 30_000; app.tick();
+    expect((await game.snapshot()).progress).toEqual({ done: 1, goal: 16 });
+
+    const paused: Lobby = (await (await app.post('/api/round/commands', roundInput(await game.snapshot(), 'pause'), game.cookies[0])).json()).lobby;
+    const second = crewmates[0].lobby.you.tasks[1];
+    expect((await (await complete(crewmates[0].cookie, second)).json()).error).toBe('INVALID_PHASE');
+    await app.post('/api/round/commands', roundInput(paused, 'resume'), game.cookies[0]);
+
+    const remaining = crewmates.flatMap(player => player.lobby.you.tasks.filter(task => task.id !== first.id).map(task => ({ player, task })));
+    for (const [index, { player, task }] of remaining.slice(0, 14).entries()) {
+      const result = (await (await complete(player.cookie, task)).json()).lobby as Lobby;
+      expect(result.phase).toBe('active');
+    }
+    const winning = remaining[14];
+    const ended: Lobby = (await (await complete(winning.player.cookie, winning.task)).json()).lobby;
+    expect(ended.phase).toBe('ended');
+    expect(ended.result).toEqual({ winner: 'crew', reason: 'tasks' });
+    expect(ended.progress).toEqual({ done: 16, goal: 16 });
+    expect(ended.you.tasks).toEqual([]);
+  });
+
+  it('drops a departing Crewmate\'s unfinished tasks from the goal', async () => {
+    const app = await start();
+    const game = await crew(app);
+    const active: Lobby = (await (await app.post('/api/round/commands', roundInput(game.lobby, 'start'), game.cookies[0])).json()).lobby;
+    const roles = await Promise.all(game.cookies.map(async cookie => (await (await fetch(`${app.url}/api/role?roundId=${active.roundId}`, { headers: { Cookie: cookie } })).json()).role));
+    const index = roles.findIndex((role, position) => position > 0 && role === 'crewmate');
+    const target = (await game.snapshot(game.cookies[index])).you.id;
+    const paused: Lobby = (await (await app.post('/api/room/commands', roomInput(active, target), game.cookies[0])).json()).lobby;
+    expect(paused.phase).toBe('paused');
+    expect(paused.progress?.goal).toBe(Math.ceil(16 * 0.8));
   });
 });

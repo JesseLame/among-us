@@ -11,3 +11,6 @@ coverage/
 data/
 playwright-report/
 test-results/
+
+# Local Claude Code preview config
+.claude/
