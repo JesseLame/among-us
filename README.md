@@ -94,6 +94,16 @@ npm start
 
 The built app is served by Express at `http://localhost:3001`. Set `NODE_ENV=production` behind HTTPS to enable secure cookies. Environment variables `PORT` and `DATABASE_PATH` configure the server; `.env.example` documents defaults (the scripts do not automatically load `.env`). SQLite defaults to `data/game.sqlite`; keep this on a persistent disk when deploying. E2E tests always use separate ports (5174/3002) and `data/e2e.sqlite` so they do not alter your development game. No automatic lobby expiry or lost-session recovery UI is implemented yet.
 
+### Test the task games on your phone
+
+`/practice` plays every task game on its own, without a room, round or printed sheets: pick a game, solve it, and the server checks the answer with the same code as real tasks. Codebook puzzles show a practice station sheet on screen. Nothing here touches lobbies or the database. A link on the home screen opens it, and `?game=wires` (or `order`, `codebook`) opens one game directly.
+
+1. Run `npm run dev` with the phone on the same Wi-Fi as the computer.
+2. The terminal prints `Test on your phone (same Wi-Fi): http://<computer address>:5173/practice` with a QR code. Scan it with the phone camera.
+3. Saved code changes reload on the phone automatically.
+
+`npm run play` prints the same practice link for the built app. New task games appear on the practice page automatically once they are in `taskKinds` (`shared/protocol.ts`), `server/puzzles.ts` and `PuzzleView` (`src/Tasks.tsx`).
+
 ### Try the round flow
 
 1. As organiser, review **Task stations / Taakstations** in the lobby, then open **Print materials / Printmateriaal** and place each station sheet in its room. Open the app through the computer's network address (not `localhost`) before printing, so the QR codes work on phones; the print page warns and links to that address.

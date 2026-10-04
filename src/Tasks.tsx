@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Button, Label, ProgressBar } from 'react-aria-components';
-import { symbolGlyphs, type CompleteTask, type ErrorCode, type Lobby, type Task, type TaskPuzzle } from '../shared/protocol';
+import { symbolGlyphs, type CompleteTask, type ErrorCode, type Lobby, type Task, type TaskKind, type TaskPuzzle } from '../shared/protocol';
 import { codeFor, request } from './api';
 import StationScanner from './Scanner';
 import { errorMessages, translations, type Language } from './i18n';
@@ -13,7 +13,18 @@ type Props = {
   lobby: Lobby; language: Language; connected: boolean; onUpdate: (lobby: Lobby) => void;
   scan?: Scan | null; onScanHandled?: () => void; onStationScanned?: (stationId: string) => void;
 };
-const kindLabel = (t: Copy, kind: TaskPuzzle['kind']) => kind === 'order' ? t.kindOrder : kind === 'wires' ? t.kindWires : t.kindCodebook;
+const kindLabels: Record<TaskKind, keyof Copy> = { order: 'kindOrder', wires: 'kindWires', codebook: 'kindCodebook' };
+export const kindLabel = (t: Copy, kind: TaskKind) => t[kindLabels[kind]] as string;
+
+type PuzzleProps = { puzzle: TaskPuzzle; t: Copy; disabled: boolean; solved: boolean; rejected: number; onSubmit: (answer: CompleteTask['answer']) => void };
+// One task game. Used for real tasks and on the practice page, so both behave the same.
+export function PuzzleView({ puzzle, t, disabled, solved, rejected, onSubmit }: PuzzleProps) {
+  switch (puzzle.kind) {
+    case 'order': return <OrderPuzzle puzzle={puzzle} t={t} disabled={disabled} solved={solved} onSolved={onSubmit}/>;
+    case 'wires': return <WiresPuzzle puzzle={puzzle} t={t} disabled={disabled} onSolved={onSubmit}/>;
+    case 'codebook': return <CodebookPuzzle puzzle={puzzle} t={t} disabled={disabled} solved={solved} rejected={rejected} onSubmit={onSubmit}/>;
+  }
+}
 
 export function SharedProgress({ lobby, language }: Pick<Props, 'lobby' | 'language'>) {
   const t = translations[language];
@@ -87,9 +98,7 @@ export default function Tasks({ lobby, language, connected, onUpdate, scan, onSc
   if (open) return <section className={`${ui.card} ${styles.taskCard}`} aria-labelledby="task-title">
     <p className={styles.eyebrow}>{t.doTaskAt} · {stationName(open)}</p>
     <h2 id="task-title" ref={heading} tabIndex={-1}>{kindLabel(t, open.puzzle.kind)}</h2>
-    {open.puzzle.kind === 'order' && <OrderPuzzle puzzle={open.puzzle} t={t} disabled={locked} solved={solved} onSolved={answer => void submit(open, answer)}/>}
-    {open.puzzle.kind === 'wires' && <WiresPuzzle puzzle={open.puzzle} t={t} disabled={locked} onSolved={answer => void submit(open, answer)}/>}
-    {open.puzzle.kind === 'codebook' && <CodebookPuzzle puzzle={open.puzzle} t={t} disabled={locked} solved={solved} rejected={rejected} onSubmit={answer => void submit(open, answer)}/>}
+    <PuzzleView key={open.id} puzzle={open.puzzle} t={t} disabled={locked} solved={solved} rejected={rejected} onSubmit={answer => void submit(open, answer)}/>
     {error && <p className={ui.error} role="alert">{errorMessages[language][error]}</p>}
     <Button className={ui.secondary} isDisabled={busy || solved} onPress={() => { setOpenId(null); setError(null); }}>{t.backToTasks}</Button>
   </section>;

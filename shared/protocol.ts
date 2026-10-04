@@ -66,6 +66,9 @@ export const completeTask = z.object({
   answer: z.union([z.array(z.number().int().min(0).max(99)).max(8), z.string().regex(/^\d{1,8}$/)]),
 });
 export type CompleteTask = z.infer<typeof completeTask>;
+// Practice: try any task game outside a round, checked by the same server code.
+export const practiceCheck = z.object({ id: z.uuid(), answer: completeTask.shape.answer });
+export type PracticePuzzle = { id: string; puzzle: TaskPuzzle; codebook?: Record<SymbolId, number> };
 
 export const symbols = ['star', 'circle', 'triangle', 'square', 'diamond', 'heart', 'club', 'spade', 'sun', 'moon', 'cross', 'note'] as const;
 export type SymbolId = typeof symbols[number];
@@ -76,6 +79,11 @@ export const symbolGlyphs: Record<SymbolId, string> = {
 };
 export const wireColours = ['red', 'blue', 'yellow', 'green', 'purple', 'orange'] as const;
 export type WireColour = typeof wireColours[number];
+// Every task game. Adding a game: its puzzle type below, generation and checking in
+// server/puzzles.ts, a component in src/Tasks.tsx (PuzzleView) and its EN/NL texts.
+// The practice page (/practice) lists every kind automatically.
+export const taskKinds = ['codebook', 'order', 'wires'] as const;
+export type TaskKind = typeof taskKinds[number];
 export type TaskPuzzle =
   | { kind: 'order'; numbers: number[] }
   | { kind: 'wires'; left: WireColour[]; right: WireColour[] }

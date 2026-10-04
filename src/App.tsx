@@ -11,6 +11,7 @@ import type { Scan } from './Tasks';
 import Stations from './Stations';
 import GameSettings from './Settings';
 import PrintSheets from './PrintSheets';
+import Practice from './Practice';
 import { PhoneAddressNote, QrCode, usableOrigin, usePhoneOrigin } from './Qr';
 import { playMeetingAlarm, unlockAudio } from './sound';
 
@@ -157,6 +158,7 @@ export default function App() {
     <Radio value="en" lang="en" aria-label="English">EN</Radio><Radio value="nl" lang="nl" aria-label="Nederlands">NL</Radio>
   </RadioGroup>;
 
+  if (location.pathname === '/practice') return <div className={styles.shell}><Practice language={language} languageControl={languageControl}/></div>;
   if (location.pathname === '/print') return <div className={styles.shell}><PrintSheets language={language} languageControl={languageControl}/></div>;
 
   return <div className={styles.shell}>
@@ -254,6 +256,7 @@ export default function App() {
             </TabPanel>)}
           </Tabs>
           <div className={styles.privacy}><span aria-hidden="true">◇</span>{t.privacy}</div>
+          <a className={styles.practiceLink} href="/practice">{t.practiceLink}<span aria-hidden="true"> →</span></a>
           <div className={styles.entryBottom}><span aria-hidden="true">✳</span><span>{t.edition}</span><span aria-hidden="true">✳</span></div>
         </section>
       </div>

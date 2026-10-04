@@ -3,6 +3,7 @@ import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { dirname } from 'node:path';
 import { mkdirSync } from 'node:fs';
 import type { CallMeeting, CastVote, ChangePreview, Correction, HistoryEntry, CompleteTask, Eliminate, MeetingCommand, MeetingKind, MeetingStage, ErrorCode, Lobby, PlayerStatus, RoleInfo, Phase, PrintableStation, Role, RoundCommand, RoomCommand, RoundResult, SettingsCommand, StationAccess, StationCommand, Task, TaskPuzzle } from '../shared/protocol.js';
+import { taskKinds } from '../shared/protocol.js';
 import { codebook, puzzle, shuffle, solved, type Codebook, type TaskKind } from './puzzles.js';
 
 export class GameError extends Error {
@@ -36,7 +37,7 @@ type FullTask = TaskRow & { game_code: string; round_id: string; position: numbe
 class DryRun extends Error { constructor(public preview: ChangePreview) { super('DRY_RUN'); } }
 type TaskRow = { id: string; player_id: string; station_id: string; fake: number; puzzle: string; done_at: number | null };
 const MAX_STATIONS = 8;
-const TASK_KINDS: TaskKind[] = ['codebook', 'order', 'wires'];
+const TASK_KINDS: TaskKind[] = [...taskKinds];
 const DEFAULT_STATIONS = {
   en: ['Kitchen', 'Living room', 'Hallway', 'Study'],
   nl: ['Keuken', 'Woonkamer', 'Gang', 'Werkkamer'],

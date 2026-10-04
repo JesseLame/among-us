@@ -937,3 +937,28 @@ describe('organiser corrections and recovery', () => {
     expect((await (await app.post('/api/games/rejoin', { code: rejoinCode })).json()).error).toBe('REJOIN_EXPIRED');
   });
 });
+
+describe('practice page', () => {
+  it('serves every task game without a session and checks answers with the task rules', async () => {
+    const app = await start();
+    for (const kind of ['order', 'wires', 'codebook']) {
+      const practice = await (await fetch(`${app.url}/api/practice/${kind}`)).json() as { puzzle: { kind: string }; codebook?: Record<string, number> };
+      expect(practice.puzzle.kind).toBe(kind);
+      expect(Boolean(practice.codebook)).toBe(kind === 'codebook');
+    }
+    expect((await fetch(`${app.url}/api/practice/nope`)).status).toBe(400);
+
+    const { id, puzzle } = await (await fetch(`${app.url}/api/practice/order`)).json() as { id: string; puzzle: { numbers: number[] } };
+    expect((await (await app.post('/api/practice/check', { id, answer: [...puzzle.numbers].sort((a, b) => b - a) })).json()).error).toBe('WRONG_ANSWER');
+    const sorted = [...puzzle.numbers].sort((a, b) => a - b);
+    expect(await (await app.post('/api/practice/check', { id, answer: sorted })).json()).toEqual({ solved: true });
+    // A solved practice puzzle is forgotten.
+    expect((await app.post('/api/practice/check', { id, answer: sorted })).status).toBe(404);
+
+    const book = await (await fetch(`${app.url}/api/practice/codebook`)).json() as { id: string; puzzle: { symbols: string[] }; codebook: Record<string, number> };
+    const code = book.puzzle.symbols.map(symbol => book.codebook[symbol]).join('');
+    expect(await (await app.post('/api/practice/check', { id: book.id, answer: code })).json()).toEqual({ solved: true });
+    // Practice never creates a room or session.
+    expect((await (await fetch(`${app.url}/api/session`)).json()).lobby).toBeNull();
+  });
+});

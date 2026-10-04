@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createApp } from './app.js';
 import { lanAddresses } from './network.js';
@@ -24,6 +25,8 @@ server.http.listen(port, '0.0.0.0', () => {
   console.log(`Game server listening on ${protocol}://localhost:${port}`);
   // Phones on the same Wi-Fi use one of these addresses (also when hosting from a laptop).
   for (const address of lanAddresses()) console.log(`On your network: ${protocol}://${address}:${port}`);
+  // In development the Vite server prints its own practice link and QR code instead.
+  if (lanAddresses()[0] && existsSync(resolve('dist/client/index.html'))) console.log(`Practice the task games on a phone: ${protocol}://${lanAddresses()[0]}:${port}/practice`);
   if (tls?.caCreated) console.log('Created a new local certificate authority in data/tls/ca.pem. Trust it once on each device to skip the "not private" warning (see README).');
   else if (tls) console.log('Using the local certificate authority in data/tls/ca.pem. Devices that trust it open the game without a warning.');
   if (tls) console.log(`Install it on a phone from ${protocol}://${lanAddresses()[0] ?? 'localhost'}:${port}/ca.crt`);

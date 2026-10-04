@@ -6,6 +6,7 @@ import { Server } from 'socket.io';
 import { callMeeting, castVote, completeTask, correction, createGame, eliminate, meetingCommand, rejoin, joinGame, roomCommand, roundCommand, settingsCommand, stationCommand, type ClientEvents, type ServerEvents, type SessionEndReason } from '../shared/protocol.js';
 import { createStore, GameError } from './store.js';
 import { lanAddresses } from './network.js';
+import { practiceRoutes } from './practice.js';
 
 export function sessionToken(cookie = '') {
   return cookie.split(';').map(part => part.trim()).find(part => part.startsWith('home_session='))?.slice('home_session='.length);
@@ -272,6 +273,7 @@ export function createApp(options: { databasePath: string; production?: boolean;
     socket.on('lobby:sync', sync);
   });
 
+  app.use('/api/practice', practiceRoutes());
   app.use('/api', (_req, res) => res.status(404).json({ error: 'INVALID_INPUT' }));
   if (options.clientPath) {
     app.use(express.static(options.clientPath));

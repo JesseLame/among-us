@@ -1,8 +1,8 @@
 import { randomInt } from 'node:crypto';
-import { symbols, wireColours, type CompleteTask, type SymbolId, type TaskPuzzle } from '../shared/protocol.js';
+import { symbols, wireColours, type CompleteTask, type SymbolId, type TaskKind, type TaskPuzzle } from '../shared/protocol.js';
 
 export type Codebook = Record<SymbolId, number>;
-export type TaskKind = TaskPuzzle['kind'];
+export type { TaskKind };
 
 export function shuffle<T>(items: readonly T[]): T[] {
   const result = [...items];
