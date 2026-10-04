@@ -1059,6 +1059,57 @@
   color: var(--color-puzzle-on-lit);
 }
 
+/* Impostor: elimination panel inside the revealed role card */
+.eliminate {
+  text-align: left;
+  border-top: 1px dashed var(--color-border);
+  padding-top: var(--space-4);
+  margin-bottom: var(--space-5);
+  display: grid;
+  gap: var(--space-3);
+}
+
+.eliminate h3 {
+  margin: 0;
+  font: 600 var(--text-lg) var(--font-heading);
+  color: var(--color-accent);
+}
+
+.eliminate p {
+  margin: 0;
+}
+
+.eliminateTimer strong {
+  font: 700 var(--text-xl) var(--font-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+.eliminateTargets {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: var(--space-2);
+}
+
+.eliminateTargets button {
+  width: 100%;
+  min-height: var(--control-height);
+  overflow-wrap: anywhere;
+}
+
+/* Eliminated player's screen */
+.bodyCard {
+  text-align: center;
+  justify-items: center;
+}
+
+.bodySymbol {
+  font: 700 48px/1 var(--font-heading);
+  color: var(--color-accent);
+}
+
 /* Station QR scanner */
 .scanner {
   display: grid;

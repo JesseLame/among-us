@@ -2,19 +2,23 @@ import Database from 'better-sqlite3';
 import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { dirname } from 'node:path';
 import { mkdirSync } from 'node:fs';
-import type { CompleteTask, ErrorCode, Lobby, Phase, PrintableStation, Role, RoundCommand, RoomCommand, RoundResult, SettingsCommand, StationAccess, StationCommand, Task, TaskPuzzle } from '../shared/protocol.js';
+import type { CompleteTask, Eliminate, ErrorCode, Lobby, PlayerStatus, RoleInfo, Phase, PrintableStation, Role, RoundCommand, RoomCommand, RoundResult, SettingsCommand, StationAccess, StationCommand, Task, TaskPuzzle } from '../shared/protocol.js';
 import { codebook, puzzle, shuffle, solved, type Codebook, type TaskKind } from './puzzles.js';
 
 export class GameError extends Error {
   constructor(public code: ErrorCode, public status = 400) { super(code); }
 }
-type Player = { id: string; game_code: string; name: string; organiser: number; playing: number; role: Role | null; removed: number };
+type Player = { id: string; game_code: string; name: string; organiser: number; playing: number; role: Role | null; removed: number; status: PlayerStatus };
 type Game = {
   code: string; phase: Phase; round_id: string | null; revision: number; pause_reason: Lobby['pauseReason'];
   winner: RoundResult['winner']; end_reason: RoundResult['reason'] | null;
   tasks_per_player: number; task_goal_percent: number;
   progress_interval: number; progress_shown: number; progress_shown_at: number;
   station_access: StationAccess;
+  opening_protection: number; kill_cooldown: number;
+  // Active play time: clock_ms plus, while active, the time since clock_at.
+  // The play-clock time from which the Impostor may eliminate (protection, then cooldown).
+  clock_ms: number; clock_at: number; eliminate_ready_ms: number;
 };
 type TaskRow = { id: string; player_id: string; station_id: string; fake: number; puzzle: string; done_at: number | null };
 const MAX_STATIONS = 8;
@@ -89,6 +93,17 @@ export function createStore(path: string, now: () => number = Date.now) {
       // Existing organisers keep playing; a host-only organiser has playing = 0.
       db.exec('ALTER TABLE players ADD COLUMN playing INTEGER NOT NULL DEFAULT 1; PRAGMA user_version = 5;');
     }
+    if (version < 6) {
+      db.exec(`
+        ALTER TABLE players ADD COLUMN status TEXT NOT NULL DEFAULT 'alive';
+        ALTER TABLE games ADD COLUMN opening_protection INTEGER NOT NULL DEFAULT 60;
+        ALTER TABLE games ADD COLUMN kill_cooldown INTEGER NOT NULL DEFAULT 60;
+        ALTER TABLE games ADD COLUMN clock_ms INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE games ADD COLUMN clock_at INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE games ADD COLUMN eliminate_ready_ms INTEGER NOT NULL DEFAULT 0;
+        PRAGMA user_version = 6;
+      `);
+    }
   });
   function addStations(code: string, names: string[]) {
     const insert = db.prepare('INSERT INTO stations (id, game_code, name, position, codebook) VALUES (?, ?, ?, (SELECT COALESCE(MAX(position), -1) + 1 FROM stations WHERE game_code = ?), ?)');
@@ -119,9 +134,10 @@ export function createStore(path: string, now: () => number = Date.now) {
       revision: game.revision, pauseReason: game.pause_reason,
       players: players.map(p => ({ id: p.id, name: p.name, organiser: Boolean(p.organiser), playing: Boolean(p.playing), ...(p.removed ? { removed: true } : {}) })),
       stations: db.prepare('SELECT id, name FROM stations WHERE game_code = ? ORDER BY position').all(game.code) as Lobby['stations'],
-      settings: { stationAccess: game.station_access },
+      settings: { stationAccess: game.station_access, openingProtection: game.opening_protection, killCooldown: game.kill_cooldown },
       progress: totals && { done: game.phase === 'ended' ? totals.done : Math.min(game.progress_shown, totals.goal), goal: totals.goal },
-      you: { id: player.id, organiser: Boolean(player.organiser), playing: Boolean(player.playing), tasks },
+      // Status is private to its owner: an undiscovered body looks alive to everyone else.
+      you: { id: player.id, organiser: Boolean(player.organiser), playing: Boolean(player.playing), status: playing ? player.status : 'alive', tasks },
       ...(game.phase === 'ended' ? {
         revealedRoles: players.filter(p => p.playing && p.role).map(p => ({ id: p.id, role: p.role! })),
         result: { winner: game.winner, reason: game.end_reason ?? 'organiser' },
@@ -137,6 +153,11 @@ export function createStore(path: string, now: () => number = Date.now) {
   }
   // With no real tasks (for example a solo Impostor) the round never ends by tasks.
   const tasksWon = (game: Game) => { const { done, goal } = progress(game); return goal > 0 && done >= goal; };
+  // Active play time in this round, excluding pauses (and later, meetings).
+  const elapsed = (game: Game) => game.clock_ms + (game.phase === 'active' ? Math.max(0, now() - game.clock_at) : 0);
+  // The Impostor wins when at most one living Crewmate remains.
+  const impostorWon = (game: Game) => (db.prepare("SELECT COUNT(*) AS living FROM players WHERE game_code = ? AND playing = 1 AND removed = 0 AND role = 'crewmate' AND status = 'alive'")
+    .get(game.code) as { living: number }).living <= 1;
   function endRound(code: string, winner: RoundResult['winner'], reason: RoundResult['reason']) {
     db.prepare("UPDATE games SET phase = 'ended', pause_reason = NULL, winner = ?, end_reason = ?, revision = revision + 1 WHERE code = ?").run(winner, reason, code);
   }
@@ -209,8 +230,39 @@ export function createStore(path: string, now: () => number = Date.now) {
     if (game.round_id !== roundId) throw new GameError('STALE_COMMAND', 409);
     if (game.phase !== 'active' && game.phase !== 'paused') throw new GameError('INVALID_PHASE', 409);
     if (!player.playing) throw new GameError('NOT_PLAYING', 409);
-    return { roundId, role: player.role! };
+    const info: RoleInfo = { roundId, role: player.role! };
+    if (player.role === 'impostor') {
+      const ready = game.eliminate_ready_ms;
+      const targets = db.prepare("SELECT id, name FROM players WHERE game_code = ? AND playing = 1 AND removed = 0 AND status = 'alive' AND id != ? ORDER BY joined_at, rowid")
+        .all(game.code, player.id) as { id: string; name: string }[];
+      info.elimination = { readyInMs: Math.max(0, ready - elapsed(game)), running: game.phase === 'active', targets };
+    }
+    return info;
   }
+
+  // The Impostor records an elimination after the physical signal. Only the victim's
+  // phone changes (to the body screen); nobody else is told, so no revision bump.
+  const eliminatePlayer = db.transaction((token: string | undefined, input: Eliminate) => {
+    const player = playerFor(token);
+    if (!player) throw new GameError('NO_SESSION', 401);
+    const game = gameFor(player.game_code)!;
+    if (game.round_id !== input.roundId) throw new GameError('STALE_COMMAND', 409);
+    if (player.role !== 'impostor' || !player.playing) throw new GameError('FORBIDDEN', 403);
+    const payload = JSON.stringify(input);
+    if (alreadyApplied(input.commandId, player.id, payload)) return { code: game.code, victim: input.targetId, ended: false };
+    if (game.phase !== 'active') throw new GameError('INVALID_PHASE', 409);
+    const at = elapsed(game);
+    if (at < game.eliminate_ready_ms) throw new GameError('NOT_READY', 409);
+    const target = db.prepare("SELECT * FROM players WHERE id = ? AND game_code = ? AND playing = 1 AND removed = 0 AND status = 'alive' AND id != ?")
+      .get(input.targetId, game.code, player.id) as Player | undefined;
+    if (!target) throw new GameError('PLAYER_NOT_FOUND', 404);
+    db.prepare("UPDATE players SET status = 'body' WHERE id = ?").run(target.id);
+    db.prepare('UPDATE games SET eliminate_ready_ms = ? WHERE code = ?').run(at + game.kill_cooldown * 1000, game.code);
+    recordCommand(input.commandId, game.code, player.id, payload);
+    const ended = impostorWon(game);
+    if (ended) endRound(game.code, 'impostor', 'eliminations');
+    return { code: game.code, victim: target.id, ended };
+  });
 
   const command = db.transaction((token: string | undefined, input: RoundCommand) => {
     const { player, game } = organiserFor(token);
@@ -234,14 +286,18 @@ export function createStore(path: string, now: () => number = Date.now) {
         roles.forEach(p => assign.run(p.role, p.id));
         roundId = randomUUID(); phase = 'active';
         assignTasks(game, roundId, roles);
-        db.prepare('UPDATE games SET winner = NULL, progress_shown = 0, progress_shown_at = ? WHERE code = ?').run(now(), game.code);
+        db.prepare("UPDATE players SET status = 'alive' WHERE game_code = ?").run(game.code);
+        db.prepare('UPDATE games SET winner = NULL, progress_shown = 0, progress_shown_at = ?, clock_ms = 0, clock_at = ?, eliminate_ready_ms = opening_protection * 1000 WHERE code = ?')
+          .run(now(), now(), game.code);
         break;
       }
       case 'pause':
         if (phase !== 'active') throw new GameError('INVALID_PHASE', 409);
+        db.prepare('UPDATE games SET clock_ms = ? WHERE code = ?').run(elapsed(game), game.code);
         phase = 'paused'; pauseReason = 'organiser'; break;
       case 'resume':
         if (phase !== 'paused') throw new GameError('INVALID_PHASE', 409);
+        db.prepare('UPDATE games SET clock_at = ? WHERE code = ?').run(now(), game.code);
         phase = 'active'; break;
       case 'end':
         if (phase !== 'active' && phase !== 'paused') throw new GameError('INVALID_PHASE', 409);
@@ -290,7 +346,11 @@ export function createStore(path: string, now: () => number = Date.now) {
     if (game.phase === 'active' || game.phase === 'paused') {
       if (target.role === 'impostor') endRound(game.code, null, 'departure');
       else if (tasksWon(game)) endRound(game.code, 'crew', 'tasks');
-      else db.prepare("UPDATE games SET phase = 'paused', pause_reason = 'organiser', revision = revision + 1 WHERE code = ?").run(game.code);
+      else if (impostorWon(game)) endRound(game.code, 'impostor', 'eliminations');
+      else {
+        // Pausing stops the play clock where it is.
+        db.prepare("UPDATE games SET phase = 'paused', pause_reason = 'organiser', clock_ms = ?, revision = revision + 1 WHERE code = ?").run(elapsed(game), game.code);
+      }
     } else db.prepare('UPDATE games SET revision = revision + 1 WHERE code = ?').run(game.code);
     recordCommand(input.commandId, game.code, organiser.id, payload);
     return { code: game.code, lobby: lobby(token) };
@@ -322,7 +382,8 @@ export function createStore(path: string, now: () => number = Date.now) {
     const payload = JSON.stringify(input);
     if (alreadyApplied(input.commandId, organiser.id, payload)) return lobby(token)!;
     if (game.revision !== input.expectedRevision || game.round_id !== input.roundId) throw new GameError('STALE_COMMAND', 409);
-    db.prepare('UPDATE games SET station_access = ?, revision = revision + 1 WHERE code = ?').run(input.stationAccess, game.code);
+    db.prepare('UPDATE games SET station_access = COALESCE(?, station_access), opening_protection = COALESCE(?, opening_protection), kill_cooldown = COALESCE(?, kill_cooldown), revision = revision + 1 WHERE code = ?')
+      .run(input.stationAccess ?? null, input.openingProtection ?? null, input.killCooldown ?? null, game.code);
     recordCommand(input.commandId, game.code, organiser.id, payload);
     return lobby(token)!;
   });
@@ -342,6 +403,7 @@ export function createStore(path: string, now: () => number = Date.now) {
     const game = gameFor(player.game_code)!;
     if (game.round_id !== input.roundId) throw new GameError('STALE_COMMAND', 409);
     if (game.phase !== 'active') throw new GameError('INVALID_PHASE', 409);
+    if (player.status === 'body') throw new GameError('NOT_ALIVE', 409);
     const task = db.prepare('SELECT * FROM tasks WHERE id = ? AND player_id = ? AND round_id = ?').get(input.taskId, player.id, game.round_id) as TaskRow | undefined;
     if (!task) throw new GameError('TASK_NOT_FOUND', 404);
     if (task.done_at !== null) return { lobby: lobby(token)!, ended: false };
@@ -358,6 +420,8 @@ export function createStore(path: string, now: () => number = Date.now) {
   // Returns the games whose public progress changed.
   function tick() {
     const changed: string[] = [];
+    // Keep the play clock current so a crash loses at most one tick of active time.
+    db.prepare("UPDATE games SET clock_ms = clock_ms + MAX(0, ? - clock_at), clock_at = ? WHERE phase = 'active'").run(now(), now());
     const due = db.prepare("SELECT * FROM games WHERE phase = 'active' AND ? - progress_shown_at >= progress_interval * 1000").all(now()) as Game[];
     for (const game of due) {
       const { done } = progress(game);
@@ -367,5 +431,5 @@ export function createStore(path: string, now: () => number = Date.now) {
     return changed;
   }
 
-  return { lobby, create, join, role, command, manageRoom, manageStations, changeSettings, printableStations, completeTask, tick, close: () => db.close() };
+  return { lobby, create, join, role, eliminatePlayer, command, manageRoom, manageStations, changeSettings, printableStations, completeTask, tick, close: () => db.close() };
 }

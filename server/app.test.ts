@@ -128,7 +128,8 @@ describe('private roles and round lifecycle', () => {
       const state = await game.snapshot(cookie);
       expect(JSON.stringify(state)).not.toMatch(/crewmate|impostor|"role"|revealedRoles/);
       const ownRole = await (await fetch(`${app.url}/api/role?roundId=${active.roundId}&playerId=${active.you.id}`, { headers: { Cookie: cookie } })).json();
-      expect(Object.keys(ownRole).sort()).toEqual(['role', 'roundId']);
+      // Only the Impostor's own reply carries elimination details.
+      expect(Object.keys(ownRole).sort()).toEqual(ownRole.role === 'impostor' ? ['elimination', 'role', 'roundId'] : ['role', 'roundId']);
       roles.push(ownRole.role);
     }
     expect(roles.filter(role => role === 'impostor')).toHaveLength(1);
@@ -219,8 +220,8 @@ describe('private roles and round lifecycle', () => {
     expect(lobby.phase).toBe('lobby');
     expect(lobby.roundId).toBeNull();
     const originalSession = (await (await fetch(`${app.url}/api/session`, { headers: { Cookie: 'home_session=old-session' } })).json()).lobby;
-    expect(originalSession.you).toEqual({ id: 'original', organiser: true, playing: true, tasks: [] });
-    expect(originalSession.settings).toEqual({ stationAccess: 'qr' });
+    expect(originalSession.you).toEqual({ id: 'original', organiser: true, playing: true, status: 'alive', tasks: [] });
+    expect(originalSession.settings).toEqual({ stationAccess: 'qr', openingProtection: 60, killCooldown: 60 });
     expect(originalSession.stations.map((station: { name: string }) => station.name)).toEqual(['Kitchen', 'Living room', 'Hallway', 'Study']);
   });
 });
@@ -369,7 +370,7 @@ describe('stations and tasks', () => {
     lobby = (await (await app.post('/api/round/commands', roundInput(lobby, 'start'), host)).json()).lobby;
     expect((await (await app.post('/api/stations/commands', stationInput(lobby, { action: 'add', name: 'Tuin' }), host)).json()).error).toBe('INVALID_PHASE');
     // Station access defaults to QR-only; only the organiser can change it, also mid-round.
-    expect(lobby.settings).toEqual({ stationAccess: 'qr' });
+    expect(lobby.settings).toEqual({ stationAccess: 'qr', openingProtection: 60, killCooldown: 60 });
     const settings = { commandId: randomUUID(), expectedRevision: lobby.revision, roundId: lobby.roundId, stationAccess: 'manual' };
     expect((await app.post('/api/settings/commands', settings, guest)).status).toBe(403);
     expect((await app.post('/api/settings/commands', { ...settings, stationAccess: 'anything' }, host)).status).toBe(400);
@@ -474,5 +475,88 @@ describe('host-only organiser', () => {
     lobby = (await (await app.post('/api/round/commands', roundInput(lobby, 'end'), host)).json()).lobby;
     expect(lobby.revealedRoles).toHaveLength(8);
     expect(lobby.revealedRoles!.some(role => role.id === lobby.you.id)).toBe(false);
+  });
+});
+
+describe('eliminations', () => {
+  it('waits for protection and cooldown in active play, keeps bodies private, and lets the Impostor win', async () => {
+    let clock = 5_000_000;
+    const app = await start(':memory:', () => clock);
+    const game = await crew(app);
+    let lobby: Lobby = (await (await app.post('/api/round/commands', roundInput(game.lobby, 'start'), game.cookies[0])).json()).lobby;
+    const roleOf = async (cookie: string) => (await (await fetch(`${app.url}/api/role?roundId=${lobby.roundId}`, { headers: { Cookie: cookie } })).json());
+    const infos = await Promise.all(game.cookies.map(roleOf));
+    const impostor = game.cookies[infos.findIndex(info => info.role === 'impostor')];
+    const crewCookies = game.cookies.filter(cookie => cookie !== impostor);
+    const crewIds = await Promise.all(crewCookies.map(async cookie => (await game.snapshot(cookie)).you.id));
+    const kill = (targetId: string, cookie = impostor) => app.post('/api/eliminate', { commandId: randomUUID(), roundId: lobby.roundId, targetId }, cookie);
+
+    const opening = (await roleOf(impostor)).elimination;
+    expect(opening).toMatchObject({ readyInMs: 60_000, running: true });
+    expect(opening.targets).toHaveLength(5);
+    expect((await (await kill(crewIds[0], crewCookies[1])).json()).error).toBe('FORBIDDEN');
+    expect((await (await kill(crewIds[0])).json()).error).toBe('NOT_READY');
+
+    // Paused time does not count towards opening protection.
+    clock += 30_000; app.tick();
+    lobby = (await (await app.post('/api/round/commands', roundInput(lobby, 'pause'), game.cookies[0])).json()).lobby;
+    clock += 600_000; app.tick();
+    expect((await roleOf(impostor)).elimination).toMatchObject({ readyInMs: 30_000, running: false });
+    expect((await (await kill(crewIds[0])).json()).error).toBe('INVALID_PHASE');
+    lobby = (await (await app.post('/api/round/commands', roundInput(lobby, 'resume'), game.cookies[0])).json()).lobby;
+    clock += 30_000;
+
+    const revision = (await game.snapshot()).revision;
+    const first = await (await kill(crewIds[0])).json();
+    expect(first.ended).toBe(false);
+    expect(first.role.elimination).toMatchObject({ readyInMs: 60_000 });
+    expect(first.role.elimination.targets.map((target: { id: string }) => target.id)).not.toContain(crewIds[0]);
+    const victim = await game.snapshot(crewCookies[0]);
+    expect(victim.you.status).toBe('body');
+    // Nobody else learns about the body, and no shared revision changes.
+    for (const cookie of game.cookies.filter(cookie => cookie !== crewCookies[0])) {
+      const state = await game.snapshot(cookie);
+      expect(state.you.status).toBe('alive');
+      expect(state.revision).toBe(revision);
+      expect(JSON.stringify(state.players)).not.toMatch(/body|status/);
+    }
+    const task = victim.you.tasks[0];
+    expect((await (await app.post('/api/tasks/complete', { roundId: lobby.roundId, taskId: task.id, answer: '0000' }, crewCookies[0])).json()).error).toBe('NOT_ALIVE');
+    expect((await (await kill(crewIds[1])).json()).error).toBe('NOT_READY');
+    expect((await (await kill(crewIds[0])).json()).error).toBe('NOT_READY');
+
+    // A changed cooldown applies to the next timer, not the one already running.
+    lobby = await game.snapshot();
+    lobby = (await (await app.post('/api/settings/commands', { commandId: randomUUID(), expectedRevision: lobby.revision, roundId: lobby.roundId, killCooldown: 600 }, game.cookies[0])).json()).lobby;
+    expect(lobby.settings.killCooldown).toBe(600);
+    expect((await roleOf(impostor)).elimination.readyInMs).toBe(60_000);
+    lobby = (await (await app.post('/api/settings/commands', { commandId: randomUUID(), expectedRevision: lobby.revision, roundId: lobby.roundId, killCooldown: 60 }, game.cookies[0])).json()).lobby;
+    for (const id of crewIds.slice(1, 3)) {
+      clock += 60_000;
+      expect((await (await kill(id)).json()).ended).toBe(false);
+    }
+    clock += 60_000;
+    expect((await (await kill(crewIds[0])).json()).error).toBe('PLAYER_NOT_FOUND');
+    const last = await (await kill(crewIds[3])).json();
+    expect(last).toEqual({ ended: true });
+    const ended = await game.snapshot();
+    expect(ended.phase).toBe('ended');
+    expect(ended.result).toEqual({ winner: 'impostor', reason: 'eliminations' });
+  });
+
+  it('pauses the round clock across a server restart', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'home-clock-test-'));
+    cleanups.push(() => rmSync(directory, { recursive: true, force: true }));
+    const path = join(directory, 'game.sqlite');
+    let clock = 9_000_000;
+    const first = await start(path, () => clock);
+    const game = await crew(first);
+    const lobby: Lobby = (await (await first.post('/api/round/commands', roundInput(game.lobby, 'start'), game.cookies[0])).json()).lobby;
+    clock += 20_000; first.tick();
+    cleanups.pop(); await first.close();
+    clock += 3_600_000;
+    const second = await start(path, () => clock);
+    const roles = await Promise.all(game.cookies.map(async cookie => (await (await fetch(`${second.url}/api/role?roundId=${lobby.roundId}`, { headers: { Cookie: cookie } })).json())));
+    expect(roles.find(info => info.role === 'impostor').elimination).toMatchObject({ readyInMs: 40_000, running: false });
   });
 });

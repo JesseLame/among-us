@@ -41,7 +41,7 @@ Explain any changes from the default rules before starting. Mid-round public rul
 
 The Impostor discreetly shows their role screen to a nearby living Crewmate and quietly says “You're out”. No touching is required. One player can be eliminated per configured cooldown, never during opening protection, a meeting or an organiser pause.
 
-By default, the Impostor records the victim in the app to start the cooldown and update the game state. No public announcement is made. The physical signal tells the victim they are out. Organiser-entered eliminations are an optional mode, with the information-sharing tradeoff described in [organiser controls](organiser-controls.md).
+By default, the Impostor records the victim in the app to start the cooldown and update the game state. *(Implemented: the Eliminate panel appears only in the Impostor's revealed role card; opening protection and cooldown count active play time only. Organiser-entered eliminations are not built yet.)* No public announcement is made. The physical signal tells the victim they are out. Organiser-entered eliminations are an optional mode, with the information-sharing tradeoff described in [organiser controls](organiser-controls.md).
 
 The victim stays nearby, safely seated or standing, with a body marker. They remain silent and cannot point, reveal the Impostor or give clues. At the next meeting, all bodies become marked ghosts and can resume tasks after the meeting. Ejected Crewmates become ghosts immediately but wait for the meeting to end before doing tasks.
 

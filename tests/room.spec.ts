@@ -86,6 +86,8 @@ test('an organiser can remove a player during a round without revealing their ro
     await page.getByRole('button', { name: 'Remove player', exact: true }).click();
     await expect(guest.getByRole('heading', { name: 'Get the crew together.' })).toBeVisible();
     await expect(guest.getByRole('heading', { name: /^(Crewmate|Impostor)$/ })).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: /^(Hold that thought\.|The secret’s out\.)$/ })).toBeVisible();
+    // A two-player round: a departing Impostor ends without a winner, a departing Crewmate
+    // leaves too few Crewmates, so the Impostor wins.
+    await expect(page.getByRole('heading', { name: /^(The secret’s out\.|The Impostor got away with it\.)$/ })).toBeVisible();
   } finally { await guestContext.close(); }
 });

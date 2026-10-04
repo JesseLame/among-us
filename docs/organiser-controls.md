@@ -19,6 +19,10 @@ Removing a Crewmate during a round now removes their unfinished tasks from the s
 
 When creating a game, the organiser chooses **Just host on this screen** (default, for a laptop or tablet) or **Host and play**. A host-only organiser has no role or tasks, does not take one of the eight player places, and sees a join QR code in the lobby plus the list of players during a round. Roles stay hidden on this screen until the round ends, because a laptop screen is often visible to everyone.
 
+## Timer settings — partly implemented
+
+Opening protection and elimination cooldown (default 60 s each, 0–600 s) are stored per room and accepted by the settings command; changes apply to the next timer, not one already running. There are no organiser controls for them on screen yet (stage 4); the browser tests use the command to shorten them.
+
 ## Station access — implemented
 
 **Open tasks without scanning** (organiser controls, any phase) switches between QR-only access, the default, and opening tasks from the list. It applies immediately on every phone and is saved with the room.

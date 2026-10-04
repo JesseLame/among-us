@@ -7,7 +7,7 @@ export const language = z.enum(['en', 'nl']);
 export const createGame = z.object({ name: playerName, language: language.optional(), playing: z.boolean().optional() });
 export const joinGame = z.object({ name: playerName, code: gameCode });
 
-export const errors = ['INVALID_INPUT', 'GAME_NOT_FOUND', 'GAME_FULL', 'NAME_TAKEN', 'NO_SESSION', 'SERVER_ERROR', 'CONNECTION_ERROR', 'ALREADY_JOINED', 'FORBIDDEN', 'NOT_ENOUGH_PLAYERS', 'ROUND_IN_PROGRESS', 'STALE_COMMAND', 'INVALID_PHASE', 'PLAYER_NOT_FOUND', 'CANNOT_REMOVE_ORGANISER', 'NO_STATIONS', 'TOO_MANY_STATIONS', 'STATION_EXISTS', 'TASK_NOT_FOUND', 'WRONG_ANSWER', 'NOT_PLAYING'] as const;
+export const errors = ['INVALID_INPUT', 'GAME_NOT_FOUND', 'GAME_FULL', 'NAME_TAKEN', 'NO_SESSION', 'SERVER_ERROR', 'CONNECTION_ERROR', 'ALREADY_JOINED', 'FORBIDDEN', 'NOT_ENOUGH_PLAYERS', 'ROUND_IN_PROGRESS', 'STALE_COMMAND', 'INVALID_PHASE', 'PLAYER_NOT_FOUND', 'CANNOT_REMOVE_ORGANISER', 'NO_STATIONS', 'TOO_MANY_STATIONS', 'STATION_EXISTS', 'TASK_NOT_FOUND', 'WRONG_ANSWER', 'NOT_PLAYING', 'NOT_READY', 'NOT_ALIVE'] as const;
 export type ErrorCode = typeof errors[number];
 export type Role = 'crewmate' | 'impostor';
 export type Phase = 'lobby' | 'active' | 'paused' | 'ended';
@@ -34,7 +34,12 @@ export type StationCommand = z.infer<typeof stationCommand>;
 // QR: a task opens only after scanning its station's QR code. Manual: open from the task list.
 export const stationAccess = z.enum(['qr', 'manual']);
 export type StationAccess = z.infer<typeof stationAccess>;
-export const settingsCommand = roundCommand.omit({ action: true }).extend({ stationAccess });
+// Each change sends only the settings it changes. Timer durations are in seconds and
+// apply to future timers (an elimination cooldown already running keeps its end).
+const seconds = z.number().int().min(0).max(600);
+export const settingsCommand = roundCommand.omit({ action: true }).extend({
+  stationAccess: stationAccess.optional(), openingProtection: seconds.optional(), killCooldown: seconds.optional(),
+});
 export type SettingsCommand = z.infer<typeof settingsCommand>;
 
 // Order: numbers in the tapped order. Wires: for each left wire, the index of
@@ -62,7 +67,17 @@ export type TaskPuzzle =
 export type Task = { id: string; stationId: string; done: boolean; puzzle: TaskPuzzle };
 export type Station = { id: string; name: string };
 export type PrintableStation = Station & { codebook: Record<SymbolId, number> };
-export type RoundResult = { winner: 'crew' | null; reason: 'tasks' | 'organiser' | 'departure' };
+export type RoundResult = { winner: 'crew' | 'impostor' | null; reason: 'tasks' | 'eliminations' | 'organiser' | 'departure' };
+// A body waits silently to be found; it becomes a ghost at the next meeting.
+export type PlayerStatus = 'alive' | 'body' | 'ghost';
+export const eliminate = z.object({ commandId: z.uuid(), roundId: z.uuid(), targetId: z.uuid() });
+export type Eliminate = z.infer<typeof eliminate>;
+// Returned only to the player who reveals their own role. The Impostor also learns
+// when they may eliminate next (active play time) and who they can choose.
+export type RoleInfo = {
+  roundId: string; role: Role;
+  elimination?: { readyInMs: number; running: boolean; targets: { id: string; name: string }[] };
+};
 
 export type SessionEndReason = 'removed' | 'destroyed' | 'unavailable';
 export type Lobby = {
@@ -74,12 +89,12 @@ export type Lobby = {
   revealedRoles?: { id: string; role: Role }[];
   players: { id: string; name: string; organiser: boolean; playing: boolean; removed?: boolean }[];
   stations: Station[];
-  settings: { stationAccess: StationAccess };
+  settings: { stationAccess: StationAccess; openingProtection: number; killCooldown: number };
   // Shared progress is published in batches during a round so a single
   // completion cannot prove innocence. It is exact once the round has ended.
   progress: { done: number; goal: number } | null;
   result?: RoundResult;
-  you: { id: string; organiser: boolean; playing: boolean; tasks: Task[] };
+  you: { id: string; organiser: boolean; playing: boolean; status: PlayerStatus; tasks: Task[] };
 };
 
 export interface ServerEvents {

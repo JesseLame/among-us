@@ -77,6 +77,12 @@ export default function Tasks({ lobby, language, connected, onUpdate, scan, onSc
   }
   const locked = busy || solved || !connected || !active;
 
+  // An eliminated player waits silently as a body until a meeting; no tasks meanwhile.
+  if (lobby.you.status === 'body') return <section className={`${ui.card} ${styles.taskCard} ${styles.bodyCard}`} aria-labelledby="body-title">
+    <div className={styles.bodySymbol} aria-hidden="true">✕</div>
+    <h2 id="body-title" ref={heading} tabIndex={-1}>{t.bodyTitle}</h2>
+    <p>{t.bodyText}</p>
+  </section>;
   if (lobby.you.tasks.length === 0) return null;
   if (open) return <section className={`${ui.card} ${styles.taskCard}`} aria-labelledby="task-title">
     <p className={styles.eyebrow}>{t.doTaskAt} · {stationName(open)}</p>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button, Dialog, Heading, Modal, ModalOverlay } from 'react-aria-components';
-import type { ErrorCode, Lobby, Role, RoundCommand, SessionEndReason } from '../shared/protocol';
+import type { ErrorCode, Lobby, RoleInfo, RoundCommand, SessionEndReason } from '../shared/protocol';
 import { codeFor, commandId, request } from './api';
 import { errorMessages, translations, type Language } from './i18n';
 import styles from './App.module.css';
@@ -8,6 +8,7 @@ import ui from './styles/ui.module.css';
 import RoomControls from './RoomControls';
 import Tasks, { SharedProgress, type Scan } from './Tasks';
 import StationAccessSwitch from './Settings';
+import EliminatePanel from './Eliminate';
 
 type Props = {
   lobby: Lobby; language: Language; connected: boolean; onUpdate: (lobby: Lobby) => void; onExit: (reason: SessionEndReason) => void;
@@ -86,7 +87,8 @@ export function RoundControls({ lobby, language, connected, onUpdate, onExit }: 
 
 function PrivateRole({ lobby, language, connected, languageControl }: Pick<Props, 'lobby' | 'language' | 'connected' | 'languageControl'>) {
   const t = translations[language];
-  const [role, setRole] = useState<Role | null>(null);
+  const [info, setInfo] = useState<RoleInfo | null>(null);
+  const role = info?.role ?? null;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ErrorCode | null>(null);
   const generation = useRef(0);
@@ -95,7 +97,7 @@ function PrivateRole({ lobby, language, connected, languageControl }: Pick<Props
   const RevealedHeading = lobby.you.organiser ? 'h3' : 'h2';
   useEffect(() => { if (!lobby.you.organiser) heading.current?.focus(); }, [lobby.you.organiser]);
 
-  function hide() { generation.current++; setRole(null); setBusy(false); setError(null); }
+  function hide() { generation.current++; setInfo(null); setBusy(false); setError(null); }
   useEffect(() => {
     const conceal = () => hide();
     window.addEventListener('blur', conceal);
@@ -108,16 +110,20 @@ function PrivateRole({ lobby, language, connected, languageControl }: Pick<Props
   }, []);
   useEffect(() => { if (!connected) hide(); }, [connected]);
 
-  async function reveal() {
-    if (busy || !connected) return;
+  async function reveal(quiet = false) {
+    if ((busy && !quiet) || !connected) return;
     const current = ++generation.current;
-    setBusy(true); setError(null);
+    if (!quiet) { setBusy(true); setError(null); }
     try {
-      const result = await request<{ roundId: string; role: Role }>(`/api/role?roundId=${lobby.roundId}`);
-      if (current === generation.current && result.roundId === lobby.roundId) setRole(result.role);
-    } catch (error) { if (current === generation.current) setError(codeFor(error)); }
+      const result = await request<RoleInfo>(`/api/role?roundId=${lobby.roundId}`);
+      if (current === generation.current && result.roundId === lobby.roundId) setInfo(result);
+    } catch (error) { if (current === generation.current && !quiet) setError(codeFor(error)); }
     finally { if (current === generation.current) setBusy(false); }
   }
+  // While revealed, refresh private details (such as who can be eliminated) after shared changes.
+  const shown = useRef(false);
+  shown.current = Boolean(info);
+  useEffect(() => { if (shown.current) void reveal(true); }, [lobby.revision]);
 
   return <section className={`${ui.card} ${styles.roleCard}`} aria-labelledby="private-role-title">
     <p className={styles.eyebrow}>{t.onlyYou}</p>
@@ -127,7 +133,8 @@ function PrivateRole({ lobby, language, connected, languageControl }: Pick<Props
     <div role="status" className={styles.roleContent}>
       {role ? <><RevealedHeading>{role === 'impostor' ? t.impostor : t.crewmate}</RevealedHeading><p>{role === 'impostor' ? t.impostorBrief : t.crewmateBrief}</p></> : <p>{t.roleHidden}</p>}
     </div>
-    <Button className={ui.primary} isDisabled={!connected || busy} onPress={() => role ? hide() : void reveal()}>{busy ? t.working : role ? t.hideRole : t.revealRole}<span aria-hidden="true">{role ? '×' : '→'}</span></Button>
+    {info?.elimination && lobby.roundId && <EliminatePanel roundId={lobby.roundId} elimination={info.elimination} language={language} connected={connected} onInfo={setInfo}/>}
+    <Button className={ui.primary} isDisabled={!connected || busy} onPress={() => { if (role) hide(); else void reveal(); }}>{busy ? t.working : role ? t.hideRole : t.revealRole}<span aria-hidden="true">{role ? '×' : '→'}</span></Button>
     {error && <p className={ui.error} role="alert">{errorMessages[language][error]}</p>}
     <p className={ui.note}>{t.autoHide}</p>
     {languageControl && <div className={styles.roleLanguage}>{languageControl}</div>}
@@ -139,15 +146,18 @@ export default function RoundView(props: Props) {
   const t = translations[language];
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { heading.current?.focus(); }, [lobby.phase]);
-  const crewWon = lobby.result?.winner === 'crew';
-  const title = lobby.phase === 'paused' ? t.pausedTitle : lobby.phase === 'ended' ? crewWon ? t.crewWonTitle : t.endedTitle : t.roundTitle;
-  const endedMessage = crewWon ? t.crewWonMessage : lobby.result?.reason === 'departure' ? t.departureMessage : t.endedMessage;
+  const winner = lobby.result?.winner;
+  const title = lobby.phase === 'paused' ? t.pausedTitle : lobby.phase === 'ended' ? winner === 'crew' ? t.crewWonTitle : winner === 'impostor' ? t.impostorWonTitle : t.endedTitle : t.roundTitle;
+  const endedMessage = winner === 'crew' ? t.crewWonMessage : winner === 'impostor' ? t.impostorWonMessage : lobby.result?.reason === 'departure' ? t.departureMessage : t.endedMessage;
   const tasks = <Tasks key={`tasks:${lobby.roundId}:${lobby.phase}`} lobby={lobby} language={language} connected={connected} onUpdate={props.onUpdate} scan={props.scan} onScanHandled={props.onScanHandled} onStationScanned={props.onStationScanned}/>;
 
+  // An eliminated player sees that first; everyone else starts with their role card.
+  const body = lobby.you.status === 'body';
   if (!lobby.you.organiser && lobby.phase !== 'ended') return <main className={styles.playerRound}>
+    {body && tasks}
     <PrivateRole key={`${lobby.roundId}:${lobby.phase}`} lobby={lobby} language={language} connected={connected} languageControl={props.languageControl}/>
     <SharedProgress lobby={lobby} language={language}/>
-    {tasks}
+    {!body && tasks}
   </main>;
 
   return <main className={styles.lobby}>

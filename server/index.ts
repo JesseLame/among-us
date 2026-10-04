@@ -3,7 +3,7 @@ import { createApp } from './app.js';
 import { lanAddresses } from './network.js';
 import { localCertificate } from './tls.js';
 
-// `--https` (npm run play:https) serves over HTTPS with a self-signed certificate,
+// `--https` (npm run play:https) serves over HTTPS with a certificate from a local authority,
 // so phones on the home network may use the camera for live QR scanning.
 const secure = process.argv.includes('--https');
 const tls = secure ? await localCertificate(resolve('data/tls')) : undefined;
@@ -24,8 +24,9 @@ server.http.listen(port, '0.0.0.0', () => {
   console.log(`Game server listening on ${protocol}://localhost:${port}`);
   // Phones on the same Wi-Fi use one of these addresses (also when hosting from a laptop).
   for (const address of lanAddresses()) console.log(`On your network: ${protocol}://${address}:${port}`);
-  if (tls?.created) console.log('Created a new certificate in data/tls. Each phone shows a one-time "not private" warning: choose to continue to the site.');
-  else if (tls) console.log('Using the certificate in data/tls. Phones that accepted it before will not be asked again.');
+  if (tls?.caCreated) console.log('Created a new local certificate authority in data/tls/ca.pem. Trust it once on each device to skip the "not private" warning (see README).');
+  else if (tls) console.log('Using the local certificate authority in data/tls/ca.pem. Devices that trust it open the game without a warning.');
+  if (tls) console.log(`Install it on a phone from ${protocol}://${lanAddresses()[0] ?? 'localhost'}:${port}/ca.crt`);
 });
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => { void server.close().then(() => process.exit(0)); });

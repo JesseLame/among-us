@@ -12,7 +12,9 @@ Working now: create a lobby, either as a host-only screen (for example a laptop 
 
 **Tasks (stage 3, first slice):** the organiser edits the task stations (house rooms) in the lobby. **Print materials** in the organiser controls generates everything to print, or save as PDF from the print dialog: a join poster with QR code, one A4 sheet per station with its QR code and codebook, and cut-out body/ghost markers. Scanning a station QR code with the phone camera opens that player's task at the station. By default tasks open **only** by scanning; the organiser can switch on **Open tasks without scanning**. Starting a round gives every player four tasks spread over the stations: *Number order* and *Fix the wiring* on the phone, and *Codebook*, where the player looks up four symbols on that room's printed sheet. The Impostor receives identical-looking fake tasks that never count. Shared crew progress is published every 30 seconds rather than after each task, and the crew wins automatically once 80% of real tasks (rounded up) are done.
 
-This is **not yet a full game**: eliminations, bodies, ghosts, meetings, vote entry, the Impostor win condition and most organiser settings/recovery tools still need implementation. No hosting has been purchased or deployment performed.
+**Eliminations (stage 3, second slice):** after opening protection (60 s of active play), the Impostor reveals their role card, gives the physical signal and records the victim there; a cooldown (60 s) follows. Timers count only active play, so pauses and server restarts stop them. The victim's phone switches to a body screen; nobody else, including the organiser, is told. The Impostor wins when at most one living Crewmate remains.
+
+This is **not yet a full game**: reporting bodies, meetings, ghosts, vote entry and most organiser settings/recovery tools still need implementation. No hosting has been purchased or deployment performed.
 
 Roles stay out of public updates and ordinary organiser views. Each phone fetches only its own role after an explicit reveal, and hides it when focus/visibility is lost, the connection drops, or the phase changes. Ending the round reveals all roles to everyone and prevents resuming that round. After a server restart, active rounds recover paused with the same roles; the organiser decides when to resume. Existing lobby databases are migrated automatically, preserving sessions.
 
@@ -43,7 +45,7 @@ The first version covers joining, secret roles, tasks, eliminations, body report
 
 1. ~~Choose a small puzzle set and initial rooms.~~ Done: number order, wiring and printable codebooks; stations are edited in the lobby.
 2. ~~Build the first phone puzzle and physical-answer puzzle, with assignments, believable fake tasks and shared progress.~~ Done.
-3. Add eliminations, bodies and ghosts, then reports, meetings, vote entry and the Impostor win, alongside the corresponding organiser settings and recovery controls.
+3. ~~Eliminations, bodies and the Impostor win~~ done. Next: body reports, emergency meetings, discussion timer, physical vote entry and ghosts, alongside the corresponding organiser settings and recovery controls.
 4. Build the first playable version, run a practice round and tune it through family playtests.
 5. Use those playtests to decide whether the control room or sabotage would improve the game.
 
@@ -58,7 +60,13 @@ The game runs fine from a laptop on your own Wi-Fi; nothing has to be deployed.
 5. Open **Print materials** from the same address and print the station sheets.
 6. Keep the laptop awake and plugged in, for example `caffeinate -i npm run play` on macOS. Give the laptop a fixed IP address in your router (a DHCP reservation); the printed QR codes contain this address and stop working if it changes.
 
-**Live QR scanning on phones (optional HTTPS):** phone browsers only allow live camera scanning over HTTPS. Run `npm run play:https` instead to serve the game at `https://<laptop address>:3001` with a self-signed certificate created in `data/tls/`. Each phone shows a one-time "not private" warning on its first visit: choose *Show details → visit this website* (iPhone) or *Advanced → Proceed* (Android). The certificate is reused after restarts and only renewed when the laptop's address changes or it nears expiry (about a year), after which phones see the warning once more. Without HTTPS, scanning in the app takes a photo instead.
+**Live QR scanning on phones (optional HTTPS):** phone browsers only allow live camera scanning over HTTPS. Run `npm run play:https` instead to serve the game at `https://<laptop address>:3001`. The first run creates a local certificate authority in `data/tls/` (`ca.pem`, valid 10 years) and signs the server certificate with it; the server certificate is renewed automatically when the laptop's address changes or it nears expiry. Trust the authority once per device and the game opens without a "not private" warning, also after renewals:
+
+- **Mac (laptop):** `security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db data/tls/ca.pem` (asks for your password), then restart the browser. Firefox uses its own store: *Settings → Privacy & Security → Certificates → View Certificates → Authorities → Import*.
+- **iPhone/iPad:** open `https://<laptop address>:3001/ca.crt` in Safari (continue past the warning this one time) and allow the profile download. Install it in *Settings → General → VPN & Device Management*, then switch it on in *Settings → General → About → Certificate Trust Settings*.
+- **Android:** open the same `/ca.crt` link in Chrome to download it, then install it via *Settings → Security → More security settings → Encryption & credentials → Install a certificate → CA certificate* (menu names vary by brand).
+
+Skipping this still works: each device then shows the warning once (*Show details → visit this website* on iPhone, *Advanced → Proceed* on Android). Keep `data/tls/ca-key.pem` private; anyone with it could impersonate websites to devices that trust the authority. Delete `data/tls/` and remove the trusted certificate from devices to revoke it. Without HTTPS, scanning in the app takes a photo instead.
 
 Lobbies, roles and progress are saved in `data/game.sqlite`; if the laptop restarts, run `npm start` (or `npm run play`) again and the round resumes paused. The connection is plain HTTP, which is fine on a home network.
 

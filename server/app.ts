@@ -3,7 +3,7 @@ import { createServer } from 'node:http';
 import { createServer as createSecureServer } from 'node:https';
 import { resolve } from 'node:path';
 import { Server } from 'socket.io';
-import { completeTask, createGame, joinGame, roomCommand, roundCommand, settingsCommand, stationCommand, type ClientEvents, type ServerEvents, type SessionEndReason } from '../shared/protocol.js';
+import { completeTask, createGame, eliminate, joinGame, roomCommand, roundCommand, settingsCommand, stationCommand, type ClientEvents, type ServerEvents, type SessionEndReason } from '../shared/protocol.js';
 import { createStore, GameError } from './store.js';
 import { lanAddresses } from './network.js';
 
@@ -11,7 +11,7 @@ export function sessionToken(cookie = '') {
   return cookie.split(';').map(part => part.trim()).find(part => part.startsWith('home_session='))?.slice('home_session='.length);
 }
 
-export function createApp(options: { databasePath: string; production?: boolean; clientPath?: string; now?: () => number; tls?: { key: string; cert: string } }) {
+export function createApp(options: { databasePath: string; production?: boolean; clientPath?: string; now?: () => number; tls?: { key: string; cert: string; ca?: string } }) {
   const store = createStore(options.databasePath, options.now);
   const app = express();
   const http = options.tls ? createSecureServer({ key: options.tls.key, cert: options.tls.cert }, app) : createServer(app);
@@ -32,6 +32,15 @@ export function createApp(options: { databasePath: string; production?: boolean;
     }
     next();
   });
+  // The local certificate authority, for devices to install once so HTTPS needs no warning.
+  if (options.tls?.ca) {
+    const ca = options.tls.ca;
+    app.get('/ca.crt', (_req, res) => {
+      res.setHeader('Content-Disposition', 'attachment; filename="among-us-at-home-ca.crt"');
+      res.setHeader('Content-Type', 'application/x-x509-ca-cert');
+      res.send(Buffer.from(ca));
+    });
+  }
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
   app.get('/api/session', (req, res) => {
     const lobby = store.lobby(sessionToken(req.headers.cookie));
@@ -107,6 +116,19 @@ export function createApp(options: { databasePath: string; production?: boolean;
       res.json({ lobby: result.lobby });
       if (result.ended) broadcast(result.lobby.code);
       else syncPlayer(result.lobby.you.id);
+    } catch (error) { next(error); }
+  });
+
+  app.post('/api/eliminate', (req, res, next) => {
+    try {
+      const parsed = eliminate.safeParse(req.body);
+      if (!parsed.success) throw new GameError('INVALID_INPUT');
+      const token = sessionToken(req.headers.cookie);
+      const result = store.eliminatePlayer(token, parsed.data);
+      // The Impostor's refreshed private view (new cooldown, remaining targets), unless the round just ended.
+      res.json(result.ended ? { ended: true } : { ended: false, role: store.role(token, parsed.data.roundId) });
+      if (result.ended) broadcast(result.code);
+      else syncPlayer(result.victim);
     } catch (error) { next(error); }
   });
 
