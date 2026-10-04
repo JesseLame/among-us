@@ -18,6 +18,7 @@ This is the shared project instruction file. `CLAUDE.md` imports it; keep shared
 - Keep `src/global.css` limited to imports, base styles and accessibility defaults. Font loading is in `src/styles/fonts.css`.
 - Keep ordinary joined-player screens minimal during a round: the private role card, its language control, shared crew progress, the player's own task list/puzzle, and only necessary pause/disconnection feedback. Organiser controls belong to the organiser view.
 - Station access defaults to QR-only (`settings.stationAccess`); keep the manual option working for organisers who switch it on.
+- Sounds (`src/sound.ts`) are synthesised with Web Audio and unlocked by the first tap. Never add a sound that reveals hidden events, such as an elimination.
 - Fake tasks must look identical to real ones in every payload and screen. Task completions update only the completing player's view; shared progress is published on a fixed cadence (`tick()` in `server/store.ts`).
 - Use native controls or React Aria for interaction, preserving focus, keyboard behaviour and semantic labels. Keep controls at least 44px tall, normally 48px, and support 320px screens, text zoom and reduced motion. Maintain readable contrast when changing a theme.
 - A visual redesign should not change game rules, session behaviour or server contracts unless requested. Explain any intentional interaction changes separately.

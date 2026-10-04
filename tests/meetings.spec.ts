@@ -28,6 +28,12 @@ test('reports and emergency meetings gather everyone, reveal ghosts, and can be 
 
     const pages = await Promise.all(crew.map(async context => { const tab = await context.newPage(); await tab.goto('/'); return tab; }));
     await expect(pages[0].getByRole('button', { name: 'Report body' })).toHaveCount(0);
+    // The host already tapped Start round, which unlocks audio; count the alarm tones it plays.
+    await page.evaluate(() => {
+      const original = AudioContext.prototype.createOscillator;
+      (window as unknown as { alarms: number }).alarms = 0;
+      AudioContext.prototype.createOscillator = function () { (window as unknown as { alarms: number }).alarms++; return original.call(this); };
+    });
     await pages[1].getByRole('button', { name: 'Report body' }).click();
     await expect(pages[1].getByRole('dialog', { name: 'Report a body?' })).toBeVisible();
     await pages[1].getByRole('dialog').getByRole('button', { name: 'Report body' }).click();
@@ -37,6 +43,7 @@ test('reports and emergency meetings gather everyone, reveal ghosts, and can be 
       await expect(tab.getByText(`Found out, now ghosts: ${victimName}`)).toBeVisible();
     }
     await expect(pages[0].getByText('You’re a ghost: stay quiet and don’t vote.')).toBeVisible();
+    expect(await page.evaluate(() => (window as unknown as { alarms: number }).alarms)).toBe(1);
     await expect(page.getByText('Ghost', { exact: true })).toHaveCount(1);
     expect((await new AxeBuilder({ page: pages[1] }).analyze()).violations).toEqual([]);
     await pages[1].screenshot({ path: testInfo.outputPath('meeting-mobile.png'), fullPage: true });

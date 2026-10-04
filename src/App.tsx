@@ -11,6 +11,7 @@ import type { Scan } from './Tasks';
 import Stations from './Stations';
 import PrintSheets from './PrintSheets';
 import { PhoneAddressNote, QrCode, usableOrigin, usePhoneOrigin } from './Qr';
+import { playMeetingAlarm, unlockAudio } from './sound';
 
 export default function App() {
   const [language, setLanguage] = useState<Language>(initialLanguage);
@@ -47,6 +48,19 @@ export default function App() {
     else if (scannedRound.current && scannedRound.current !== lobby.roundId) setScan(null);
     if (lobby.roundId) scannedRound.current = lobby.roundId;
   }, [lobby?.phase, lobby?.roundId]);
+  // Sound needs a first tap before browsers allow it; then a meeting starting sounds the alarm.
+  // Listen in the capture phase (React Aria stops press events from bubbling) and on the
+  // events browsers accept as permission for sound: on touch screens that is lifting the finger.
+  useEffect(() => {
+    const events = ['pointerup', 'touchend', 'mousedown', 'keydown'] as const;
+    for (const event of events) document.addEventListener(event, unlockAudio, { capture: true });
+    return () => { for (const event of events) document.removeEventListener(event, unlockAudio, { capture: true }); };
+  }, []);
+  const previousPhase = useRef(lobby?.phase);
+  useEffect(() => {
+    if (lobby?.phase === 'meeting' && previousPhase.current && previousPhase.current !== 'meeting') playMeetingAlarm();
+    previousPhase.current = lobby?.phase;
+  }, [lobby?.phase]);
   const lobbyHeading = useRef<HTMLHeadingElement>(null);
   const entryHeading = useRef<HTMLHeadingElement>(null);
   const sessionRequest = useRef(0);
