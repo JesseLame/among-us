@@ -23,7 +23,7 @@ Manual room selection is available when scanning fails or the organiser prefers 
 
 Solved puzzles stay on screen briefly in their finished state before returning to the task list.
 
-Each player receives four tasks (one of each kind plus one extra) spread across the stations. The organiser prints the sheets from **Print station sheets** in the lobby; a sheet's numbers stay the same until that station is removed, so reprint only after adding a station. Manual station choice applies: the task list names the station, and players open the task once they are there. QR scanning is still planned for stage 5.
+Each player receives four tasks (one of each kind plus one extra) spread across the stations. The organiser prints the materials from **Print materials** in the organiser controls: a join poster, one A4 sheet per station (QR code plus codebook) and cut-out body/ghost markers. A sheet stays valid until that station is removed or the room is deleted, so reprint only after adding a station. Scanning a station's QR code with the phone camera opens the app at that station: the only open task there opens directly, otherwise that station's tasks are listed first. Opening a task from the list still works when scanning is inconvenient.
 
 Start with a small puzzle set, mostly short interactions and some longer physical puzzles. Do not require every task to last 45–90 seconds. Give players different questions using shared materials where practical. Make tasks easy to reset or provide duplicate materials to avoid queues.
 

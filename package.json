@@ -19,6 +19,7 @@
   "dependencies": {
     "better-sqlite3": "^12.4.1",
     "express": "^5.2.1",
+    "qrcode": "^1.5.4",
     "react": "^19.3.0",
     "react-aria-components": "^1.21.1",
     "react-dom": "^19.3.0",
@@ -32,6 +33,7 @@
     "@types/better-sqlite3": "^9.6.0",
     "@types/express": "^5.0.6",
     "@types/node": "^26.6.4",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",

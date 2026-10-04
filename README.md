@@ -10,7 +10,7 @@ The app scaffold is implemented with the confirmed React/TypeScript + Vite, Reac
 
 Working now: create a lobby, share an invitation link or five-letter code, join with up to eight players, receive live roster updates, and restore the same identity after refresh or server restart. With 1–8 players, the organiser can start a round with one random Impostor, pause/resume it, end it with a confirmed role reveal, and return everyone to the same lobby for another round. SQLite persists lobbies, roles, tasks and hashed session credentials; players receive HttpOnly session cookies. The organiser joins as a player with a separate organiser flag.
 
-**Tasks (stage 3, first slice):** the organiser edits the task stations (house rooms) in the lobby and prints a codebook sheet per station. Starting a round gives every player four tasks spread over the stations: *Number order* and *Fix the wiring* on the phone, and *Codebook*, where the player looks up four symbols on that room's printed sheet. The Impostor receives identical-looking fake tasks that never count. Shared crew progress is published every 30 seconds rather than after each task, and the crew wins automatically once 80% of real tasks (rounded up) are done.
+**Tasks (stage 3, first slice):** the organiser edits the task stations (house rooms) in the lobby. **Print materials** in the organiser controls generates everything to print, or save as PDF from the print dialog: a join poster with QR code, one A4 sheet per station with its QR code and codebook, and cut-out body/ghost markers. Scanning a station QR code with the phone camera opens that player's task at the station. Starting a round gives every player four tasks spread over the stations: *Number order* and *Fix the wiring* on the phone, and *Codebook*, where the player looks up four symbols on that room's printed sheet. The Impostor receives identical-looking fake tasks that never count. Shared crew progress is published every 30 seconds rather than after each task, and the crew wins automatically once 80% of real tasks (rounded up) are done.
 
 This is **not yet a full game**: eliminations, bodies, ghosts, meetings, vote entry, the Impostor win condition and most organiser settings/recovery tools still need implementation. No hosting has been purchased or deployment performed.
 
@@ -56,7 +56,7 @@ npm ci
 npm run dev
 ```
 
-Open `http://localhost:5173`. Vite proxies API and Socket.IO traffic to Express on port 3001. On the same Wi-Fi, use the computer's LAN address with port 5173 on each phone. Each browser profile has its own player session; use separate profiles or private windows for local multiplayer checks. Camera scanning is not implemented yet.
+Open `http://localhost:5173`. Vite proxies API and Socket.IO traffic to Express on port 3001. On the same Wi-Fi, use the computer's LAN address with port 5173 on each phone. Each browser profile has its own player session; use separate profiles or private windows for local multiplayer checks. Station QR codes are scanned with the phone's own camera app; there is no in-app scanner.
 
 ```sh
 npm run typecheck
@@ -71,7 +71,7 @@ The built app is served by Express at `http://localhost:3001`. Set `NODE_ENV=pro
 
 ### Try the round flow
 
-1. As organiser, review **Task stations / Taakstations** in the lobby, then open **Print station sheets** and place each sheet in its room.
+1. As organiser, review **Task stations / Taakstations** in the lobby, then open **Print materials / Printmateriaal** and place each station sheet in its room. Open the app through the computer's network address (not `localhost`) before printing, so the QR codes work on phones; the print page warns and links to that address.
 2. Start alone or join a few players using separate phones/browser profiles. Testing supports 1–5 players; 6–8 remains the recommendation for a full game. A solo tester is always the Impostor. Several tabs or private windows in the same browser can share a session, so they do not necessarily represent separate players.
 3. The organiser selects **Start round / Start de ronde**. Each player can reveal and hide their own role. Refreshing keeps their identity and role but hides the role card again.
 4. Each phone lists its tasks. Walk to the station, open the task and solve it; codebook tasks need that room's printed sheet. Shared progress updates every 30 seconds. Completing enough real tasks ends the round with a crew win.

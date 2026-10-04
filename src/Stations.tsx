@@ -62,6 +62,5 @@ export default function Stations({ lobby, language, connected, onUpdate }: Props
       <Button type="submit" className={ui.secondary} isDisabled={disabled}>{t.addStation}</Button>
     </form>}
     {error && <p className={ui.error} role="alert">{error === 'INVALID_INPUT' ? t.stationNameInvalid : errorMessages[language][error]}</p>}
-    {lobby.stations.length > 0 && <a className={ui.secondary} href="/print" target="_blank" rel="noopener">{t.printSheets}<span aria-hidden="true">↗</span></a>}
   </section>;
 }

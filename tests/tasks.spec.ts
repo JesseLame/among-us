@@ -15,10 +15,18 @@ test('organiser edits stations and prints sheets; a player completes phone and c
   await page.getByRole('button', { name: 'Add', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Remove Attic', exact: true })).toBeVisible();
 
+  await expect(page.getByRole('link', { name: 'Print materials' })).toHaveAttribute('href', '/print');
   const print = await page.context().newPage();
   await print.goto('/print');
   await expect(print.getByRole('heading', { name: 'Attic' })).toBeVisible();
-  await expect(print.getByRole('heading', { level: 2 })).toHaveCount(4);
+  // Join poster, four station sheets and the markers page, each with QR codes where relevant.
+  await expect(print.getByRole('heading', { level: 2 })).toHaveCount(6);
+  await expect(print.getByRole('img', { name: /^TASK STATION: / })).toHaveCount(4);
+  await expect(print.locator('[role=img] svg')).toHaveCount(5);
+  // Tests run on 127.0.0.1, so the page warns that phones cannot reach these QR codes.
+  await expect(print.getByText('This page is open on “localhost”', { exact: false })).toBeVisible();
+  await print.getByRole('checkbox', { name: 'Body and ghost markers' }).uncheck();
+  await expect(print.getByRole('heading', { name: 'Body and ghost markers' })).toHaveCount(0);
   expect((await new AxeBuilder({ page: print }).analyze()).violations).toEqual([]);
   await print.screenshot({ path: testInfo.outputPath('station-sheets.png'), fullPage: true });
   const stations: PrintableStation[] = (await (await page.request.get('/api/stations/print')).json()).stations;
@@ -37,6 +45,16 @@ test('organiser edits stations and prints sheets; a player completes phone and c
 
     const lobby: Lobby = (await (await context.request.get('/api/session')).json()).lobby;
     const name = (task: Task) => lobby.stations.find(station => station.id === task.stationId)!.name;
+    const kinds = { order: 'Number order', wires: 'Fix the wiring', codebook: 'Codebook' };
+
+    // Scanning a station QR code opens the player's task at that station.
+    const scanned = lobby.you.tasks.find(task => lobby.you.tasks.filter(other => other.stationId === task.stationId).length === 1)!;
+    await guest.goto(`/?station=${scanned.stationId}`);
+    await expect(guest.getByRole('heading', { name: kinds[scanned.puzzle.kind] })).toBeVisible();
+    await expect(guest.getByText(`Do this task at · ${name(scanned)}`)).toBeVisible();
+    expect(new URL(guest.url()).search).toBe('');
+    await guest.getByRole('button', { name: 'Back to tasks' }).click();
+    await expect(guest.getByRole('heading', { name: 'Your tasks' })).toBeVisible();
     const order = lobby.you.tasks.find(task => task.puzzle.kind === 'order');
     if (order && order.puzzle.kind === 'order') {
       await guest.getByRole('button', { name: `Open: Number order, ${name(order)}` }).click();

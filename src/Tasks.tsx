@@ -7,7 +7,7 @@ import styles from './App.module.css';
 import ui from './styles/ui.module.css';
 
 type Copy = typeof translations.en;
-type Props = { lobby: Lobby; language: Language; connected: boolean; onUpdate: (lobby: Lobby) => void };
+type Props = { lobby: Lobby; language: Language; connected: boolean; onUpdate: (lobby: Lobby) => void; arrivedAt?: string | null; onArrived?: () => void };
 const kindLabel = (t: Copy, kind: TaskPuzzle['kind']) => kind === 'order' ? t.kindOrder : kind === 'wires' ? t.kindWires : t.kindCodebook;
 
 export function SharedProgress({ lobby, language }: Pick<Props, 'lobby' | 'language'>) {
@@ -23,7 +23,7 @@ export function SharedProgress({ lobby, language }: Pick<Props, 'lobby' | 'langu
   </ProgressBar>;
 }
 
-export default function Tasks({ lobby, language, connected, onUpdate }: Props) {
+export default function Tasks({ lobby, language, connected, onUpdate, arrivedAt, onArrived }: Props) {
   const t = translations[language];
   const [openId, setOpenId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -38,6 +38,16 @@ export default function Tasks({ lobby, language, connected, onUpdate }: Props) {
   const open = lobby.you.tasks.find(task => task.id === openId);
   const stationName = (task: Task) => lobby.stations.find(station => station.id === task.stationId)?.name ?? '';
   const active = lobby.phase === 'active';
+  // Arriving by QR code opens the only open task at that station, or lists that station's tasks first.
+  const [here, setHere] = useState<string | null>(null);
+  useEffect(() => {
+    if (!arrivedAt || !active) return;
+    onArrived?.();
+    if (!lobby.stations.some(station => station.id === arrivedAt)) return;
+    const open = lobby.you.tasks.filter(task => task.stationId === arrivedAt && !task.done);
+    setHere(arrivedAt);
+    if (open.length === 1) setOpenId(open[0].id);
+  }, [arrivedAt, active]);
   // Move focus between the list and an opened task, but not on first render.
   const previousOpen = useRef(openId);
   useEffect(() => { if (previousOpen.current !== openId) heading.current?.focus(); previousOpen.current = openId; }, [openId]);
@@ -72,11 +82,17 @@ export default function Tasks({ lobby, language, connected, onUpdate }: Props) {
   </section>;
 
   const allDone = lobby.you.tasks.every(task => task.done);
+  const hereName = here && lobby.stations.find(station => station.id === here)?.name;
+  const hereOpen = here ? lobby.you.tasks.some(task => task.stationId === here && !task.done) : false;
+  const ordered = here ? [...lobby.you.tasks].sort((a, b) => Number(b.stationId === here) - Number(a.stationId === here)) : lobby.you.tasks;
+  const status = notice ? allDone ? t.allTasksDone : t.taskComplete
+    : hereName ? `${t.arrivedAt} ${hereName}.${hereOpen ? '' : ` ${t.noTasksHere}`}`
+    : allDone ? t.allTasksDone : t.tasksHelp;
   return <section className={`${ui.card} ${styles.taskCard}`} aria-labelledby="tasks-title">
     <h2 id="tasks-title" ref={heading} tabIndex={-1}>{t.yourTasks}</h2>
-    <p className={ui.note} role="status">{notice ? allDone ? t.allTasksDone : t.taskComplete : allDone ? t.allTasksDone : t.tasksHelp}</p>
+    <p className={ui.note} role="status">{status}</p>
     <ul className={styles.taskList}>
-      {lobby.you.tasks.map(task => <li key={task.id} data-done={task.done}>
+      {ordered.map(task => <li key={task.id} data-done={task.done} data-here={task.stationId === here || undefined}>
         <span><strong>{stationName(task)}</strong><small>{kindLabel(t, task.puzzle.kind)}</small></span>
         {task.done
           ? <span className={ui.badge}>✓ {t.taskDone}</span>

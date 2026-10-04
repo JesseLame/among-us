@@ -17,7 +17,7 @@ Removing a Crewmate during a round now removes their unfinished tasks from the s
 
 ## Task stations — implemented
 
-In the lobby, the organiser adds (up to eight) or removes task stations; new games start with Kitchen, Living room, Hallway and Study in the organiser's language. A round cannot start without a station. **Print station sheets** opens an organiser-only `/print` page with one codebook sheet per station. Stations cannot be edited during a round. Disabling or replacing a broken station or task mid-round is still to be built (stage 4).
+In the lobby, the organiser adds (up to eight) or removes task stations; new games start with Kitchen, Living room, Hallway and Study in the organiser's language. A round cannot start without a station. **Print materials** (in the organiser controls, in every phase) opens an organiser-only `/print` page: choose the join poster, station sheets (QR code + codebook) and/or body/ghost markers, then print or save as PDF. Opened via `localhost`, the page warns that the QR codes would not work on phones and links to the computer's network address. Stations cannot be edited during a round. Disabling or replacing a broken station or task mid-round is still to be built (stage 4).
 
 ## Choose how much happens in the app
 

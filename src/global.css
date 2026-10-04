@@ -61,3 +61,10 @@ button {
     scroll-behavior: auto !important;
   }
 }
+
+/* Printed materials use plain paper, not the screen page colour. */
+@media print {
+  :root, body {
+    background: var(--color-print-page);
+  }
+}

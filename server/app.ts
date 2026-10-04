@@ -1,6 +1,7 @@
 import express from 'express';
 import { createServer } from 'node:http';
 import { resolve } from 'node:path';
+import { networkInterfaces } from 'node:os';
 import { Server } from 'socket.io';
 import { completeTask, createGame, joinGame, roomCommand, roundCommand, stationCommand, type ClientEvents, type ServerEvents, type SessionEndReason } from '../shared/protocol.js';
 import { createStore, GameError } from './store.js';
@@ -119,7 +120,13 @@ export function createApp(options: { databasePath: string; production?: boolean;
   });
 
   app.get('/api/stations/print', (req, res, next) => {
-    try { res.json({ stations: store.printableStations(sessionToken(req.headers.cookie)) }); }
+    try {
+      const stations = store.printableStations(sessionToken(req.headers.cookie));
+      // Lets the print page suggest a phone-reachable address when opened via localhost.
+      const lanAddresses = Object.values(networkInterfaces()).flat()
+        .filter(address => address && address.family === 'IPv4' && !address.internal).map(address => address!.address);
+      res.json({ stations, lanAddresses });
+    }
     catch (error) { next(error); }
   });
 

@@ -24,6 +24,16 @@ export default function App() {
   const [connected, setConnected] = useState(false);
   const [sessionNotice, setSessionNotice] = useState<SessionEndReason | null>(null);
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
+  // A scanned station QR code opens the app with ?station=…; Tasks consumes it once.
+  const [arrival, setArrival] = useState(() => new URLSearchParams(location.search).get('station'));
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (!params.has('station')) return;
+    params.delete('station');
+    window.history.replaceState(null, '', `${location.pathname}${params.size ? `?${params}` : ''}`);
+  }, []);
+  // Only an active round uses an arrival; otherwise forget it rather than opening a task later.
+  useEffect(() => { if (lobby && lobby.phase !== 'active' && lobby.phase !== 'paused') setArrival(null); }, [lobby?.phase]);
   const lobbyHeading = useRef<HTMLHeadingElement>(null);
   const entryHeading = useRef<HTMLHeadingElement>(null);
   const sessionRequest = useRef(0);
@@ -108,7 +118,7 @@ export default function App() {
     {loading || loadError ? <main className={styles.loading} aria-live="polite">
       <h1>{loading ? t.loading : errorMessages[language][loadError!]}</h1>
       {loadError && <Button className={ui.primary} onPress={() => void restore()}>{t.retry}</Button>}
-    </main> : lobby && lobby.phase !== 'lobby' ? <RoundView lobby={lobby} language={language} connected={connected} onUpdate={updateLobby} onExit={exitLobby} languageControl={privatePlayerScreen ? languageControl : undefined}/> : lobby ? <main className={styles.lobby}>
+    </main> : lobby && lobby.phase !== 'lobby' ? <RoundView lobby={lobby} language={language} connected={connected} onUpdate={updateLobby} onExit={exitLobby} languageControl={privatePlayerScreen ? languageControl : undefined} arrivedAt={arrival} onArrived={() => setArrival(null)}/> : lobby ? <main className={styles.lobby}>
       <section className={styles.lobbyIntro}>
         <p className={styles.eyebrow}>{t.edition}</p>
         <h1 ref={lobbyHeading} tabIndex={-1}>{t.lobbyTitle}</h1>

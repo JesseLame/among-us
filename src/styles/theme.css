@@ -121,6 +121,10 @@
   --color-wire-green: #3f8a4b;
   --color-wire-purple: #7b4fa6;
   --color-wire-orange: #e07a26;
+  /* QR codes need a plain light background to scan reliably */
+  --color-qr-background: #ffffff;
+  --color-print-page: #ffffff;
+
   /* Puzzle control panels (lights, wiring, safe) */
   --color-puzzle-board: #22362f;
   --color-puzzle-panel: #2f463d;

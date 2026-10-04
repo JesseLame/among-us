@@ -8,7 +8,10 @@ import ui from './styles/ui.module.css';
 import RoomControls from './RoomControls';
 import Tasks, { SharedProgress } from './Tasks';
 
-type Props = { lobby: Lobby; language: Language; connected: boolean; onUpdate: (lobby: Lobby) => void; onExit: (reason: SessionEndReason) => void; languageControl?: ReactNode };
+type Props = {
+  lobby: Lobby; language: Language; connected: boolean; onUpdate: (lobby: Lobby) => void; onExit: (reason: SessionEndReason) => void;
+  languageControl?: ReactNode; arrivedAt?: string | null; onArrived?: () => void;
+};
 
 export function RoundControls({ lobby, language, connected, onUpdate, onExit }: Props) {
   const t = translations[language];
@@ -71,6 +74,10 @@ export function RoundControls({ lobby, language, connected, onUpdate, onExit }: 
         </Dialog>
       </Modal>
     </ModalOverlay>
+    <div className={styles.printLink}>
+      <a className={ui.secondary} href="/print" target="_blank" rel="noopener">{t.printSheets}<span aria-hidden="true">↗</span></a>
+      <p className={ui.note}>{t.printSheetsHelp}</p>
+    </div>
     <RoomControls lobby={lobby} language={language} connected={connected} onUpdate={onUpdate} onExit={onExit}/>
   </section>;
 }
@@ -133,7 +140,7 @@ export default function RoundView(props: Props) {
   const crewWon = lobby.result?.winner === 'crew';
   const title = lobby.phase === 'paused' ? t.pausedTitle : lobby.phase === 'ended' ? crewWon ? t.crewWonTitle : t.endedTitle : t.roundTitle;
   const endedMessage = crewWon ? t.crewWonMessage : lobby.result?.reason === 'departure' ? t.departureMessage : t.endedMessage;
-  const tasks = <Tasks key={`tasks:${lobby.roundId}:${lobby.phase}`} lobby={lobby} language={language} connected={connected} onUpdate={props.onUpdate}/>;
+  const tasks = <Tasks key={`tasks:${lobby.roundId}:${lobby.phase}`} lobby={lobby} language={language} connected={connected} onUpdate={props.onUpdate} arrivedAt={props.arrivedAt} onArrived={props.onArrived}/>;
 
   if (!lobby.you.organiser && lobby.phase !== 'ended') return <main className={styles.playerRound}>
     <PrivateRole key={`${lobby.roundId}:${lobby.phase}`} lobby={lobby} language={language} connected={connected} languageControl={props.languageControl}/>
