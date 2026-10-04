@@ -118,7 +118,7 @@ For an automated multiplayer check without six phones, `npm run test:e2e` create
 
 Source layout:
 
-- `src/`: React screens, CSS Modules and typed EN/NL translations. `Tasks.tsx` holds the task list, `features/tasks/games/` one folder per task game (component and CSS) on a shared `TaskFrame`, `Stations.tsx` the lobby station editor and `PrintSheets.tsx` the printable `/print` page.
+- `src/`: React screens, CSS Modules and typed EN/NL translations. `App.tsx` holds the session, live updates and routing; each screen lives in a folder under `features/` (`home`, `lobby`, `round`, `meeting`, `tasks`, `practice`, `print`). `features/tasks/games/` has one folder per task game (component and CSS) on a shared `TaskFrame`. Shared helpers are in `lib/` (API, sound) and `components/` (QR codes).
 - `src/styles/theme.css`: central visual theme; `ui.module.css` contains shared controls and card surfaces, and `fonts.css` handles font loading.
 - `server/`: Express API, authenticated Socket.IO updates and SQLite store. `tasks/` generates and checks puzzles, one module per task game.
 - `shared/`: shared protocol types and Zod input schemas.

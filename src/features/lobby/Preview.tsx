@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react';
-import type { ChangePreview, Lobby } from '../shared/protocol';
-import { commandId, request } from './api';
-import { translations, type Language } from './i18n';
-import styles from './App.module.css';
-import ui from './styles/ui.module.css';
+import type { ChangePreview, Lobby } from '../../../shared/protocol';
+import { commandId, request } from '../../lib/api';
+import { translations, type Language } from '../../i18n';
+import styles from '../../App.module.css';
+import ui from '../../styles/ui.module.css';
 
 // Asks the server what a correction or removal would do, when the organiser has previews on.
 // A newer check or clearing it discards an older answer.

@@ -1,4 +1,4 @@
-import { errors, type ErrorCode, type Lobby } from '../shared/protocol';
+import { errors, type ErrorCode, type Lobby } from '../../shared/protocol';
 
 export async function request<T = { lobby: Lobby | null }>(path: string, body?: unknown): Promise<T> {
   let response: Response;

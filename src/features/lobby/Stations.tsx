@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button, Input, Label, TextField } from 'react-aria-components';
-import { stationName, type ErrorCode, type Lobby, type StationCommand } from '../shared/protocol';
-import { codeFor, commandId, request } from './api';
-import { errorMessages, translations, type Language } from './i18n';
-import styles from './App.module.css';
-import ui from './styles/ui.module.css';
+import { stationName, type ErrorCode, type Lobby, type StationCommand } from '../../../shared/protocol';
+import { codeFor, commandId, request } from '../../lib/api';
+import { errorMessages, translations, type Language } from '../../i18n';
+import styles from '../../App.module.css';
+import ui from '../../styles/ui.module.css';
 
 type Props = { lobby: Lobby; language: Language; connected: boolean; onUpdate: (lobby: Lobby) => void };
 type Change = { action: 'add'; name: string } | { action: 'remove'; stationId: string };

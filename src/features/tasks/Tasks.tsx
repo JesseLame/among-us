@@ -1,31 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
-import { Button, Label, ProgressBar } from 'react-aria-components';
-import type { CompleteTask, ErrorCode, Lobby, Task } from '../shared/protocol';
-import { codeFor, request } from './api';
+import { Button } from 'react-aria-components';
+import type { CompleteTask, ErrorCode, Lobby, Task } from '../../../shared/protocol';
+import { codeFor, request } from '../../lib/api';
 import StationScanner from './Scanner';
-import { kindLabel, PuzzleView } from './features/tasks/games/registry';
-import { errorMessages, translations, type Language } from './i18n';
-import styles from './App.module.css';
-import ui from './styles/ui.module.css';
+import { kindLabel, PuzzleView } from './games/registry';
+import { errorMessages, translations, type Language } from '../../i18n';
+import styles from '../../App.module.css';
+import ui from '../../styles/ui.module.css';
 
 export type Scan = { stationId: string; fresh: boolean };
 type Props = {
   lobby: Lobby; language: Language; connected: boolean; onUpdate: (lobby: Lobby) => void;
   scan?: Scan | null; onScanHandled?: () => void; onStationScanned?: (stationId: string) => void;
 };
-
-export function SharedProgress({ lobby, language }: Pick<Props, 'lobby' | 'language'>) {
-  const t = translations[language];
-  if (!lobby.progress || lobby.progress.goal === 0) return null;
-  const { done, goal } = lobby.progress;
-  return <ProgressBar className={styles.progress} value={done} maxValue={goal} valueLabel={`${done} / ${goal}`}>
-    {({ percentage }) => <>
-      <div className={styles.progressTop}><Label>{t.crewProgress}</Label><span>{done} / {goal}</span></div>
-      <div className={styles.progressTrack}><div style={{ width: `${percentage}%` }}/></div>
-      {lobby.phase !== 'ended' && <p className={ui.note}>{t.progressNote}</p>}
-    </>}
-  </ProgressBar>;
-}
 
 export default function Tasks({ lobby, language, connected, onUpdate, scan, onScanHandled, onStationScanned }: Props) {
   const t = translations[language];

@@ -1,13 +1,12 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Button } from 'react-aria-components';
-import { PhoneAddressNote, QrCode, usableOrigin, usePhoneOrigin } from './Qr';
-import { symbolGlyphs, symbols, type ErrorCode, type Lobby, type PrintableStation } from '../shared/protocol';
-import { codeFor, request } from './api';
-import { errorMessages, translations, type Language } from './i18n';
-import styles from './App.module.css';
-import ui from './styles/ui.module.css';
+import { PhoneAddressNote, QrCode, usableOrigin, usePhoneOrigin } from '../../components/Qr';
+import { symbolGlyphs, symbols, type ErrorCode, type Lobby, type PrintableStation } from '../../../shared/protocol';
+import { codeFor, request } from '../../lib/api';
+import { errorMessages, translations, type Language, type Copy } from '../../i18n';
+import styles from '../../App.module.css';
+import ui from '../../styles/ui.module.css';
 
-type Copy = typeof translations.en;
 type Documents = { join: boolean; stations: boolean; markers: boolean };
 
 // Organiser-only print materials: join poster, one sheet per station (QR code and

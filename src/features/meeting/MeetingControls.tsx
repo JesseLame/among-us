@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from 'react-aria-components';
-import type { ErrorCode, Lobby, MeetingCommand } from '../shared/protocol';
-import { codeFor, commandId, request } from './api';
-import { errorMessages, translations, type Language } from './i18n';
-import styles from './App.module.css';
-import ui from './styles/ui.module.css';
+import type { ErrorCode, Lobby, MeetingCommand } from '../../../shared/protocol';
+import { codeFor, commandId, request } from '../../lib/api';
+import { errorMessages, translations, type Language } from '../../i18n';
+import styles from '../../App.module.css';
+import ui from '../../styles/ui.module.css';
 
 type Props = { lobby: Lobby; language: Language; connected: boolean; onUpdate: (lobby: Lobby) => void; onEndMeeting: () => void; ending: boolean };
 type Step = MeetingCommand extends infer C ? C extends MeetingCommand ? Omit<C, 'commandId' | 'roundId' | 'expectedRevision'> : never : never;

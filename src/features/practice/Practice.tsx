@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button } from 'react-aria-components';
-import { symbolGlyphs, symbols, taskKinds, type CompleteTask, type ErrorCode, type PracticePuzzle, type TaskKind } from '../shared/protocol';
-import { codeFor, request } from './api';
-import { kindLabel, PuzzleView } from './features/tasks/games/registry';
-import { errorMessages, translations, type Language } from './i18n';
-import styles from './App.module.css';
-import ui from './styles/ui.module.css';
+import { symbolGlyphs, symbols, taskKinds, type CompleteTask, type ErrorCode, type PracticePuzzle, type TaskKind } from '../../../shared/protocol';
+import { codeFor, request } from '../../lib/api';
+import { kindLabel, PuzzleView } from '../tasks/games/registry';
+import { errorMessages, translations, type Language, type Copy } from '../../i18n';
+import styles from '../../App.module.css';
+import ui from '../../styles/ui.module.css';
 
-type Copy = typeof translations.en;
 const kindFromUrl = (): TaskKind => {
   const game = new URLSearchParams(location.search).get('game');
   return taskKinds.includes(game as TaskKind) ? game as TaskKind : taskKinds[0];

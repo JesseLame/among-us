@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button, Dialog, Heading, Modal, ModalOverlay } from 'react-aria-components';
-import type { Eliminate, ErrorCode, RoleInfo } from '../shared/protocol';
-import { codeFor, commandId, request } from './api';
-import { errorMessages, translations, type Language } from './i18n';
-import styles from './App.module.css';
-import ui from './styles/ui.module.css';
+import type { Eliminate, ErrorCode, RoleInfo } from '../../../shared/protocol';
+import { codeFor, commandId, request } from '../../lib/api';
+import { errorMessages, translations, type Language } from '../../i18n';
+import styles from '../../App.module.css';
+import ui from '../../styles/ui.module.css';
 
 type Elimination = NonNullable<RoleInfo['elimination']>;
 type Props = { roundId: string; elimination: Elimination; language: Language; connected: boolean; onInfo: (info: RoleInfo) => void };

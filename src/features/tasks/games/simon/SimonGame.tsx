@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from 'react-aria-components';
 import type { Copy } from '../../../../i18n';
-import { playPadTone, unlockAudio } from '../../../../sound';
+import { playPadTone, unlockAudio } from '../../../../lib/sound';
 import TaskFrame from '../TaskFrame';
 import type { TaskGameProps } from '../types';
 import games from '../games.module.css';

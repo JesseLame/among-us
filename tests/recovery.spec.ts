@@ -13,6 +13,7 @@ test('the organiser fixes a broken station, rejoins a lost player, and declares 
     }
     await page.goto('/');
     await page.getByText('Open tasks without scanning', { exact: true }).click();
+    await expect(page.getByRole('switch', { name: 'Open tasks without scanning' })).toBeChecked();
     await page.getByRole('button', { name: 'Start round', exact: true }).click();
     const anna = await contexts[0].newPage();
     await anna.goto('/');

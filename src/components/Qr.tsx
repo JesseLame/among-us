@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
-import styles from './App.module.css';
-import ui from './styles/ui.module.css';
+import styles from '../App.module.css';
+import ui from '../styles/ui.module.css';
 
 const LOCAL_HOSTS = ['localhost', '127.0.0.1', '[::1]'];
 export const onLocalhost = () => LOCAL_HOSTS.includes(location.hostname);

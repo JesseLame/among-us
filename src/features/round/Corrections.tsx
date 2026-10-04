@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Button, Dialog, Heading, Modal, ModalOverlay } from 'react-aria-components';
-import type { Correction, ErrorCode, HistoryEntry, Lobby } from '../shared/protocol';
-import { codeFor, commandId, request } from './api';
-import { errorMessages, translations, type Language } from './i18n';
-import { PreviewNote, usePreview } from './Preview';
-import styles from './App.module.css';
-import ui from './styles/ui.module.css';
+import type { Correction, ErrorCode, HistoryEntry, Lobby } from '../../../shared/protocol';
+import { codeFor, commandId, request } from '../../lib/api';
+import { errorMessages, translations, type Language } from '../../i18n';
+import { PreviewNote, usePreview } from '../lobby/Preview';
+import styles from '../../App.module.css';
+import ui from '../../styles/ui.module.css';
 
 type Props = { lobby: Lobby; language: Language; connected: boolean; onUpdate: (lobby: Lobby) => void };
 type Change = Correction extends infer C ? C extends Correction ? Omit<C, 'commandId' | 'roundId' | 'expectedRevision'> : never : never;

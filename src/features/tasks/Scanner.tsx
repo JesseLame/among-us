@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from 'react-aria-components';
 import jsQR from 'jsqr';
-import type { Station } from '../shared/protocol';
-import { translations } from './i18n';
-import styles from './App.module.css';
-import ui from './styles/ui.module.css';
+import type { Station } from '../../../shared/protocol';
+import { translations, type Copy } from '../../i18n';
+import styles from '../../App.module.css';
+import ui from '../../styles/ui.module.css';
 
-type Copy = typeof translations.en;
 type Props = { stations: Station[]; t: Copy; onScanned: (stationId: string) => void; onClose: () => void };
 type Problem = 'notFound' | 'wrongCode' | 'denied' | null;
 

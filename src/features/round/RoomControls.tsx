@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button, Dialog, Heading, Modal, ModalOverlay } from 'react-aria-components';
-import type { ErrorCode, Lobby, RoomCommand, SessionEndReason } from '../shared/protocol';
-import { codeFor, commandId, request } from './api';
-import { errorMessages, translations, type Language } from './i18n';
-import styles from './App.module.css';
-import { QrCode, usableOrigin, usePhoneOrigin } from './Qr';
-import ui from './styles/ui.module.css';
-import { PreviewNote, usePreview } from './Preview';
+import type { ErrorCode, Lobby, RoomCommand, SessionEndReason } from '../../../shared/protocol';
+import { codeFor, commandId, request } from '../../lib/api';
+import { errorMessages, translations, type Language } from '../../i18n';
+import styles from '../../App.module.css';
+import { QrCode, usableOrigin, usePhoneOrigin } from '../../components/Qr';
+import ui from '../../styles/ui.module.css';
+import { PreviewNote, usePreview } from '../lobby/Preview';
 
 type Props = {
   lobby: Lobby; language: Language; connected: boolean;

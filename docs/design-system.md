@@ -15,7 +15,7 @@ The UI uses a small CSS-based design system. A new colour palette, type treatmen
 | Task game boards (order, wiring, codebook safe, Simon pads) | `src/features/tasks/games/` | `games.module.css` holds the shared dark board and solved glow; each game folder has its own CSS module. |
 | Reset, page defaults, focus, minimum control height, reduced motion | [`src/global.css`](../src/global.css) | Global foundation. Imports fonts and theme once. |
 | Visible wording | [`src/i18n.ts`](../src/i18n.ts) | Matched English/Dutch dictionaries. |
-| Structure and interaction | `src/App.tsx`, `src/RoundView.tsx`, `src/RoomControls.tsx`, `src/Stations.tsx`, `src/Tasks.tsx`, `src/features/tasks/games/`, `src/PrintSheets.tsx`, `src/Settings.tsx`, `src/Meeting.tsx`, `src/MeetingControls.tsx` | React markup and behaviour. Edit for a structural redesign, not merely to change colours. |
+| Structure and interaction | `src/App.tsx` and the screen folders in `src/features/` (`home`, `lobby`, `round`, `meeting`, `tasks`, `practice`, `print`) | React markup and behaviour. Edit for a structural redesign, not merely to change colours. |
 
 The browser toolbar colour is the `theme-color` meta tag in `index.html`. When changing the page background, update that colour too. It is static HTML rather than a second app palette.
 

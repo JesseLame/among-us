@@ -29,7 +29,7 @@ src/
   components/ Qr.tsx
   features/
     home/       Home.tsx, home.module.css
-    lobby/      Stations.tsx, Settings.tsx, Preview.tsx, lobby.module.css
+    lobby/      Lobby.tsx, Stations.tsx, Settings.tsx, Preview.tsx, lobby.module.css
     print/      PrintSheets.tsx, print.module.css
     round/      RoundView.tsx, RoundControls.tsx, PrivateRole.tsx,
                 RoomControls.tsx, Corrections.tsx, Eliminate.tsx, round.module.css
@@ -55,7 +55,7 @@ Each feature owns its CSS module. `App.module.css` keeps only the decorative geo
 ## 3. Steps (one commit each)
 
 1. ✅ Task base and registries; one folder per game with its own CSS; server `tasks/` modules.
-2. Move the remaining files into feature folders with `git mv`, and take `Home` and `RoundControls` out of their current files.
+2. ✅ Move the remaining files into feature folders with `git mv`, and take `Home`, `Lobby`, `RoundControls`, `PrivateRole` and `SharedProgress` out of their current files.
 3. Split the rest of `App.module.css` into feature modules.
 4. Split i18n into one file per language.
 5. Split the server into routes, store modules and test files.
