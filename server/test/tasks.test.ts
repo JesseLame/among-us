@@ -37,7 +37,7 @@ describe('stations and tasks', () => {
     lobby = (await (await app.post('/api/round/commands', roundInput(lobby, 'start'), host)).json()).lobby;
     expect((await (await app.post('/api/stations/commands', stationInput(lobby, { action: 'add', name: 'Tuin' }), host)).json()).error).toBe('INVALID_PHASE');
     // Station access defaults to QR-only; only the organiser can change it, also mid-round.
-    expect(lobby.settings).toEqual({ stationAccess: 'qr', eliminations: true, bodyReports: true, emergencyMeetings: true, phoneVoting: false, openingProtection: 60, killCooldown: 60, discussionTime: 90, emergencyAllowance: 1, progressInterval: 30, tasksPerPlayer: 4, taskGoalPercent: 80, confirmVictory: false, changePreviews: true, changeHistory: true, taskGames: ['codebook', 'order', 'wires', 'simon', 'maze', 'waterways', 'delivery'], deliveryMode: 'app', deliveryObject: '' });
+    expect(lobby.settings).toEqual({ stationAccess: 'qr', eliminations: true, bodyReports: true, emergencyMeetings: true, phoneVoting: false, openingProtection: 60, killCooldown: 60, discussionTime: 90, emergencyAllowance: 1, progressInterval: 30, tasksPerPlayer: 4, taskGoalPercent: 80, confirmVictory: false, changePreviews: true, changeHistory: true, taskGames: ['codebook', 'order', 'wires', 'simon', 'maze', 'waterways', 'delivery', 'twokeys'], deliveryMode: 'app', deliveryObject: '' });
     const settings = { commandId: randomUUID(), expectedRevision: lobby.revision, roundId: lobby.roundId, stationAccess: 'manual' };
     expect((await app.post('/api/settings/commands', settings, guest)).status).toBe(403);
     expect((await app.post('/api/settings/commands', { ...settings, stationAccess: 'anything' }, host)).status).toBe(400);
@@ -67,6 +67,11 @@ describe('stations and tasks', () => {
     const post = (cookie: string, task: Task, answer: unknown) => app.post('/api/tasks/complete', { roundId: active.roundId, taskId: task.id, answer }, cookie);
     const complete = async (cookie: string, task: Task, answer?: unknown) => {
       if (answer === undefined && task.puzzle.kind === 'delivery' && task.puzzle.stage === 'pickup') expect((await post(cookie, task, [0])).status).toBe(200);
+      // Two keys: another player looks up the unlock code.
+      if (answer === undefined && task.puzzle.kind === 'twokeys') {
+        const helper = players.find(player => player.cookie !== cookie)!.cookie;
+        answer = (await (await app.post('/api/tasks/help', { roundId: active.roundId, code: task.puzzle.pair }, helper)).json()).unlock;
+      }
       return post(cookie, task, answer ?? answerFor(task, stations));
     };
 
@@ -122,7 +127,7 @@ describe('task game choice', () => {
   it('hands out every game by default and only the games the organiser leaves on', async () => {
     const app = await start();
     const game = await crew(app);
-    expect(game.lobby.settings.taskGames).toEqual(['codebook', 'order', 'wires', 'simon', 'maze', 'waterways', 'delivery']);
+    expect(game.lobby.settings.taskGames).toEqual(['codebook', 'order', 'wires', 'simon', 'maze', 'waterways', 'delivery', 'twokeys']);
     const kinds = async () => (await Promise.all(game.cookies.map(async cookie => (await game.snapshot(cookie)).you.tasks))).flat().map(task => task.puzzle.kind);
     const settings = (lobby: Lobby, taskGames: unknown) => app.post('/api/settings/commands', { commandId: randomUUID(), expectedRevision: lobby.revision, roundId: lobby.roundId, taskGames }, game.cookies[0]);
     // At least one game stays on, each listed once.
@@ -199,10 +204,55 @@ describe('delivery tasks', () => {
   });
 });
 
+describe('two keys tasks', () => {
+  it('lets only another player look up the unlock code, which never reaches the task owner', async () => {
+    const app = await start();
+    const game = await crew(app);
+    let lobby: Lobby = (await (await app.post('/api/settings/commands', { commandId: randomUUID(), expectedRevision: game.lobby.revision, roundId: null, taskGames: ['twokeys'] }, game.cookies[0])).json()).lobby;
+    lobby = (await (await app.post('/api/round/commands', roundInput(lobby, 'start'), game.cookies[0])).json()).lobby;
+    const views = await Promise.all(game.cookies.map(cookie => game.snapshot(cookie)));
+    const codes = views.flatMap(view => view.you.tasks.map(task => task.puzzle.kind === 'twokeys' ? task.puzzle.pair : ''));
+    expect(codes.every(code => /^[A-Z]{3}$/.test(code))).toBe(true);
+    // Every open task in the room has its own pairing code, and no phone ever gets an unlock code.
+    expect(new Set(codes).size).toBe(codes.length);
+    for (const view of views) expect(JSON.stringify(view)).not.toMatch(/unlock/);
+
+    const [task] = views[1].you.tasks;
+    if (task.puzzle.kind !== 'twokeys') throw new Error('Expected two keys');
+    const help = (cookie: string, code: string) => app.post('/api/tasks/help', { roundId: lobby.roundId, code }, cookie);
+    expect((await (await help(game.cookies[1], task.puzzle.pair)).json()).error).toBe('OWN_TASK');
+    const unused = ['ABC', 'XYZ', 'QRS'].find(code => !codes.includes(code))!;
+    expect((await (await help(game.cookies[2], unused)).json()).error).toBe('HELP_CODE_NOT_FOUND');
+    const reply = await (await help(game.cookies[2], task.puzzle.pair.toLowerCase())).json();
+    expect(Object.keys(reply)).toEqual(['unlock']);
+    expect(reply.unlock).toMatch(/^\d{4}$/);
+    // Looking up changes nothing for anyone.
+    expect((await game.snapshot(game.cookies[3])).revision).toBe(views[3].revision);
+
+    const complete = (answer: string) => app.post('/api/tasks/complete', { roundId: lobby.roundId, taskId: task.id, answer }, game.cookies[1]);
+    const wrong = String((Number(reply.unlock) + 1) % 10_000).padStart(4, '0');
+    expect((await (await complete(wrong)).json()).error).toBe('WRONG_ANSWER');
+    expect(((await (await complete(reply.unlock)).json()).lobby as Lobby).you.tasks[0].done).toBe(true);
+    // A finished task's code no longer works.
+    expect((await (await help(game.cookies[2], task.puzzle.pair)).json()).error).toBe('HELP_CODE_NOT_FOUND');
+  });
+
+  it('is left out when only one real player plays', async () => {
+    const app = await start();
+    const created = await app.post('/api/games', { name: 'Solo' });
+    const cookie = created.headers.get('set-cookie')!;
+    let lobby: Lobby = (await created.json()).lobby;
+    lobby = (await (await app.post('/api/settings/commands', { commandId: randomUUID(), expectedRevision: lobby.revision, roundId: null, taskGames: ['twokeys', 'maze'] }, cookie)).json()).lobby;
+    lobby = (await (await app.post('/api/room/commands', { commandId: randomUUID(), code: lobby.code, expectedRevision: lobby.revision, roundId: null, action: 'addTestPlayer' }, cookie)).json()).lobby;
+    lobby = (await (await app.post('/api/round/commands', roundInput(lobby, 'start'), cookie)).json()).lobby;
+    expect(lobby.you.tasks.map(task => task.puzzle.kind)).toEqual(['maze', 'maze', 'maze', 'maze']);
+  });
+});
+
 describe('practice page', () => {
   it('serves every task game without a session and checks answers with the task rules', async () => {
     const app = await start();
-    for (const kind of ['order', 'wires', 'codebook', 'simon', 'maze', 'waterways', 'delivery']) {
+    for (const kind of ['order', 'wires', 'codebook', 'simon', 'maze', 'waterways', 'delivery', 'twokeys']) {
       const practice = await (await fetch(`${app.url}/api/practice/${kind}`)).json() as { puzzle: { kind: string }; codebook?: Record<string, number> };
       expect(practice.puzzle.kind).toBe(kind);
       expect(Boolean(practice.codebook)).toBe(kind === 'codebook');
@@ -237,6 +287,12 @@ describe('practice page', () => {
     expect((await (await app.post('/api/practice/check', { id: parcel.id, answer: [1] })).json()).error).toBe('WRONG_ANSWER');
     expect(await (await app.post('/api/practice/check', { id: parcel.id, answer: [0] })).json()).toEqual({ solved: false, puzzle: { ...parcel.puzzle, stage: 'dropoff' } });
     expect(await (await app.post('/api/practice/check', { id: parcel.id, answer: [1] })).json()).toEqual({ solved: true });
+    // Two keys: the unlock code only comes from the help lookup.
+    const keys = await (await fetch(`${app.url}/api/practice/twokeys`)).json() as { id: string; puzzle: { pair: string } };
+    expect(Object.keys(keys.puzzle).sort()).toEqual(['kind', 'pair']);
+    expect((await (await app.post('/api/practice/help', { code: 'ZZZZ' })).json()).error).toBe('INVALID_INPUT');
+    const { unlock } = await (await app.post('/api/practice/help', { code: keys.puzzle.pair.toLowerCase() })).json() as { unlock: string };
+    expect(await (await app.post('/api/practice/check', { id: keys.id, answer: unlock })).json()).toEqual({ solved: true });
     // Practice never creates a room or session.
     expect((await (await fetch(`${app.url}/api/session`)).json()).lobby).toBeNull();
   });

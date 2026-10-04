@@ -4,6 +4,7 @@ import { maze } from './maze.js';
 import { order } from './order.js';
 import { simon } from './simon.js';
 import { delivery } from './delivery.js';
+import { twokeys } from './twokeys.js';
 import type { Codebook, TaskContext, TaskRules } from './types.js';
 import { waterways } from './waterways.js';
 import { wires } from './wires.js';
@@ -14,10 +15,15 @@ export { shuffle } from './random.js';
 
 // Every task game's rules. The type makes the build fail when a kind in
 // `taskKinds` (shared/protocol.ts) has no rules here.
-const rules: { [K in TaskKind]: TaskRules<K> } = { order, wires, codebook, simon, maze, waterways, delivery };
+const rules: { [K in TaskKind]: TaskRules<K> } = { order, wires, codebook, simon, maze, waterways, delivery, twokeys };
 
 export function puzzle(kind: TaskKind, context: TaskContext): TaskPuzzle {
   return rules[kind].generate(context);
+}
+
+// The puzzle as it may be sent to a phone.
+export function reveal(task: TaskPuzzle): TaskPuzzle {
+  return (rules[task.kind] as TaskRules<TaskKind>).reveal?.(task) ?? task;
 }
 
 // The next step of a game with several steps, or null when this answer finishes nothing.

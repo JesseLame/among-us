@@ -177,6 +177,11 @@ export const en = {
   deliveryReal: 'A real object', deliveryRealHelp: 'Players find an object from the house and bring it to their station.',
   deliveryObjectLabel: 'Object', deliveryObjectHelp: 'Something easy to carry, such as a wooden spoon. Saved when you leave the field.',
   deliveryObjectMissing: 'Name the object; until then delivery tasks use the app.',
+  kindTwokeys: 'Two keys', twoKeysInstructions: 'You can’t do this one alone. Show the code to another player: they tap Help someone and enter it, then read the unlock code out to you.',
+  twoKeysPairLabel: 'Pairing code', twoKeysUnlockLabel: 'Unlock code', twoKeysWaiting: 'Waiting for a helper’s unlock code.', twoKeysWrong: 'That unlock code is wrong. Ask your helper again.', twoKeysDone: 'Both keys turned!',
+  helpTitle: 'Help someone', helpIntro: 'Another player needs a second key. Type the pairing code on their screen.', helpCodeLabel: 'Their pairing code',
+  helpShow: 'Show unlock code', helpUnlockLabel: 'Unlock code', helpReadOut: 'Read this code out to them.', helpAnother: 'Help someone else',
+  practiceHelper: 'Practise helping (the other player’s phone)',
   taskGamesSetting: 'Task games', taskGamesHelp: 'The games handed out as tasks. At least one stays on; tasks already handed out stay.',
   kindOrder: 'Number order', kindWires: 'Fix the wiring', kindCodebook: 'Codebook', doTaskAt: 'Do this task at',
   backToTasks: 'Back to tasks', taskComplete: 'Task complete.', allTasksDone: 'All your tasks are done. Keep an eye on the others.',
@@ -212,4 +217,5 @@ export const enErrors: Record<ErrorCode, string> = {
   NOT_READY: 'You can’t eliminate yet. Wait for the timer.', ELIMINATIONS_OFF: 'The organiser has turned off recording eliminations in the app.',
   REPORTS_OFF: 'Body reports are turned off. Tell the organiser instead.', EMERGENCY_OFF: 'Emergency meetings are turned off.', NO_EMERGENCY_LEFT: 'You have already used your emergency meetings this round.', VOTING_CLOSED: 'Voting is not open right now.', PHONE_VOTING_OFF: 'Voting on phones is turned off. Record the result of the physical vote instead.', NOT_ALIVE: 'You’ve been eliminated, so you can’t do that right now.',
   UNDO_UNAVAILABLE: 'That change can no longer be undone.', PREVIEWS_OFF: 'Previews of fixes are turned off.',
+  HELP_CODE_NOT_FOUND: 'No open task has that pairing code. Check the letters on their screen.', OWN_TASK: 'That’s your own task. Someone else has to help you.',
 };

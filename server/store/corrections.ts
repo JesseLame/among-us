@@ -1,5 +1,5 @@
 import { randomInt, randomUUID } from 'node:crypto';
-import type { ChangePreview, Correction, RoomCommand } from '../../shared/protocol.js';
+import type { ChangePreview, Correction, RoomCommand, TaskPuzzle } from '../../shared/protocol.js';
 import { puzzle } from '../tasks/index.js';
 import type { Base } from './base.js';
 import type { Rooms } from './rooms.js';
@@ -54,11 +54,15 @@ export function createCorrections({ db, now, gameFor, alreadyApplied, recordComm
         const old = unfinished(input.stationId);
         db.prepare('DELETE FROM tasks WHERE station_id = ? AND round_id = ? AND done_at IS NULL').run(input.stationId, game.round_id);
         const insert = db.prepare('INSERT INTO tasks (id, game_code, round_id, player_id, station_id, fake, puzzle, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
-        const available = taskKindsFor(game);
+        const realPlayers = (db.prepare('SELECT COUNT(*) AS count FROM players WHERE game_code = ? AND playing = 1 AND removed = 0 AND test = 0').get(game.code) as { count: number }).count;
+        const available = taskKindsFor(game, realPlayers);
+        // New two-keys codes must differ from those of the room's other open tasks.
+        const pairCodes = new Set((db.prepare('SELECT puzzle FROM tasks WHERE game_code = ? AND round_id = ? AND done_at IS NULL').all(game.code, game.round_id) as { puzzle: string }[])
+          .map(row => JSON.parse(row.puzzle) as TaskPuzzle).flatMap(entry => entry.kind === 'twokeys' ? [entry.pair] : []));
         const pairs = old.map(task => {
           const stationId = input.targetStationId ?? (others.length ? others[randomInt(others.length)] : input.stationId);
           const replacement = randomUUID();
-          insert.run(replacement, game.code, game.round_id, task.player_id, stationId, task.fake, JSON.stringify(puzzle(available[randomInt(available.length)], taskContext(game, stationId, stations.map(entry => entry.id)))), task.position);
+          insert.run(replacement, game.code, game.round_id, task.player_id, stationId, task.fake, JSON.stringify(puzzle(available[randomInt(available.length)], taskContext(game, stationId, stations.map(entry => entry.id), pairCodes))), task.position);
           return { old: task, replacement };
         });
         logChange(game, 'replaceStationTasks', { station, ...(target ? { target } : {}) }, { pairs });

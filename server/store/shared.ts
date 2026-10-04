@@ -32,14 +32,20 @@ export type Win = { winner: 'crew' | 'impostor'; reason: RoundResult['reason'] }
 export type ChangeRow = { id: number; at: number; action: HistoryEntry['action']; detail: string; undo: string | null; undone: number };
 export type TaskRow = { id: string; player_id: string; station_id: string; fake: number; puzzle: string; done_at: number | null };
 export const MAX_STATIONS = 8;
-// The task games handed out in this room: all of them, minus those the organiser switched off.
-export const taskKindsFor = (game: Game): TaskKind[] => {
+// The task games the organiser left on.
+export const enabledKinds = (game: Game): TaskKind[] => {
   const off = JSON.parse(game.task_games_off) as string[];
   return taskKinds.filter(kind => !off.includes(kind));
 };
+// The task games handed out in this room. Two keys needs a second real player to help; if it
+// was the only game on, every other game stands in for it.
+export const taskKindsFor = (game: Game, realPlayers: number): TaskKind[] => {
+  const kinds = enabledKinds(game).filter(kind => kind !== 'twokeys' || realPlayers >= 2);
+  return kinds.length ? kinds : taskKinds.filter(kind => kind !== 'twokeys');
+};
 // What a new puzzle needs to know about the room. A real object only counts once it is named.
-export const taskContext = (game: Game, station: string | null, stations: string[]) => ({
-  station, stations, deliveryObject: game.delivery_mode === 'object' && game.delivery_object ? game.delivery_object : null,
+export const taskContext = (game: Game, station: string | null, stations: string[], pairCodes: Set<string>) => ({
+  station, stations, deliveryObject: game.delivery_mode === 'object' && game.delivery_object ? game.delivery_object : null, pairCodes,
 });
 export const DEFAULT_STATIONS = {
   en: ['Kitchen', 'Living room', 'Hallway', 'Study'],

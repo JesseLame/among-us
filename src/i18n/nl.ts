@@ -178,6 +178,11 @@ export const nl: Copy = {
   deliveryReal: 'Een echt voorwerp', deliveryRealHelp: 'Spelers zoeken een voorwerp uit huis en brengen het naar hun station.',
   deliveryObjectLabel: 'Voorwerp', deliveryObjectHelp: 'Iets wat makkelijk te dragen is, zoals een houten lepel. Wordt bewaard als je het veld verlaat.',
   deliveryObjectMissing: 'Geef het voorwerp een naam; tot dan gebruiken bezorgtaken de app.',
+  kindTwokeys: 'Twee sleutels', twoKeysInstructions: 'Dit lukt niet alleen. Laat de code aan een andere speler zien: die tikt op Iemand helpen, vult hem in en leest de ontgrendelcode aan je voor.',
+  twoKeysPairLabel: 'Koppelcode', twoKeysUnlockLabel: 'Ontgrendelcode', twoKeysWaiting: 'Wacht op de ontgrendelcode van een helper.', twoKeysWrong: 'Die ontgrendelcode klopt niet. Vraag het je helper nog eens.', twoKeysDone: 'Beide sleutels omgedraaid!',
+  helpTitle: 'Iemand helpen', helpIntro: 'Een andere speler heeft een tweede sleutel nodig. Typ de koppelcode van hun scherm.', helpCodeLabel: 'Hun koppelcode',
+  helpShow: 'Toon ontgrendelcode', helpUnlockLabel: 'Ontgrendelcode', helpReadOut: 'Lees deze code aan ze voor.', helpAnother: 'Iemand anders helpen',
+  practiceHelper: 'Oefen het helpen (de telefoon van de ander)',
   taskGamesSetting: 'Taakspellen', taskGamesHelp: 'De spellen die als taak worden uitgedeeld. Minstens één blijft aan; al uitgedeelde taken blijven.',
   kindOrder: 'Getallen op volgorde', kindWires: 'Draden verbinden', kindCodebook: 'Codeboek', doTaskAt: 'Doe deze taak bij',
   backToTasks: 'Terug naar taken', taskComplete: 'Taak voltooid.', allTasksDone: 'Al je taken zijn klaar. Houd de anderen in de gaten.',
@@ -211,4 +216,5 @@ export const nlErrors: Record<ErrorCode, string> = {
   NOT_READY: 'Je kunt nog niet uitschakelen. Wacht op de timer.', ELIMINATIONS_OFF: 'De organisator heeft het bijhouden van uitschakelingen in de app uitgezet.',
   REPORTS_OFF: 'Lichamen melden staat uit. Zeg het tegen de organisator.', EMERGENCY_OFF: 'Noodoverleg staat uit.', NO_EMERGENCY_LEFT: 'Je hebt je noodoverleggen deze ronde al gebruikt.', VOTING_CLOSED: 'De stemming is nu niet open.', PHONE_VOTING_OFF: 'Stemmen op telefoons staat uit. Leg de uitslag van de stemming met handen vast.', NOT_ALIVE: 'Je bent uitgeschakeld, dus dit kan nu niet.',
   UNDO_UNAVAILABLE: 'Deze wijziging kan niet meer ongedaan worden gemaakt.', PREVIEWS_OFF: 'Gevolgen vooraf tonen staat uit.',
+  HELP_CODE_NOT_FOUND: 'Geen open taak heeft die koppelcode. Controleer de letters op hun scherm.', OWN_TASK: 'Dat is je eigen taak. Iemand anders moet je helpen.',
 };

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { completeTask, eliminate, roundCommand } from '../../shared/protocol.js';
+import { completeTask, eliminate, helpTask, roundCommand } from '../../shared/protocol.js';
 import { sessionToken } from '../session.js';
 import { GameError } from '../store/index.js';
 import type { RouteContext } from './context.js';
@@ -32,6 +32,15 @@ export function roundRoutes({ store, broadcast, syncPlayer }: RouteContext) {
       res.json({ lobby: result.lobby });
       if (result.ended) broadcast(result.lobby.code);
       else syncPlayer(result.lobby.you.id);
+    } catch (error) { next(error); }
+  });
+
+  // Two keys: the helper's own phone is told the unlock code; nothing else changes.
+  router.post('/api/tasks/help', (req, res, next) => {
+    try {
+      const parsed = helpTask.safeParse(req.body);
+      if (!parsed.success) throw new GameError('INVALID_INPUT');
+      res.json(store.help(sessionToken(req.headers.cookie), parsed.data));
     } catch (error) { next(error); }
   });
 

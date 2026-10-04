@@ -3,6 +3,7 @@ import { Button } from 'react-aria-components';
 import { symbolGlyphs, symbols, taskKinds, type CompleteTask, type ErrorCode, type PracticePuzzle, type TaskKind } from '../../../shared/protocol';
 import { codeFor, request } from '../../lib/api';
 import { kindLabel, PuzzleView } from '../tasks/games/registry';
+import HelpPanel from '../tasks/HelpPanel';
 import { errorMessages, translations, type Language, type Copy } from '../../i18n';
 import shared from '../../App.module.css';
 import styles from './practice.module.css';
@@ -86,6 +87,10 @@ export default function Practice({ language, languageControl }: { language: Lang
           ? <PuzzleView key={current.id} puzzle={current.puzzle} t={t} stationName={() => undefined} disabled={busy || solved} solved={solved} rejected={rejected} onSubmit={answer => void submit(answer)}/>
           : !error && <p className={ui.note} role="status">{t.loading}</p>}
         {current?.codebook && <PracticeSheet book={current.codebook} t={t}/>}
+        {current?.puzzle.kind === 'twokeys' && !solved && <details className={styles.practiceSheet}>
+          <summary>{t.practiceHelper}</summary>
+          <HelpPanel language={language} lookUp={code => request<{ unlock: string }>('/api/practice/help', { code })}/>
+        </details>}
         {solved && <p className={ui.note} role="status">{t.practiceSolved}</p>}
         {error && <p className={ui.error} role="alert">{error === 'WRONG_ANSWER' ? t.practiceWrong : errorMessages[language][error]}</p>}
         <Button className={solved ? ui.primary : ui.secondary} isDisabled={busy} onPress={() => void load(kind)}>

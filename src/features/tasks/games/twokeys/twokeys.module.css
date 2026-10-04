@@ -1,0 +1,53 @@
+/* Two keys: the pairing code on the dark panel, the unlock code field below it. */
+.keysBoard {
+  display: grid;
+  gap: var(--space-4);
+  max-width: 340px;
+  padding: var(--space-5);
+}
+
+.pair {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-4);
+  border: 2px dashed var(--color-puzzle-panel-border);
+  border-radius: var(--radius-card);
+  background: var(--color-puzzle-display);
+  color: var(--color-puzzle-highlight);
+}
+
+.pair small {
+  color: var(--color-puzzle-wall);
+  font: 600 var(--text-xs) var(--font-heading);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.pair span {
+  font: 600 48px/1.1 var(--font-heading);
+  letter-spacing: 12px;
+  margin-right: -12px;
+}
+
+.unlock {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.unlock label {
+  color: var(--color-on-primary);
+}
+
+.unlock input {
+  text-align: center;
+  font: 600 var(--text-xl) var(--font-heading);
+  letter-spacing: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.keysBoard[data-complete] .pair {
+  border-color: var(--color-puzzle-lit);
+  color: var(--color-puzzle-lit);
+}

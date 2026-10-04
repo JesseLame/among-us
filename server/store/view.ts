@@ -1,7 +1,8 @@
 import type { HistoryEntry, Lobby, Task, TaskPuzzle } from '../../shared/protocol.js';
+import { reveal } from '../tasks/index.js';
 import type { Base } from './base.js';
 import type { Rules } from './rules.js';
-import { taskKindsFor, type ChangeRow, type Game, type Player, type TaskRow } from './shared.js';
+import { enabledKinds, type ChangeRow, type Game, type Player, type TaskRow } from './shared.js';
 
 // The lobby snapshot each player receives: only what that player may see.
 export function createView({ db, now, playerFor, gameFor }: Base, { progress, votesOf, voters }: Rules) {
@@ -14,7 +15,7 @@ export function createView({ db, now, playerFor, gameFor }: Base, { progress, vo
     const tasks = playing
       ? (db.prepare('SELECT * FROM tasks WHERE player_id = ? AND round_id = ? ORDER BY position').all(player.id, game.round_id) as TaskRow[])
         // The fake flag never leaves the server; fake tasks look identical to real ones.
-        .map((task): Task => ({ id: task.id, stationId: task.station_id, done: task.done_at !== null, puzzle: JSON.parse(task.puzzle) as TaskPuzzle }))
+        .map((task): Task => ({ id: task.id, stationId: task.station_id, done: task.done_at !== null, puzzle: reveal(JSON.parse(task.puzzle) as TaskPuzzle) }))
       : [];
     const totals = game.round_id ? progress(game) : null;
     return {
@@ -31,7 +32,7 @@ export function createView({ db, now, playerFor, gameFor }: Base, { progress, vo
         openingProtection: game.opening_protection, killCooldown: game.kill_cooldown, discussionTime: game.discussion_time,
         emergencyAllowance: game.emergency_allowance, progressInterval: game.progress_interval,
         tasksPerPlayer: game.tasks_per_player, taskGoalPercent: game.task_goal_percent,
-        confirmVictory: Boolean(game.confirm_victory), changePreviews: Boolean(game.change_previews), changeHistory: Boolean(game.change_history), taskGames: taskKindsFor(game),
+        confirmVictory: Boolean(game.confirm_victory), changePreviews: Boolean(game.change_previews), changeHistory: Boolean(game.change_history), taskGames: enabledKinds(game),
         deliveryMode: game.delivery_mode, deliveryObject: game.delivery_object,
       },
       // The proposed winning team and the change history are for the organiser only.

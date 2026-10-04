@@ -6,7 +6,8 @@ export type Puzzle<K extends TaskKind> = Extract<TaskPuzzle, { kind: K }>;
 
 // Where a new puzzle is handed out: its station and the room's other stations (none in
 // practice), and the real object for deliveries if the organiser chose one.
-export type TaskContext = { station: string | null; stations: string[]; deliveryObject: string | null };
+// `pairCodes`: two-keys codes already in use among the room's open tasks (a new one is added).
+export type TaskContext = { station: string | null; stations: string[]; deliveryObject: string | null; pairCodes: Set<string> };
 
 // The server side of a task game: makes a new puzzle and checks an answer to it. A game with
 // several steps also has `advance`: the puzzle for its next step, and the station that step
@@ -15,4 +16,6 @@ export type TaskRules<K extends TaskKind> = {
   generate(context: TaskContext): Puzzle<K>;
   check(puzzle: Puzzle<K>, answer: CompleteTask['answer'], book: Codebook | undefined): boolean;
   advance?(puzzle: Puzzle<K>, answer: CompleteTask['answer']): { puzzle: Puzzle<K>; station: string | null } | null;
+  // The puzzle as a phone may see it, for games that keep part of it on the server.
+  reveal?(puzzle: Puzzle<K>): Puzzle<K>;
 };

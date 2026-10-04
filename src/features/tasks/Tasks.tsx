@@ -3,6 +3,7 @@ import { Button } from 'react-aria-components';
 import type { CompleteTask, ErrorCode, Lobby, Task } from '../../../shared/protocol';
 import { codeFor, request } from '../../lib/api';
 import StationScanner from './Scanner';
+import HelpPanel from './HelpPanel';
 import { kindLabel, PuzzleView, taskSummary } from './games/registry';
 import { errorMessages, translations, type Language } from '../../i18n';
 import shared from '../../App.module.css';
@@ -23,6 +24,7 @@ export default function Tasks({ lobby, language, connected, onUpdate, scan, onSc
   // After a task closes: it is done, or it moved on to its next step at another station.
   const [notice, setNotice] = useState<'done' | 'step' | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [helping, setHelping] = useState(false);
   // After a correct answer the solved puzzle stays on screen briefly before closing.
   const [solved, setSolved] = useState(false);
   const [rejected, setRejected] = useState(0);
@@ -48,7 +50,7 @@ export default function Tasks({ lobby, language, connected, onUpdate, scan, onSc
     if (open.length === 1) setOpenId(open[0].id);
   }, [scan, active]);
   // Move focus between the list, the scanner and an opened task, but not on first render.
-  const view = scanning ? 'scanner' : openId ?? 'list';
+  const view = scanning ? 'scanner' : helping ? 'help' : openId ?? 'list';
   const previousView = useRef(view);
   useEffect(() => { if (previousView.current !== view) heading.current?.focus(); previousView.current = view; }, [view]);
 
@@ -93,6 +95,14 @@ export default function Tasks({ lobby, language, connected, onUpdate, scan, onSc
       onScanned={stationId => { setScanning(false); setNotice(null); onStationScanned?.(stationId); }}/>
   </section>;
 
+  // Help someone with a two-keys task, also once your own tasks are done.
+  if (helping) return <section className={`${ui.card} ${styles.taskCard}`} aria-labelledby="help-title">
+    <h2 id="help-title" ref={heading} tabIndex={-1}>{t.helpTitle}</h2>
+    <HelpPanel language={language} disabled={!active || !connected}
+      lookUp={code => request<{ unlock: string }>('/api/tasks/help', { roundId: lobby.roundId, code })}/>
+    <Button className={ui.secondary} onPress={() => setHelping(false)}>{t.backToTasks}</Button>
+  </section>;
+
   const allDone = lobby.you.tasks.every(task => task.done);
   const hereName = here && lobby.stations.find(station => station.id === here)?.name;
   const hereOpen = here ? lobby.you.tasks.some(task => task.stationId === here && !task.done) : false;
@@ -107,6 +117,8 @@ export default function Tasks({ lobby, language, connected, onUpdate, scan, onSc
     {!allDone && onStationScanned && <Button className={ui.primary} isDisabled={!active || !connected} onPress={() => { setScanning(true); setError(null); }}>
       {t.scanStation}<span aria-hidden="true">⌗</span>
     </Button>}
+    {lobby.settings.taskGames.includes('twokeys') && <Button className={ui.secondary} isDisabled={!active || !connected}
+      onPress={() => { setHelping(true); setNotice(null); setError(null); }}>{t.helpTitle}</Button>}
     <ul className={styles.taskList}>
       {ordered.map(task => <li key={task.id} data-done={task.done} data-here={task.stationId === here || undefined}>
         <span><strong>{stationName(task)}</strong><small>{kindLabel(t, task.puzzle.kind)}</small>

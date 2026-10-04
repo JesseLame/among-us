@@ -49,6 +49,8 @@ In the lobby, **Room management → Add test player** adds "Test 1", "Test 2"…
 
 **Delivery tasks** (shown while Delivery is on): **In the app** (default) or **A real object** with its name (up to 40 characters, saved when the field is left). Until the object has a name, deliveries use the app. Like the game list, it applies to tasks handed out afterwards.
 
+**Two keys** is skipped automatically when fewer than two real players play (test players cannot help). If it was the only game on, all other games are used instead. The **Help someone** button appears on player task screens while Two keys is on.
+
 Task count and goal can only change in the lobby, so a change cannot end a running round. Timer changes never alter a timer already running.
 
 ## Station access — implemented

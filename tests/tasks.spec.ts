@@ -82,9 +82,9 @@ test('organiser edits stations and prints sheets; a player completes phone and c
     await expect(page.getByRole('switch', { name: 'Open tasks without scanning' })).toBeChecked();
     // Every task game starts on; the organiser can switch games off, but not the last one.
     const taskGames = page.getByRole('group', { name: 'Task games' }).getByRole('checkbox');
-    await expect(taskGames).toHaveCount(7);
+    await expect(taskGames).toHaveCount(8);
     for (const box of await taskGames.all()) await expect(box).toBeChecked();
-    const others = ['Codebook', 'Number order', 'Fix the wiring', 'Simon says', 'Open waterways', 'Delivery'];
+    const others = ['Codebook', 'Number order', 'Fix the wiring', 'Simon says', 'Open waterways', 'Delivery', 'Two keys'];
     // Each box follows the saved settings, so it changes once the server has the change.
     for (const game of others) {
       await page.getByRole('checkbox', { name: game }).click();

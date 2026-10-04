@@ -1,5 +1,5 @@
 import { randomInt, randomUUID } from 'node:crypto';
-import type { CompleteTask, Eliminate, Lobby, Role, RoleInfo, RoundCommand, RoundResult, TaskPuzzle } from '../../shared/protocol.js';
+import type { CompleteTask, Eliminate, HelpTask, Lobby, Role, RoleInfo, RoundCommand, RoundResult, TaskPuzzle } from '../../shared/protocol.js';
 import { advance, puzzle, shuffle, solved, type Codebook } from '../tasks/index.js';
 import type { Base } from './base.js';
 import type { Rules } from './rules.js';
@@ -11,15 +11,16 @@ export function createRound({ db, now, playerFor, gameFor, alreadyApplied, recor
   function assignTasks(game: Game, roundId: string, players: { id: string; role: Role }[]) {
     const stations = shuffle(db.prepare('SELECT id FROM stations WHERE game_code = ?').all(game.code) as { id: string }[]);
     const insert = db.prepare('INSERT INTO tasks (id, game_code, round_id, player_id, station_id, fake, puzzle, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    const pairCodes = new Set<string>();
     for (const player of players) {
       // Spread each list across stations, with a mix of puzzle kinds. With more games than
       // tasks, each player gets a different random selection of them.
       const offset = randomInt(stations.length);
-      const available = shuffle(taskKindsFor(game));
+      const available = shuffle(taskKindsFor(game, players.length));
       const kinds = shuffle(Array.from({ length: game.tasks_per_player }, (_, index) => available[index % available.length]));
       kinds.forEach((kind, index) => insert.run(
         randomUUID(), game.code, roundId, player.id, stations[(offset + index) % stations.length].id,
-        Number(player.role === 'impostor'), JSON.stringify(puzzle(kind, taskContext(game, stations[(offset + index) % stations.length].id, stations.map(entry => entry.id)))), index,
+        Number(player.role === 'impostor'), JSON.stringify(puzzle(kind, taskContext(game, stations[(offset + index) % stations.length].id, stations.map(entry => entry.id), pairCodes))), index,
       ));
     }
   }
@@ -163,6 +164,23 @@ export function createRound({ db, now, playerFor, gameFor, alreadyApplied, recor
     const ended = !task.fake && settle(game.code);
     return { lobby: lobby(token)!, ended };
   });
+  // Two keys: another player in the round enters a pairing code and gets that task's unlock
+  // code. Nothing changes and nobody else is told; the reply says nothing about the task's owner.
+  function help(token: string | undefined, input: HelpTask) {
+    const player = playerFor(token);
+    if (!player) throw new GameError('NO_SESSION', 401);
+    const game = gameFor(player.game_code)!;
+    if (game.round_id !== input.roundId) throw new GameError('STALE_COMMAND', 409);
+    if (game.phase !== 'active') throw new GameError('INVALID_PHASE', 409);
+    if (!player.playing) throw new GameError('NOT_PLAYING', 409);
+    if (player.status === 'body') throw new GameError('NOT_ALIVE', 409);
+    const open = db.prepare('SELECT player_id, puzzle FROM tasks WHERE game_code = ? AND round_id = ? AND done_at IS NULL').all(game.code, game.round_id) as Pick<TaskRow, 'player_id' | 'puzzle'>[];
+    const task = open.map(row => ({ owner: row.player_id, puzzle: JSON.parse(row.puzzle) as TaskPuzzle }))
+      .find(entry => entry.puzzle.kind === 'twokeys' && entry.puzzle.pair === input.code);
+    if (!task || task.puzzle.kind !== 'twokeys') throw new GameError('HELP_CODE_NOT_FOUND', 404);
+    if (task.owner === player.id) throw new GameError('OWN_TASK', 409);
+    return { unlock: task.puzzle.unlock! };
+  }
   // Publishes shared progress on a fixed cadence while play is active, whether or
   // not it changed, so the publication time does not hint at a recent completion.
   // Returns the games whose public progress changed.
@@ -179,5 +197,5 @@ export function createRound({ db, now, playerFor, gameFor, alreadyApplied, recor
     return changed;
   }
 
-  return { command, role, eliminatePlayer, completeTask, tick };
+  return { command, role, eliminatePlayer, completeTask, help, tick };
 }

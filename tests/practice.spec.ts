@@ -17,7 +17,7 @@ test('practice page plays every task game without a room, in both languages', as
   await page.getByRole('link', { name: 'Practise the task games' }).click();
   await expect(page.getByRole('heading', { name: 'Try the task games' })).toBeVisible();
   const games = page.getByRole('navigation', { name: 'Task games' }).getByRole('button');
-  await expect(games).toHaveText(['Codebook', 'Number order', 'Fix the wiring', 'Simon says', 'Maze', 'Open waterways', 'Delivery']);
+  await expect(games).toHaveText(['Codebook', 'Number order', 'Fix the wiring', 'Simon says', 'Maze', 'Open waterways', 'Delivery', 'Two keys']);
 
   // Codebook: read the practice sheet and key in the numbers.
   await expect(page.getByRole('heading', { name: 'Codebook', level: 2 })).toBeVisible();
@@ -116,6 +116,19 @@ test('practice page plays every task game without a room, in both languages', as
   await hold(page, 'Hold to unload');
   await expect(solvedNote).toBeVisible();
   await expect(page.getByText('Delivered!')).toBeVisible();
+
+  // Two keys: practise both phones; the helper side shows the unlock code for the pairing code.
+  await games.getByText('Two keys').click();
+  const pair = await page.locator('[class*=pair] span').innerText();
+  await page.getByText('Practise helping (the other player’s phone)').click();
+  await page.getByRole('textbox', { name: 'Their pairing code' }).fill(pair);
+  await page.getByRole('button', { name: 'Show unlock code' }).click();
+  const unlock = await page.locator('[class*=unlockCode] span').innerText();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await page.getByRole('textbox', { name: 'Unlock code' }).fill(unlock);
+  await page.getByRole('button', { name: 'Check code' }).click();
+  await expect(solvedNote).toBeVisible();
+  await page.screenshot({ path: test.info().outputPath('twokeys-mobile.png'), fullPage: true });
 
   // Deep links and Dutch.
   await page.goto('/practice?game=wires');

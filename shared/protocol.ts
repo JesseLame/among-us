@@ -7,14 +7,14 @@ export const language = z.enum(['en', 'nl']);
 export const createGame = z.object({ name: playerName, language: language.optional(), playing: z.boolean().optional() });
 export const joinGame = z.object({ name: playerName, code: gameCode });
 
-export const errors = ['INVALID_INPUT', 'GAME_NOT_FOUND', 'GAME_FULL', 'NAME_TAKEN', 'NO_SESSION', 'SERVER_ERROR', 'CONNECTION_ERROR', 'ALREADY_JOINED', 'FORBIDDEN', 'NOT_ENOUGH_PLAYERS', 'ROUND_IN_PROGRESS', 'STALE_COMMAND', 'INVALID_PHASE', 'PLAYER_NOT_FOUND', 'CANNOT_REMOVE_ORGANISER', 'NO_STATIONS', 'TOO_MANY_STATIONS', 'STATION_EXISTS', 'TASK_NOT_FOUND', 'WRONG_ANSWER', 'NOT_PLAYING', 'NOT_READY', 'NOT_ALIVE', 'ELIMINATIONS_OFF', 'REPORTS_OFF', 'EMERGENCY_OFF', 'NO_EMERGENCY_LEFT', 'VOTING_CLOSED', 'PHONE_VOTING_OFF', 'REJOIN_EXPIRED', 'UNDO_UNAVAILABLE', 'PREVIEWS_OFF'] as const;
+export const errors = ['INVALID_INPUT', 'GAME_NOT_FOUND', 'GAME_FULL', 'NAME_TAKEN', 'NO_SESSION', 'SERVER_ERROR', 'CONNECTION_ERROR', 'ALREADY_JOINED', 'FORBIDDEN', 'NOT_ENOUGH_PLAYERS', 'ROUND_IN_PROGRESS', 'STALE_COMMAND', 'INVALID_PHASE', 'PLAYER_NOT_FOUND', 'CANNOT_REMOVE_ORGANISER', 'NO_STATIONS', 'TOO_MANY_STATIONS', 'STATION_EXISTS', 'TASK_NOT_FOUND', 'WRONG_ANSWER', 'NOT_PLAYING', 'NOT_READY', 'NOT_ALIVE', 'ELIMINATIONS_OFF', 'REPORTS_OFF', 'EMERGENCY_OFF', 'NO_EMERGENCY_LEFT', 'VOTING_CLOSED', 'PHONE_VOTING_OFF', 'REJOIN_EXPIRED', 'UNDO_UNAVAILABLE', 'PREVIEWS_OFF', 'HELP_CODE_NOT_FOUND', 'OWN_TASK'] as const;
 export type ErrorCode = typeof errors[number];
 // Every task game. Adding a game: its puzzle type below, its rules in server/tasks/<kind>.ts
 // (registered in server/tasks/index.ts), its game in src/features/tasks/games/<kind>/
 // (registered in registry.tsx, built on TaskFrame) and its EN/NL texts.
 // The practice page (/practice) lists every kind automatically. A new game also needs an
 // organiser on/off choice, which `taskGames` gives every kind automatically (on by default).
-export const taskKinds = ['codebook', 'order', 'wires', 'simon', 'maze', 'waterways', 'delivery'] as const;
+export const taskKinds = ['codebook', 'order', 'wires', 'simon', 'maze', 'waterways', 'delivery', 'twokeys'] as const;
 export type TaskKind = typeof taskKinds[number];
 export type Role = 'crewmate' | 'impostor';
 export type Phase = 'lobby' | 'active' | 'paused' | 'meeting' | 'ended';
@@ -75,6 +75,7 @@ export type SettingsCommand = z.infer<typeof settingsCommand>;
 // its right-hand match. Codebook: the digits read from the printed station sheet.
 // Maze: the moves from start to exit (0 up, 1 right, 2 down, 3 left).
 // Waterways: every valve's quarter turns (0–3), row by row. Delivery: [0] to pick up, [1] to drop off.
+// Two keys: the unlock code a helper read out.
 const MAX_ANSWER = 64;
 export const completeTask = z.object({
   roundId: z.uuid(),
@@ -84,6 +85,11 @@ export const completeTask = z.object({
 export type CompleteTask = z.infer<typeof completeTask>;
 // Practice: try any task game outside a round, checked by the same server code.
 export const practiceCheck = z.object({ id: z.uuid(), answer: completeTask.shape.answer });
+// Two keys: any other player in the round enters a pairing code and is shown the unlock code.
+export const pairCode = z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/);
+export const helpTask = z.object({ roundId: z.uuid(), code: pairCode });
+export type HelpTask = z.infer<typeof helpTask>;
+export const practiceHelp = z.object({ code: pairCode });
 export type PracticePuzzle = { id: string; puzzle: TaskPuzzle; codebook?: Record<SymbolId, number> };
 
 export const symbols = ['star', 'circle', 'triangle', 'square', 'diamond', 'heart', 'club', 'spade', 'sun', 'moon', 'cross', 'note'] as const;
@@ -108,7 +114,10 @@ export type TaskPuzzle =
   | { kind: 'waterways'; size: number; valves: ValveShape[]; turns: number[]; source: number; drain: number }
   // In the app: load the cargo at this station, then the task moves to `to` to drop it off.
   // With a real object (`object` set) only the drop-off is left: bring the object to this station.
-  | { kind: 'delivery'; cargo: Cargo; object: string | null; stage: 'pickup' | 'dropoff'; to: string | null };
+  | { kind: 'delivery'; cargo: Cargo; object: string | null; stage: 'pickup' | 'dropoff'; to: string | null }
+  // Another player types the `pair` code on their phone and reads out the unlock code it shows.
+  // `unlock` exists only on the server: it is removed before a puzzle is sent to any phone.
+  | { kind: 'twokeys'; pair: string; unlock?: string };
 export type ValveShape = 'straight' | 'bend';
 export const cargos = ['fuel', 'battery', 'parcel', 'samples', 'water'] as const;
 export type Cargo = typeof cargos[number];

@@ -169,3 +169,37 @@
     padding: var(--layout-card-padding-mobile);
   }
 }
+
+/* Help someone (two keys): the pairing code field, then the unlock code to read out. */
+.help {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.help p {
+  margin: 0;
+}
+
+.unlockCode {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  border-radius: var(--radius-card);
+  background: var(--color-puzzle-board);
+  color: var(--color-puzzle-highlight);
+}
+
+.unlockCode small {
+  color: var(--color-puzzle-wall);
+  font: 600 var(--text-xs) var(--font-heading);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.unlockCode span {
+  font: 600 48px/1.1 var(--font-heading);
+  letter-spacing: 10px;
+  margin-right: -10px;
+  font-variant-numeric: tabular-nums;
+}
