@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import QRCode from 'qrcode';
 import type { Lobby, PrintableStation, Task } from '../shared/protocol';
-import { mazeRoute } from './maze';
+import { mazeRoute, waterwaysTurns } from '../server/test/solvers';
 
 test('organiser edits stations and prints sheets; a player completes phone and codebook tasks', async ({ page, browser, baseURL }, testInfo) => {
   await page.goto('/');
@@ -50,7 +50,7 @@ test('organiser edits stations and prints sheets; a player completes phone and c
 
     const lobby: Lobby = (await (await context.request.get('/api/session')).json()).lobby;
     const name = (task: Task) => lobby.stations.find(station => station.id === task.stationId)!.name;
-    const kinds = { order: 'Number order', wires: 'Fix the wiring', codebook: 'Codebook', simon: 'Simon says', maze: 'Maze' };
+    const kinds = { order: 'Number order', wires: 'Fix the wiring', codebook: 'Codebook', simon: 'Simon says', maze: 'Maze', waterways: 'Open waterways' };
 
     // In-app scanner: a photo of an unrelated QR code is rejected, a station code opens its task.
     const scanned = lobby.you.tasks.find(task => lobby.you.tasks.filter(other => other.stationId === task.stationId).length === 1)!;
@@ -79,9 +79,9 @@ test('organiser edits stations and prints sheets; a player completes phone and c
     await expect(page.getByRole('switch', { name: 'Open tasks without scanning' })).toBeChecked();
     // Every task game starts on; the organiser can switch games off, but not the last one.
     const taskGames = page.getByRole('group', { name: 'Task games' }).getByRole('checkbox');
-    await expect(taskGames).toHaveCount(5);
+    await expect(taskGames).toHaveCount(6);
     for (const box of await taskGames.all()) await expect(box).toBeChecked();
-    const others = ['Codebook', 'Number order', 'Fix the wiring', 'Simon says'];
+    const others = ['Codebook', 'Number order', 'Fix the wiring', 'Simon says', 'Open waterways'];
     // Each box follows the saved settings, so it changes once the server has the change.
     for (const game of others) {
       await page.getByRole('checkbox', { name: game }).click();
@@ -164,6 +164,17 @@ test('organiser edits stations and prints sheets; a player completes phone and c
       const controls = guest.getByRole('group', { name: 'Move' });
       for (const move of mazeRoute(maze.puzzle)) await controls.getByRole('button', { name: ['Up', 'Right', 'Down', 'Left'][move] }).click();
       await expect(guest.getByRole('listitem').filter({ hasText: 'Maze' }).getByText('✓ Done')).toBeVisible();
+    }
+    const water = lobby.you.tasks.find(task => task.puzzle.kind === 'waterways');
+    if (water && water.puzzle.kind === 'waterways') {
+      const { turns } = water.puzzle;
+      await guest.getByRole('button', { name: `Open: Open waterways, ${name(water)}` }).click();
+      await expect(guest.getByRole('heading', { name: 'Open waterways' })).toBeFocused();
+      const valves = guest.getByRole('group', { name: 'Open waterways' }).getByRole('button');
+      for (const [index, turn] of waterwaysTurns(water.puzzle).entries()) {
+        for (let tap = 0; tap < (turn - turns[index] + 4) % 4; tap++) await valves.nth(index).click();
+      }
+      await expect(guest.getByRole('listitem').filter({ hasText: 'Open waterways' }).getByText('✓ Done')).toBeVisible();
     }
     // Four tasks, each a different game.
     await expect(guest.getByText('✓ Done')).toHaveCount(4);

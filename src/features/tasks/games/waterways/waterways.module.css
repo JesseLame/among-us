@@ -1,0 +1,85 @@
+/* Open waterways: a square grid of valve tiles; water fills every pipe it reaches. */
+.waterBoard {
+  max-width: 340px;
+  padding: var(--space-4) var(--space-5);
+}
+
+.grid {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  aspect-ratio: 1;
+}
+
+.valve {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 2px solid var(--color-puzzle-panel-border);
+  border-radius: 8px;
+  background: var(--color-puzzle-panel);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.valve svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transition: transform calc(var(--motion-fast) * 2) ease-out;
+}
+
+.pipe,
+.water {
+  fill: none;
+  stroke-linecap: butt;
+}
+
+.pipe {
+  stroke: var(--color-puzzle-wall);
+  stroke-width: 30;
+}
+
+.water {
+  stroke: var(--color-puzzle-display);
+  stroke-width: 16;
+  transition: stroke var(--motion-fast);
+}
+
+.valve[data-wet] .water {
+  stroke: var(--color-puzzle-water);
+}
+
+.valve:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.valve[aria-disabled],
+.valve:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+/* The source and drain: short pipe stubs on the outside of the grid. */
+.source,
+.drain {
+  position: absolute;
+  width: var(--space-4);
+  height: 14px;
+  transform: translateY(-50%);
+  background: var(--color-puzzle-display);
+  border: 3px solid var(--color-puzzle-wall);
+}
+
+.source { left: calc(-1 * var(--space-5)); border-left: 0; }
+.drain { right: calc(-1 * var(--space-5)); border-right: 0; }
+
+.source[data-wet],
+.drain[data-wet] {
+  background: var(--color-puzzle-water);
+}
+
+.waterBoard[data-complete] .valve[data-wet] {
+  border-color: var(--color-puzzle-lit);
+}

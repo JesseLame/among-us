@@ -135,6 +135,7 @@
   --color-puzzle-on-lit: #1a2b24;
   --color-puzzle-display: #121f1a;
   --color-puzzle-wall: #d9e3d3;
+  --color-puzzle-water: #4fa8dc;
   --color-progress-track: var(--color-surface-soft);
   --color-progress-fill: var(--color-success);
 

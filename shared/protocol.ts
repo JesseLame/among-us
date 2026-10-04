@@ -14,7 +14,7 @@ export type ErrorCode = typeof errors[number];
 // (registered in registry.tsx, built on TaskFrame) and its EN/NL texts.
 // The practice page (/practice) lists every kind automatically. A new game also needs an
 // organiser on/off choice, which `taskGames` gives every kind automatically (on by default).
-export const taskKinds = ['codebook', 'order', 'wires', 'simon', 'maze'] as const;
+export const taskKinds = ['codebook', 'order', 'wires', 'simon', 'maze', 'waterways'] as const;
 export type TaskKind = typeof taskKinds[number];
 export type Role = 'crewmate' | 'impostor';
 export type Phase = 'lobby' | 'active' | 'paused' | 'meeting' | 'ended';
@@ -70,6 +70,7 @@ export type SettingsCommand = z.infer<typeof settingsCommand>;
 // Order: numbers in the tapped order. Wires: for each left wire, the index of
 // its right-hand match. Codebook: the digits read from the printed station sheet.
 // Maze: the moves from start to exit (0 up, 1 right, 2 down, 3 left).
+// Waterways: every valve's quarter turns (0–3), row by row.
 const MAX_ANSWER = 64;
 export const completeTask = z.object({
   roundId: z.uuid(),
@@ -97,7 +98,38 @@ export type TaskPuzzle =
   // Four coloured pads (0–3); repeat a growing part of the sequence until it is complete.
   | { kind: 'simon'; sequence: number[] }
   // A size × size grid, row by row. Each cell lists its open sides: 1 up, 2 right, 4 down, 8 left.
-  | { kind: 'maze'; size: number; open: number[]; start: number; exit: number };
+  | { kind: 'maze'; size: number; open: number[]; start: number; exit: number }
+  // A size × size grid of valves, row by row, each turned 0–3 quarter turns clockwise.
+  // Water enters the `source` row from the left and must leave the `drain` row on the right.
+  | { kind: 'waterways'; size: number; valves: ValveShape[]; turns: number[]; source: number; drain: number };
+export type ValveShape = 'straight' | 'bend';
+// The sides a valve opens (1 up, 2 right, 4 down, 8 left): a straight one joins left and right,
+// a bend joins left and up, both before turning. Each quarter turn moves every side clockwise.
+export function valveSides(shape: ValveShape, turn: number) {
+  let sides = shape === 'straight' ? 8 | 2 : 8 | 1;
+  for (let step = 0; step < ((turn % 4) + 4) % 4; step++) sides = ((sides << 1) | (sides >> 3)) & 15;
+  return sides;
+}
+// Where the water gets to with these turns, shared by the server check and the phone:
+// the valves it fills, and whether it flows out at the drain.
+export function waterFlow(puzzle: { size: number; valves: ValveShape[]; source: number; drain: number }, turns: number[]) {
+  const { size, valves } = puzzle;
+  const sides = valves.map((shape, index) => valveSides(shape, turns[index] ?? 0));
+  const filled = new Set<number>();
+  const first = puzzle.source * size;
+  if (sides[first] & 8) filled.add(first);
+  const queue = [...filled];
+  while (queue.length) {
+    const cell = queue.shift()!;
+    for (let move = 0; move < 4; move++) {
+      const next = mazeStep(size, sides, cell, move);
+      // Both valves must open towards each other.
+      if (next !== null && !filled.has(next) && sides[next] & (1 << ((move + 2) % 4))) { filled.add(next); queue.push(next); }
+    }
+  }
+  const last = puzzle.drain * size + size - 1;
+  return { filled, out: filled.has(last) && Boolean(sides[last] & 2) };
+}
 // Maze moves, shared by the server check and the phone: the cell one move away
 // (0 up, 1 right, 2 down, 3 left), or null when a wall or the edge is in the way.
 const mazeSides = [[1, 0, -1], [2, 1, 0], [4, 0, 1], [8, -1, 0]] as const;

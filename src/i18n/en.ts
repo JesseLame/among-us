@@ -162,6 +162,8 @@ export const en = {
   kindMaze: 'Maze', mazeInstructions: 'Guide the light to the flag. Use the arrows, the arrow keys or swipe on the maze.',
   mazeBoard: 'Maze', mazeControls: 'Move', mazeUp: 'Up', mazeRight: 'Right', mazeDown: 'Down', mazeLeft: 'Left',
   mazeRow: 'row', mazeColumn: 'column', mazeYouAre: 'You are at', mazeExitAt: 'The flag is at', mazeWall: 'A wall is in the way.', mazeDone: 'You made it out!',
+  kindWaterways: 'Open waterways', waterwaysInstructions: 'Tap the valves to turn them until water flows from the source on the left to the drain on the right.',
+  waterwaysValve: 'Valve', waterwaysOpen: 'open', and: 'and', waterwaysWet: 'water flowing', waterwaysProgress: 'Valves with water:', waterwaysDone: 'The water flows!',
   taskGamesSetting: 'Task games', taskGamesHelp: 'The games handed out as tasks. At least one stays on; tasks already handed out stay.',
   kindOrder: 'Number order', kindWires: 'Fix the wiring', kindCodebook: 'Codebook', doTaskAt: 'Do this task at',
   backToTasks: 'Back to tasks', taskComplete: 'Task complete.', allTasksDone: 'All your tasks are done. Keep an eye on the others.',

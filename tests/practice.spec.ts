@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { mazeStep } from '../shared/protocol';
-import { mazeRoute } from './maze';
+import { mazeStep, type TaskPuzzle } from '../shared/protocol';
+import { mazeRoute, waterwaysTurns } from '../server/test/solvers';
 
 test.use({ viewport: { width: 375, height: 812 } });
 
@@ -14,7 +14,7 @@ test('practice page plays every task game without a room, in both languages', as
   await page.getByRole('link', { name: 'Practise the task games' }).click();
   await expect(page.getByRole('heading', { name: 'Try the task games' })).toBeVisible();
   const games = page.getByRole('navigation', { name: 'Task games' }).getByRole('button');
-  await expect(games).toHaveText(['Codebook', 'Number order', 'Fix the wiring', 'Simon says', 'Maze']);
+  await expect(games).toHaveText(['Codebook', 'Number order', 'Fix the wiring', 'Simon says', 'Maze', 'Open waterways']);
 
   // Codebook: read the practice sheet and key in the numbers.
   await expect(page.getByRole('heading', { name: 'Codebook', level: 2 })).toBeVisible();
@@ -89,6 +89,21 @@ test('practice page plays every task game without a room, in both languages', as
   for (const move of rest) await page.keyboard.press(`Arrow${directions[move]}`);
   await expect(solvedNote).toBeVisible();
   await page.screenshot({ path: test.info().outputPath('maze-mobile.png'), fullPage: true });
+
+  // Open waterways: each tap turns a valve a quarter; the water flows once the channel is open.
+  const waterLoaded = page.waitForResponse(response => response.url().endsWith('/api/practice/waterways'));
+  await games.getByText('Open waterways').click();
+  const water = (await (await waterLoaded).json() as { puzzle: Extract<TaskPuzzle, { kind: 'waterways' }> }).puzzle;
+  const valves = page.getByRole('group', { name: 'Open waterways' }).getByRole('button');
+  await expect(valves).toHaveCount(16);
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  const target = waterwaysTurns(water);
+  for (const [index, turn] of target.entries()) {
+    for (let tap = 0; tap < (turn - water.turns[index] + 4) % 4; tap++) await valves.nth(index).click();
+  }
+  await expect(page.getByText('The water flows!')).toBeVisible();
+  await expect(solvedNote).toBeVisible();
+  await page.screenshot({ path: test.info().outputPath('waterways-mobile.png'), fullPage: true });
 
   // Deep links and Dutch.
   await page.goto('/practice?game=wires');

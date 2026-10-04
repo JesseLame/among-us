@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { join } from 'node:path';
-import type { Lobby, PrintableStation, Task } from '../../shared/protocol.js';
+import type { Lobby, PrintableStation, Task, TaskPuzzle } from '../../shared/protocol.js';
 import { randomUUID } from 'node:crypto';
-import { cleanup, start, roundInput, roomInput, crew, stationInput, answerFor, mazeRoute } from './helpers.js';
+import { cleanup, start, roundInput, roomInput, crew, stationInput, answerFor, mazeRoute, waterwaysTurns } from './helpers.js';
 
 afterEach(cleanup);
 
@@ -37,7 +37,7 @@ describe('stations and tasks', () => {
     lobby = (await (await app.post('/api/round/commands', roundInput(lobby, 'start'), host)).json()).lobby;
     expect((await (await app.post('/api/stations/commands', stationInput(lobby, { action: 'add', name: 'Tuin' }), host)).json()).error).toBe('INVALID_PHASE');
     // Station access defaults to QR-only; only the organiser can change it, also mid-round.
-    expect(lobby.settings).toEqual({ stationAccess: 'qr', eliminations: true, bodyReports: true, emergencyMeetings: true, phoneVoting: false, openingProtection: 60, killCooldown: 60, discussionTime: 90, emergencyAllowance: 1, progressInterval: 30, tasksPerPlayer: 4, taskGoalPercent: 80, confirmVictory: false, changePreviews: true, changeHistory: true, taskGames: ['codebook', 'order', 'wires', 'simon', 'maze'] });
+    expect(lobby.settings).toEqual({ stationAccess: 'qr', eliminations: true, bodyReports: true, emergencyMeetings: true, phoneVoting: false, openingProtection: 60, killCooldown: 60, discussionTime: 90, emergencyAllowance: 1, progressInterval: 30, tasksPerPlayer: 4, taskGoalPercent: 80, confirmVictory: false, changePreviews: true, changeHistory: true, taskGames: ['codebook', 'order', 'wires', 'simon', 'maze', 'waterways'] });
     const settings = { commandId: randomUUID(), expectedRevision: lobby.revision, roundId: lobby.roundId, stationAccess: 'manual' };
     expect((await app.post('/api/settings/commands', settings, guest)).status).toBe(403);
     expect((await app.post('/api/settings/commands', { ...settings, stationAccess: 'anything' }, host)).status).toBe(400);
@@ -119,7 +119,7 @@ describe('task game choice', () => {
   it('hands out every game by default and only the games the organiser leaves on', async () => {
     const app = await start();
     const game = await crew(app);
-    expect(game.lobby.settings.taskGames).toEqual(['codebook', 'order', 'wires', 'simon', 'maze']);
+    expect(game.lobby.settings.taskGames).toEqual(['codebook', 'order', 'wires', 'simon', 'maze', 'waterways']);
     const kinds = async () => (await Promise.all(game.cookies.map(async cookie => (await game.snapshot(cookie)).you.tasks))).flat().map(task => task.puzzle.kind);
     const settings = (lobby: Lobby, taskGames: unknown) => app.post('/api/settings/commands', { commandId: randomUUID(), expectedRevision: lobby.revision, roundId: lobby.roundId, taskGames }, game.cookies[0]);
     // At least one game stays on, each listed once.
@@ -157,7 +157,7 @@ describe('task game choice', () => {
 describe('practice page', () => {
   it('serves every task game without a session and checks answers with the task rules', async () => {
     const app = await start();
-    for (const kind of ['order', 'wires', 'codebook', 'simon', 'maze']) {
+    for (const kind of ['order', 'wires', 'codebook', 'simon', 'maze', 'waterways']) {
       const practice = await (await fetch(`${app.url}/api/practice/${kind}`)).json() as { puzzle: { kind: string }; codebook?: Record<string, number> };
       expect(practice.puzzle.kind).toBe(kind);
       expect(Boolean(practice.codebook)).toBe(kind === 'codebook');
@@ -182,6 +182,10 @@ describe('practice page', () => {
     const maze = await (await fetch(`${app.url}/api/practice/maze`)).json() as { id: string; puzzle: { size: number; open: number[]; start: number; exit: number } };
     expect(maze.puzzle.open).toHaveLength(maze.puzzle.size ** 2);
     expect(await (await app.post('/api/practice/check', { id: maze.id, answer: mazeRoute(maze.puzzle) })).json()).toEqual({ solved: true });
+    // Waterways: the starting turns never let the water out; any turns that do are accepted.
+    const water = await (await fetch(`${app.url}/api/practice/waterways`)).json() as { id: string; puzzle: Extract<TaskPuzzle, { kind: 'waterways' }> };
+    expect((await (await app.post('/api/practice/check', { id: water.id, answer: water.puzzle.turns })).json()).error).toBe('WRONG_ANSWER');
+    expect(await (await app.post('/api/practice/check', { id: water.id, answer: waterwaysTurns(water.puzzle) })).json()).toEqual({ solved: true });
     // Practice never creates a room or session.
     expect((await (await fetch(`${app.url}/api/session`)).json()).lobby).toBeNull();
   });

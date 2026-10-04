@@ -163,6 +163,8 @@ export const nl: Copy = {
   kindMaze: 'Doolhof', mazeInstructions: 'Breng het lampje naar de vlag. Gebruik de pijlen, de pijltjestoetsen of veeg over het doolhof.',
   mazeBoard: 'Doolhof', mazeControls: 'Bewegen', mazeUp: 'Omhoog', mazeRight: 'Rechts', mazeDown: 'Omlaag', mazeLeft: 'Links',
   mazeRow: 'rij', mazeColumn: 'kolom', mazeYouAre: 'Je bent op', mazeExitAt: 'De vlag staat op', mazeWall: 'Daar zit een muur.', mazeDone: 'Je bent eruit!',
+  kindWaterways: 'Waterwegen openen', waterwaysInstructions: 'Tik op de kranen om ze te draaien tot het water van de bron links naar de afvoer rechts stroomt.',
+  waterwaysValve: 'Kraan', waterwaysOpen: 'open naar', and: 'en', waterwaysWet: 'er stroomt water', waterwaysProgress: 'Kranen met water:', waterwaysDone: 'Het water stroomt!',
   taskGamesSetting: 'Taakspellen', taskGamesHelp: 'De spellen die als taak worden uitgedeeld. Minstens één blijft aan; al uitgedeelde taken blijven.',
   kindOrder: 'Getallen op volgorde', kindWires: 'Draden verbinden', kindCodebook: 'Codeboek', doTaskAt: 'Doe deze taak bij',
   backToTasks: 'Terug naar taken', taskComplete: 'Taak voltooid.', allTasksDone: 'Al je taken zijn klaar. Houd de anderen in de gaten.',
