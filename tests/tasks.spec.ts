@@ -57,8 +57,30 @@ test('organiser edits stations and prints sheets; a player completes phone and c
       await guest.getByRole('button', { name: 'Check code' }).click();
       await expect(guest.getByText('Task complete.')).toBeVisible();
     }
-    await expect(guest.getByText('✓ Done')).toHaveCount([order, codebook].filter(Boolean).length);
+    const wires = lobby.you.tasks.find(task => task.puzzle.kind === 'wires');
+    if (wires && wires.puzzle.kind === 'wires') {
+      await guest.getByRole('button', { name: `Open: Fix the wiring, ${name(wires)}` }).click();
+      const plugs = guest.getByRole('group', { name: 'Wires' });
+      const sockets = guest.getByRole('group', { name: 'Sockets' });
+      const label = (colour: string) => colour.charAt(0).toUpperCase() + colour.slice(1);
+      const [first, ...rest] = wires.puzzle.left;
+      // Keyboard: choose a wire, then its socket.
+      await plugs.getByRole('button', { name: label(first), exact: true }).focus();
+      await guest.keyboard.press('Enter');
+      await expect(plugs.getByRole('button', { name: label(first), exact: true })).toHaveAttribute('aria-pressed', 'true');
+      await sockets.getByRole('button', { name: label(first), exact: true }).focus();
+      await guest.keyboard.press('Enter');
+      await expect(sockets.getByRole('button', { name: `${label(first)}, connected` })).toBeVisible();
+      // A wrong drop is rejected; the rest are dragged with the mouse.
+      const wrong = wires.puzzle.right.find(colour => colour !== rest[0] && colour !== first)!;
+      await plugs.getByRole('button', { name: label(rest[0]), exact: true }).dragTo(sockets.getByRole('button', { name: label(wrong), exact: true }));
+      await expect(guest.getByText('Those colours don’t match. Try again.')).toBeVisible();
+      await guest.screenshot({ path: testInfo.outputPath('wires-mobile.png'), fullPage: true });
+      for (const colour of rest) await plugs.getByRole('button', { name: label(colour), exact: true }).dragTo(sockets.getByRole('button', { name: label(colour), exact: true }));
+      await expect(guest.getByText('Task complete.')).toBeVisible();
+    }
+    await expect(guest.getByText('✓ Done')).toHaveCount(3);
     await guest.reload();
-    await expect(guest.getByText('✓ Done')).toHaveCount([order, codebook].filter(Boolean).length);
+    await expect(guest.getByText('✓ Done')).toHaveCount(3);
   } finally { await context.close(); }
 });
