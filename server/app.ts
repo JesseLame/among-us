@@ -1,19 +1,20 @@
 import express from 'express';
 import { createServer } from 'node:http';
+import { createServer as createSecureServer } from 'node:https';
 import { resolve } from 'node:path';
-import { networkInterfaces } from 'node:os';
 import { Server } from 'socket.io';
 import { completeTask, createGame, joinGame, roomCommand, roundCommand, settingsCommand, stationCommand, type ClientEvents, type ServerEvents, type SessionEndReason } from '../shared/protocol.js';
 import { createStore, GameError } from './store.js';
+import { lanAddresses } from './network.js';
 
 export function sessionToken(cookie = '') {
   return cookie.split(';').map(part => part.trim()).find(part => part.startsWith('home_session='))?.slice('home_session='.length);
 }
 
-export function createApp(options: { databasePath: string; production?: boolean; clientPath?: string; now?: () => number }) {
+export function createApp(options: { databasePath: string; production?: boolean; clientPath?: string; now?: () => number; tls?: { key: string; cert: string } }) {
   const store = createStore(options.databasePath, options.now);
   const app = express();
-  const http = createServer(app);
+  const http = options.tls ? createSecureServer({ key: options.tls.key, cert: options.tls.cert }, app) : createServer(app);
   const sameOrigin = (origin: string | undefined, host: string | undefined) => {
     if (!origin) return true;
     try { return new URL(origin).host === host; } catch { return false; }
@@ -71,7 +72,7 @@ export function createApp(options: { databasePath: string; production?: boolean;
         return store.create(parsed.data.name, parsed.data.language, parsed.data.playing);
       })();
       res.cookie('home_session', result.token, {
-        httpOnly: true, secure: Boolean(options.production), sameSite: 'lax',
+        httpOnly: true, secure: Boolean(options.production || options.tls), sameSite: 'lax',
         maxAge: 30 * 24 * 60 * 60 * 1000, path: '/',
       });
       res.status(201).json({ lobby: result.lobby });
@@ -141,11 +142,7 @@ export function createApp(options: { databasePath: string; production?: boolean;
   app.get('/api/network', (req, res, next) => {
     try {
       if (!store.lobby(sessionToken(req.headers.cookie))) throw new GameError('NO_SESSION', 401);
-      const rank = (ip: string) => ip.startsWith('192.168.') ? 0 : ip.startsWith('10.') ? 1 : /^172\.(1[6-9]|2\d|3[01])\./.test(ip) ? 2 : 3;
-      const lanAddresses = Object.values(networkInterfaces()).flat()
-        .filter(address => address && address.family === 'IPv4' && !address.internal).map(address => address!.address)
-        .sort((a, b) => rank(a) - rank(b));
-      res.json({ lanAddresses });
+      res.json({ lanAddresses: lanAddresses() });
     } catch (error) { next(error); }
   });
 

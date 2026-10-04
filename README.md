@@ -58,6 +58,8 @@ The game runs fine from a laptop on your own Wi-Fi; nothing has to be deployed.
 5. Open **Print materials** from the same address and print the station sheets.
 6. Keep the laptop awake and plugged in, for example `caffeinate -i npm run play` on macOS. Give the laptop a fixed IP address in your router (a DHCP reservation); the printed QR codes contain this address and stop working if it changes.
 
+**Live QR scanning on phones (optional HTTPS):** phone browsers only allow live camera scanning over HTTPS. Run `npm run play:https` instead to serve the game at `https://<laptop address>:3001` with a self-signed certificate created in `data/tls/`. Each phone shows a one-time "not private" warning on its first visit: choose *Show details → visit this website* (iPhone) or *Advanced → Proceed* (Android). The certificate is reused after restarts and only renewed when the laptop's address changes or it nears expiry (about a year), after which phones see the warning once more. Without HTTPS, scanning in the app takes a photo instead.
+
 Lobbies, roles and progress are saved in `data/game.sqlite`; if the laptop restarts, run `npm start` (or `npm run play`) again and the round resumes paused. The connection is plain HTTP, which is fine on a home network.
 
 ## Working locally
