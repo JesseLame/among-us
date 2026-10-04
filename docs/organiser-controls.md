@@ -19,6 +19,10 @@ Removing a Crewmate during a round now removes their unfinished tasks from the s
 
 When creating a game, the organiser chooses **Just host on this screen** (default, for a laptop or tablet) or **Host and play**. A host-only organiser has no role or tasks, does not take one of the eight player places, and sees a join QR code in the lobby plus the list of players during a round. Roles stay hidden on this screen until the round ends, because a laptop screen is often visible to everyone.
 
+## Recording eliminations — implemented
+
+**Record eliminations in the app** (organiser controls, any phase, on by default). On: the Impostor records eliminations, victims see the body screen and the app can declare an Impostor win. Off: eliminations happen only with the physical signal; the Impostor's card says so, the server refuses elimination requests, and the organiser ends the round. Bodies already recorded stay.
+
 ## Timer settings — partly implemented
 
 Opening protection and elimination cooldown (default 60 s each, 0–600 s) are stored per room and accepted by the settings command; changes apply to the next timer, not one already running. There are no organiser controls for them on screen yet (stage 4); the browser tests use the command to shorten them.
@@ -39,7 +43,7 @@ These choices are independent rather than one all-or-nothing mode.
 | --- | --- | --- |
 | Station access | Scan the room QR (implemented: QR-only by default). | Switch on opening tasks from the list (implemented). Physical presence still applies. |
 | Task completion | App checks a puzzle or physical answer. | Organiser records an announced completion or grants completion for a broken task. Fake tasks still never count. |
-| Eliminations | Impostor records the victim after the physical signal. | Organiser records a privately communicated outcome; this can disclose information to an organiser who is playing. |
+| Eliminations | Impostor records the victim after the physical signal (implemented). | Switch recording off: physical signal only (implemented). Organiser-recorded outcomes are not built. |
 | Meetings | Players report or call a meeting in the app; timed discussion. | Organiser starts meetings after an out-loud call, or runs untimed discussion. |
 | Voting | Physical vote; organiser records the result. | Correct the result or resume with no ejection. In-app ballots are for later. |
 | Victory | Announce automatically when a condition is met. | Organiser confirms the app's proposed result, or ends the round with a chosen winner or no winner. |

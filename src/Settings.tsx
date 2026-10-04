@@ -7,18 +7,19 @@ import styles from './App.module.css';
 import ui from './styles/ui.module.css';
 
 type Props = { lobby: Lobby; language: Language; connected: boolean; onUpdate: (lobby: Lobby) => void };
+type Change = Omit<SettingsCommand, 'commandId' | 'expectedRevision' | 'roundId'>;
 
-// Organiser switch: by default tasks open only after scanning a station's QR code.
-export default function StationAccessSwitch({ lobby, language, connected, onUpdate }: Props) {
+// Organiser switches for how much the app handles. They apply immediately on every phone.
+export default function GameSettings({ lobby, language, connected, onUpdate }: Props) {
   const t = translations[language];
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ErrorCode | null>(null);
   const inFlight = useRef(false);
 
-  async function change(manual: boolean) {
+  async function change(settings: Change) {
     if (inFlight.current || !connected) return;
     inFlight.current = true; setBusy(true); setError(null);
-    const input: SettingsCommand = { commandId: commandId(), expectedRevision: lobby.revision, roundId: lobby.roundId, stationAccess: manual ? 'manual' : 'qr' };
+    const input: SettingsCommand = { commandId: commandId(), expectedRevision: lobby.revision, roundId: lobby.roundId, ...settings };
     try {
       const result = await request('/api/settings/commands', input);
       if (result.lobby) onUpdate(result.lobby);
@@ -26,11 +27,18 @@ export default function StationAccessSwitch({ lobby, language, connected, onUpda
     finally { inFlight.current = false; setBusy(false); }
   }
 
-  return <div className={styles.setting}>
-    <Switch className={ui.switch} isSelected={lobby.settings.stationAccess === 'manual'} isDisabled={busy || !connected} onChange={manual => void change(manual)}>
-      <span className={ui.switchTrack} aria-hidden="true"><span/></span>{t.manualAccess}
+  const { stationAccess, eliminations } = lobby.settings;
+  const setting = (label: string, selected: boolean, help: string, onChange: (selected: boolean) => void) => <div className={styles.setting}>
+    <Switch className={ui.switch} isSelected={selected} isDisabled={busy || !connected} onChange={onChange}>
+      <span className={ui.switchTrack} aria-hidden="true"><span/></span>{label}
     </Switch>
-    <p className={ui.note}>{lobby.settings.stationAccess === 'manual' ? t.manualAccessOn : t.manualAccessOff}</p>
-    {error && <p className={ui.error} role="alert">{errorMessages[language][error]}</p>}
+    <p className={ui.note}>{help}</p>
   </div>;
+  return <>
+    {setting(t.manualAccess, stationAccess === 'manual', stationAccess === 'manual' ? t.manualAccessOn : t.manualAccessOff,
+      manual => void change({ stationAccess: manual ? 'manual' : 'qr' }))}
+    {setting(t.eliminationsSetting, eliminations, eliminations ? t.eliminationsOn : t.eliminationsOffHelp,
+      on => void change({ eliminations: on }))}
+    {error && <p className={ui.error} role="alert">{errorMessages[language][error]}</p>}
+  </>;
 }

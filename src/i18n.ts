@@ -73,6 +73,9 @@ const en = {
   scannerDenied: 'Camera access was blocked. Allow the camera for this site in your browser, or take a photo instead.',
   qrLookupFailed: 'Couldn’t look up this computer’s network address. The game server may be out of date: stop it and start it again (npm start), then reload.',
   qrNoNetwork: 'This computer has no network address, so phones cannot reach the game. Connect it to the same Wi-Fi as the phones and reload.',
+  eliminationsSetting: 'Record eliminations in the app', eliminationsOn: 'On: the Impostor records each elimination, the victim’s phone shows they are out, and the app can declare an Impostor win.',
+  eliminationsOffHelp: 'Off: eliminations happen only with the physical signal. No body screens or Impostor win in the app; end the round yourself.',
+  eliminationsOffImpostor: 'Eliminations are not recorded in the app right now. Just give the signal.',
   manualAccess: 'Open tasks without scanning', manualAccessOff: 'Off: players open a task by scanning the QR code at its station.', manualAccessOn: 'On: players can open any task from their list. They should still walk to the station.',
   printSheets: 'Print materials', printSheetsHelp: 'QR codes for each room, codebook sheets, a join poster and markers.',
   printTitle: 'Print materials', printButton: 'Print or save as PDF', printChoose: 'What to print',
@@ -173,6 +176,9 @@ const nl: Copy = {
   scannerDenied: 'De camera is geblokkeerd. Sta de camera toe voor deze site in je browser, of maak een foto.',
   qrLookupFailed: 'Het netwerkadres van deze computer kon niet worden opgezocht. De spelserver is misschien verouderd: stop hem, start hem opnieuw (npm start) en laad de pagina opnieuw.',
   qrNoNetwork: 'Deze computer heeft geen netwerkadres, dus telefoons kunnen het spel niet bereiken. Verbind hem met dezelfde wifi als de telefoons en laad opnieuw.',
+  eliminationsSetting: 'Uitschakelingen bijhouden in de app', eliminationsOn: 'Aan: de Bedrieger legt elke uitschakeling vast, de telefoon van het slachtoffer laat zien dat die uit is en de app kan de Bedrieger laten winnen.',
+  eliminationsOffHelp: 'Uit: uitschakelen gaat alleen met het signaal. Geen lichaamsschermen of winst voor de Bedrieger in de app; beëindig de ronde zelf.',
+  eliminationsOffImpostor: 'Uitschakelingen worden nu niet bijgehouden in de app. Geef alleen het signaal.',
   manualAccess: 'Taken openen zonder scannen', manualAccessOff: 'Uit: spelers openen een taak door de QR-code bij het station te scannen.', manualAccessOn: 'Aan: spelers kunnen elke taak vanuit hun lijst openen. Ze lopen nog steeds naar het station.',
   printSheets: 'Printmateriaal', printSheetsHelp: 'QR-codes per kamer, codeboekvellen, een poster om mee te doen en markeringen.',
   printTitle: 'Printmateriaal', printButton: 'Printen of opslaan als pdf', printChoose: 'Wat wil je printen?',
@@ -216,7 +222,7 @@ export const errorMessages: Record<Language, Record<ErrorCode, string>> = {
     NO_STATIONS: 'Add at least one task station before starting.', TOO_MANY_STATIONS: 'You can have up to eight task stations.',
     STATION_EXISTS: 'There is already a station with that name.', TASK_NOT_FOUND: 'That task is no longer available. Check your task list.',
     WRONG_ANSWER: 'That’s not right. Check the station sheet and try again.', NOT_PLAYING: 'You are hosting this game, so you have no role.',
-    NOT_READY: 'You can’t eliminate yet. Wait for the timer.', NOT_ALIVE: 'You’ve been eliminated, so you can’t do that right now.',
+    NOT_READY: 'You can’t eliminate yet. Wait for the timer.', ELIMINATIONS_OFF: 'The organiser has turned off recording eliminations in the app.', NOT_ALIVE: 'You’ve been eliminated, so you can’t do that right now.',
   },
   nl: {
     INVALID_INPUT: 'Vul een naam in (1–24 tekens) en, als je meedoet, een code van 5 letters.',
@@ -232,7 +238,7 @@ export const errorMessages: Record<Language, Record<ErrorCode, string>> = {
     NO_STATIONS: 'Voeg minstens één taakstation toe voordat je start.', TOO_MANY_STATIONS: 'Je kunt maximaal acht taakstations hebben.',
     STATION_EXISTS: 'Er is al een station met die naam.', TASK_NOT_FOUND: 'Deze taak is niet meer beschikbaar. Bekijk je takenlijst.',
     WRONG_ANSWER: 'Dat klopt niet. Kijk nog eens op het stationsvel en probeer opnieuw.', NOT_PLAYING: 'Jij host dit spel, dus je hebt geen rol.',
-    NOT_READY: 'Je kunt nog niet uitschakelen. Wacht op de timer.', NOT_ALIVE: 'Je bent uitgeschakeld, dus dit kan nu niet.',
+    NOT_READY: 'Je kunt nog niet uitschakelen. Wacht op de timer.', ELIMINATIONS_OFF: 'De organisator heeft het bijhouden van uitschakelingen in de app uitgezet.', NOT_ALIVE: 'Je bent uitgeschakeld, dus dit kan nu niet.',
   },
 };
 

@@ -14,7 +14,7 @@ type Game = {
   winner: RoundResult['winner']; end_reason: RoundResult['reason'] | null;
   tasks_per_player: number; task_goal_percent: number;
   progress_interval: number; progress_shown: number; progress_shown_at: number;
-  station_access: StationAccess;
+  station_access: StationAccess; eliminations: number;
   opening_protection: number; kill_cooldown: number;
   // Active play time: clock_ms plus, while active, the time since clock_at.
   // The play-clock time from which the Impostor may eliminate (protection, then cooldown).
@@ -104,6 +104,9 @@ export function createStore(path: string, now: () => number = Date.now) {
         PRAGMA user_version = 6;
       `);
     }
+    if (version < 7) {
+      db.exec('ALTER TABLE games ADD COLUMN eliminations INTEGER NOT NULL DEFAULT 1; PRAGMA user_version = 7;');
+    }
   });
   function addStations(code: string, names: string[]) {
     const insert = db.prepare('INSERT INTO stations (id, game_code, name, position, codebook) VALUES (?, ?, ?, (SELECT COALESCE(MAX(position), -1) + 1 FROM stations WHERE game_code = ?), ?)');
@@ -134,7 +137,7 @@ export function createStore(path: string, now: () => number = Date.now) {
       revision: game.revision, pauseReason: game.pause_reason,
       players: players.map(p => ({ id: p.id, name: p.name, organiser: Boolean(p.organiser), playing: Boolean(p.playing), ...(p.removed ? { removed: true } : {}) })),
       stations: db.prepare('SELECT id, name FROM stations WHERE game_code = ? ORDER BY position').all(game.code) as Lobby['stations'],
-      settings: { stationAccess: game.station_access, openingProtection: game.opening_protection, killCooldown: game.kill_cooldown },
+      settings: { stationAccess: game.station_access, eliminations: Boolean(game.eliminations), openingProtection: game.opening_protection, killCooldown: game.kill_cooldown },
       progress: totals && { done: game.phase === 'ended' ? totals.done : Math.min(game.progress_shown, totals.goal), goal: totals.goal },
       // Status is private to its owner: an undiscovered body looks alive to everyone else.
       you: { id: player.id, organiser: Boolean(player.organiser), playing: Boolean(player.playing), status: playing ? player.status : 'alive', tasks },
@@ -231,7 +234,7 @@ export function createStore(path: string, now: () => number = Date.now) {
     if (game.phase !== 'active' && game.phase !== 'paused') throw new GameError('INVALID_PHASE', 409);
     if (!player.playing) throw new GameError('NOT_PLAYING', 409);
     const info: RoleInfo = { roundId, role: player.role! };
-    if (player.role === 'impostor') {
+    if (player.role === 'impostor' && game.eliminations) {
       const ready = game.eliminate_ready_ms;
       const targets = db.prepare("SELECT id, name FROM players WHERE game_code = ? AND playing = 1 AND removed = 0 AND status = 'alive' AND id != ? ORDER BY joined_at, rowid")
         .all(game.code, player.id) as { id: string; name: string }[];
@@ -251,6 +254,7 @@ export function createStore(path: string, now: () => number = Date.now) {
     const payload = JSON.stringify(input);
     if (alreadyApplied(input.commandId, player.id, payload)) return { code: game.code, victim: input.targetId, ended: false };
     if (game.phase !== 'active') throw new GameError('INVALID_PHASE', 409);
+    if (!game.eliminations) throw new GameError('ELIMINATIONS_OFF', 409);
     const at = elapsed(game);
     if (at < game.eliminate_ready_ms) throw new GameError('NOT_READY', 409);
     const target = db.prepare("SELECT * FROM players WHERE id = ? AND game_code = ? AND playing = 1 AND removed = 0 AND status = 'alive' AND id != ?")
@@ -382,8 +386,9 @@ export function createStore(path: string, now: () => number = Date.now) {
     const payload = JSON.stringify(input);
     if (alreadyApplied(input.commandId, organiser.id, payload)) return lobby(token)!;
     if (game.revision !== input.expectedRevision || game.round_id !== input.roundId) throw new GameError('STALE_COMMAND', 409);
-    db.prepare('UPDATE games SET station_access = COALESCE(?, station_access), opening_protection = COALESCE(?, opening_protection), kill_cooldown = COALESCE(?, kill_cooldown), revision = revision + 1 WHERE code = ?')
-      .run(input.stationAccess ?? null, input.openingProtection ?? null, input.killCooldown ?? null, game.code);
+    db.prepare(`UPDATE games SET station_access = COALESCE(?, station_access), eliminations = COALESCE(?, eliminations),
+      opening_protection = COALESCE(?, opening_protection), kill_cooldown = COALESCE(?, kill_cooldown), revision = revision + 1 WHERE code = ?`)
+      .run(input.stationAccess ?? null, input.eliminations === undefined ? null : Number(input.eliminations), input.openingProtection ?? null, input.killCooldown ?? null, game.code);
     recordCommand(input.commandId, game.code, organiser.id, payload);
     return lobby(token)!;
   });

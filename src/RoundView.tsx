@@ -7,7 +7,7 @@ import styles from './App.module.css';
 import ui from './styles/ui.module.css';
 import RoomControls from './RoomControls';
 import Tasks, { SharedProgress, type Scan } from './Tasks';
-import StationAccessSwitch from './Settings';
+import GameSettings from './Settings';
 import EliminatePanel from './Eliminate';
 
 type Props = {
@@ -76,7 +76,7 @@ export function RoundControls({ lobby, language, connected, onUpdate, onExit }: 
         </Dialog>
       </Modal>
     </ModalOverlay>
-    <StationAccessSwitch lobby={lobby} language={language} connected={connected} onUpdate={onUpdate}/>
+    <GameSettings lobby={lobby} language={language} connected={connected} onUpdate={onUpdate}/>
     <div className={styles.printLink}>
       <a className={ui.secondary} href="/print" target="_blank" rel="noopener">{t.printSheets}<span aria-hidden="true">↗</span></a>
       <p className={ui.note}>{t.printSheetsHelp}</p>
@@ -133,6 +133,7 @@ function PrivateRole({ lobby, language, connected, languageControl }: Pick<Props
     <div role="status" className={styles.roleContent}>
       {role ? <><RevealedHeading>{role === 'impostor' ? t.impostor : t.crewmate}</RevealedHeading><p>{role === 'impostor' ? t.impostorBrief : t.crewmateBrief}</p></> : <p>{t.roleHidden}</p>}
     </div>
+    {role === 'impostor' && !lobby.settings.eliminations && <p className={`${ui.note} ${styles.eliminationsOff}`}>{t.eliminationsOffImpostor}</p>}
     {info?.elimination && lobby.roundId && <EliminatePanel roundId={lobby.roundId} elimination={info.elimination} language={language} connected={connected} onInfo={setInfo}/>}
     <Button className={ui.primary} isDisabled={!connected || busy} onPress={() => { if (role) hide(); else void reveal(); }}>{busy ? t.working : role ? t.hideRole : t.revealRole}<span aria-hidden="true">{role ? '×' : '→'}</span></Button>
     {error && <p className={ui.error} role="alert">{errorMessages[language][error]}</p>}

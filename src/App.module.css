@@ -1099,6 +1099,13 @@
   overflow-wrap: anywhere;
 }
 
+.eliminationsOff {
+  text-align: left;
+  border-top: 1px dashed var(--color-border);
+  padding-top: var(--space-4);
+  margin: 0 0 var(--space-5);
+}
+
 /* Eliminated player's screen */
 .bodyCard {
   text-align: center;

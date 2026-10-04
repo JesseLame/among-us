@@ -33,6 +33,12 @@ test('the Impostor eliminates privately, the victim becomes a body, and the Impo
     await expect(killer.getByRole('heading', { name: 'Eliminate' })).toHaveCount(0);
     await killer.getByRole('button', { name: 'Reveal my role' }).click();
     await expect(killer.getByRole('heading', { name: 'Eliminate' })).toBeVisible();
+    // The organiser can switch recording off and on; the revealed card follows live.
+    await page.getByText('Record eliminations in the app', { exact: true }).click();
+    await expect(killer.getByText('Eliminations are not recorded in the app right now. Just give the signal.')).toBeVisible();
+    await expect(killer.getByRole('heading', { name: 'Eliminate' })).toHaveCount(0);
+    await page.getByText('Record eliminations in the app', { exact: true }).click();
+    await expect(killer.getByRole('heading', { name: 'Eliminate' })).toBeVisible();
     const victim = await crew[0].newPage();
     await victim.goto('/');
     const bystander = await crew[1].newPage();

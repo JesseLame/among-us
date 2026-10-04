@@ -221,7 +221,7 @@ describe('private roles and round lifecycle', () => {
     expect(lobby.roundId).toBeNull();
     const originalSession = (await (await fetch(`${app.url}/api/session`, { headers: { Cookie: 'home_session=old-session' } })).json()).lobby;
     expect(originalSession.you).toEqual({ id: 'original', organiser: true, playing: true, status: 'alive', tasks: [] });
-    expect(originalSession.settings).toEqual({ stationAccess: 'qr', openingProtection: 60, killCooldown: 60 });
+    expect(originalSession.settings).toEqual({ stationAccess: 'qr', eliminations: true, openingProtection: 60, killCooldown: 60 });
     expect(originalSession.stations.map((station: { name: string }) => station.name)).toEqual(['Kitchen', 'Living room', 'Hallway', 'Study']);
   });
 });
@@ -370,7 +370,7 @@ describe('stations and tasks', () => {
     lobby = (await (await app.post('/api/round/commands', roundInput(lobby, 'start'), host)).json()).lobby;
     expect((await (await app.post('/api/stations/commands', stationInput(lobby, { action: 'add', name: 'Tuin' }), host)).json()).error).toBe('INVALID_PHASE');
     // Station access defaults to QR-only; only the organiser can change it, also mid-round.
-    expect(lobby.settings).toEqual({ stationAccess: 'qr', openingProtection: 60, killCooldown: 60 });
+    expect(lobby.settings).toEqual({ stationAccess: 'qr', eliminations: true, openingProtection: 60, killCooldown: 60 });
     const settings = { commandId: randomUUID(), expectedRevision: lobby.revision, roundId: lobby.roundId, stationAccess: 'manual' };
     expect((await app.post('/api/settings/commands', settings, guest)).status).toBe(403);
     expect((await app.post('/api/settings/commands', { ...settings, stationAccess: 'anything' }, host)).status).toBe(400);
@@ -537,6 +537,13 @@ describe('eliminations', () => {
     }
     clock += 60_000;
     expect((await (await kill(crewIds[0])).json()).error).toBe('PLAYER_NOT_FOUND');
+    // With recording switched off, the Impostor sees no panel and the server refuses.
+    lobby = await game.snapshot();
+    lobby = (await (await app.post('/api/settings/commands', { commandId: randomUUID(), expectedRevision: lobby.revision, roundId: lobby.roundId, eliminations: false }, game.cookies[0])).json()).lobby;
+    expect(lobby.settings.eliminations).toBe(false);
+    expect((await roleOf(impostor)).elimination).toBeUndefined();
+    expect((await (await kill(crewIds[3])).json()).error).toBe('ELIMINATIONS_OFF');
+    lobby = (await (await app.post('/api/settings/commands', { commandId: randomUUID(), expectedRevision: lobby.revision, roundId: lobby.roundId, eliminations: true }, game.cookies[0])).json()).lobby;
     const last = await (await kill(crewIds[3])).json();
     expect(last).toEqual({ ended: true });
     const ended = await game.snapshot();
