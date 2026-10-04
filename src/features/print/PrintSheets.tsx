@@ -4,7 +4,8 @@ import { PhoneAddressNote, QrCode, usableOrigin, usePhoneOrigin } from '../../co
 import { symbolGlyphs, symbols, type ErrorCode, type Lobby, type PrintableStation } from '../../../shared/protocol';
 import { codeFor, request } from '../../lib/api';
 import { errorMessages, translations, type Language, type Copy } from '../../i18n';
-import styles from '../../App.module.css';
+import shared from '../../App.module.css';
+import styles from './print.module.css';
 import ui from '../../styles/ui.module.css';
 
 type Documents = { join: boolean; stations: boolean; markers: boolean };
@@ -50,9 +51,9 @@ export default function PrintSheets({ language, languageControl }: { language: L
     </header>
 
     {documents.join && code && origin && <section className={`${styles.sheet} ${styles.joinPoster}`} aria-labelledby="join-poster">
-      <p className={styles.eyebrow}>AMONG US · {t.home}</p>
+      <p className={shared.eyebrow}>AMONG US · {t.home}</p>
       <h2 id="join-poster">{t.joinPosterTitle}</h2>
-      <QrCode value={`${origin}/?code=${code}`} label={t.joinPosterTitle}/>
+      <QrCode className={styles.qr} value={`${origin}/?code=${code}`} label={t.joinPosterTitle}/>
       <p>{t.joinPosterScan}</p>
       <p className={styles.joinCode}>{code}</p>
       <p className={ui.note}>{t.joinPosterOr} <strong>{origin}</strong></p>
@@ -78,11 +79,11 @@ function StationSheet({ station, origin, t }: { station: PrintableStation; origi
   return <section className={styles.sheet} aria-labelledby={`sheet-${station.id}`}>
     <div className={styles.sheetTop}>
       <div>
-        <p className={styles.eyebrow}>{t.sheetLabel}</p>
+        <p className={shared.eyebrow}>{t.sheetLabel}</p>
         <h2 id={`sheet-${station.id}`}>{station.name}</h2>
         <p>{t.sheetScan}</p>
       </div>
-      <QrCode value={`${origin}/?station=${station.id}`} label={`${t.sheetLabel}: ${station.name}`}/>
+      <QrCode className={styles.qr} value={`${origin}/?station=${station.id}`} label={`${t.sheetLabel}: ${station.name}`}/>
     </div>
     <p>{t.sheetHow}</p>
     <dl className={styles.codebook}>

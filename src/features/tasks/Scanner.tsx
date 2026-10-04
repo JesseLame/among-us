@@ -3,7 +3,7 @@ import { Button } from 'react-aria-components';
 import jsQR from 'jsqr';
 import type { Station } from '../../../shared/protocol';
 import { translations, type Copy } from '../../i18n';
-import styles from '../../App.module.css';
+import styles from './tasks.module.css';
 import ui from '../../styles/ui.module.css';
 
 type Props = { stations: Station[]; t: Copy; onScanned: (stationId: string) => void; onClose: () => void };

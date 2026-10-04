@@ -4,7 +4,10 @@ import { symbolGlyphs, symbols, taskKinds, type CompleteTask, type ErrorCode, ty
 import { codeFor, request } from '../../lib/api';
 import { kindLabel, PuzzleView } from '../tasks/games/registry';
 import { errorMessages, translations, type Language, type Copy } from '../../i18n';
-import styles from '../../App.module.css';
+import shared from '../../App.module.css';
+import styles from './practice.module.css';
+import print from '../print/print.module.css';
+import tasks from '../tasks/tasks.module.css';
 import ui from '../../styles/ui.module.css';
 
 const kindFromUrl = (): TaskKind => {
@@ -57,13 +60,13 @@ export default function Practice({ language, languageControl }: { language: Lang
   }
 
   return <>
-    <header className={styles.header}>
-      <a className={styles.brand} href="/" aria-label={`Among Us ${t.home}`}><span className={styles.brandMark} aria-hidden="true">⌂</span><span>AMONG US <em>{t.home}</em></span></a>
+    <header className={shared.header}>
+      <a className={shared.brand} href="/" aria-label={`Among Us ${t.home}`}><span className={shared.brandMark} aria-hidden="true">⌂</span><span>AMONG US <em>{t.home}</em></span></a>
       {languageControl}
     </header>
     <main className={styles.practice}>
       <div className={styles.practiceIntro}>
-        <p className={styles.eyebrow}>{t.practiceEyebrow}</p>
+        <p className={shared.eyebrow}>{t.practiceEyebrow}</p>
         <h1>{t.practiceTitle}</h1>
         <p className={ui.note}>{t.practiceIntro}</p>
       </div>
@@ -74,8 +77,8 @@ export default function Practice({ language, languageControl }: { language: Lang
           </li>)}
         </ul>
       </nav>
-      <section className={`${ui.card} ${styles.taskCard}`} aria-labelledby="practice-title">
-        <p className={styles.eyebrow}>{t.practiceEyebrow}{count > 0 && ` · ${t.practiceSolvedCount} ${count}`}</p>
+      <section className={`${ui.card} ${tasks.taskCard}`} aria-labelledby="practice-title">
+        <p className={shared.eyebrow}>{t.practiceEyebrow}{count > 0 && ` · ${t.practiceSolvedCount} ${count}`}</p>
         <h2 id="practice-title" ref={heading} tabIndex={-1}>{kindLabel(t, kind)}</h2>
         {current
           ? <PuzzleView key={current.id} puzzle={current.puzzle} t={t} disabled={busy || solved} solved={solved} rejected={rejected} onSubmit={answer => void submit(answer)}/>
@@ -95,7 +98,7 @@ export default function Practice({ language, languageControl }: { language: Lang
 function PracticeSheet({ book, t }: { book: Record<string, number>; t: Copy }) {
   return <details className={styles.practiceSheet}>
     <summary>{t.practiceSheet}</summary>
-    <dl className={styles.codebook}>
+    <dl className={`${print.codebook} ${styles.codebook}`}>
       {symbols.map(symbol => <div key={symbol}>
         <dt><span aria-hidden="true">{symbolGlyphs[symbol]}</span><small>{t[`symbol_${symbol}` as keyof Copy]}</small></dt>
         <dd>{book[symbol]}</dd>

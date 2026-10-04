@@ -3,7 +3,8 @@ import { Button, Dialog, Heading, Modal, ModalOverlay } from 'react-aria-compone
 import type { ErrorCode, Lobby, RoomCommand, SessionEndReason } from '../../../shared/protocol';
 import { codeFor, commandId, request } from '../../lib/api';
 import { errorMessages, translations, type Language } from '../../i18n';
-import styles from '../../App.module.css';
+import shared from '../../App.module.css';
+import styles from './round.module.css';
 import { QrCode, usableOrigin, usePhoneOrigin } from '../../components/Qr';
 import ui from '../../styles/ui.module.css';
 import { PreviewNote, usePreview } from '../lobby/Preview';
@@ -85,7 +86,7 @@ export default function RoomControls({ lobby, language, connected, onUpdate, onE
     <summary>{t.roomManagement}</summary>
     {expanded && <>
     <p className={ui.note}>{t.managePlayersHelp}</p>
-    <ul className={styles.managePlayers}>
+    <ul className={shared.managePlayers}>
       {lobby.players.filter(player => !player.removed).map(player => <li key={player.id}>
         <span>{player.name}{player.test && <small> · {t.testBadge}</small>}</span>
         {!player.organiser && !player.test && <Button className={ui.secondary} isDisabled={busy || !connected} aria-label={`${t.rejoin}: ${player.name}`} onPress={() => void rejoinCode(player)}>{t.rejoin}</Button>}
@@ -104,7 +105,7 @@ export default function RoomControls({ lobby, language, connected, onUpdate, onE
           <Heading slot="title">{t.rejoinTitle} {rejoin?.name}</Heading>
           <p id="rejoin-description">{t.rejoinText}</p>
           {rejoin && <QrCode className={styles.rejoinQr} value={`${origin}/?rejoin=${rejoin.code}`} label={`${t.rejoinTitle} ${rejoin.name}`}/>}
-          <p className={ui.note}>{t.rejoinCodeLabel} <strong className={styles.phoneAddress}>{origin}/?rejoin={rejoin?.code}</strong></p>
+          <p className={ui.note}>{t.rejoinCodeLabel} <strong className={shared.phoneAddress}>{origin}/?rejoin={rejoin?.code}</strong></p>
           <div className={ui.dialogActions}><Button className={ui.secondary} autoFocus onPress={() => setRejoin(null)}>{t.cancel}</Button></div>
         </Dialog>
       </Modal>

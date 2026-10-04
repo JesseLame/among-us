@@ -3,7 +3,8 @@ import { Button, Input, Label, TextField } from 'react-aria-components';
 import { stationName, type ErrorCode, type Lobby, type StationCommand } from '../../../shared/protocol';
 import { codeFor, commandId, request } from '../../lib/api';
 import { errorMessages, translations, type Language } from '../../i18n';
-import styles from '../../App.module.css';
+import shared from '../../App.module.css';
+import styles from './lobby.module.css';
 import ui from '../../styles/ui.module.css';
 
 type Props = { lobby: Lobby; language: Language; connected: boolean; onUpdate: (lobby: Lobby) => void };
@@ -48,7 +49,7 @@ export default function Stations({ lobby, language, connected, onUpdate }: Props
   return <section className={styles.stations} aria-labelledby="stations-title">
     <h3 id="stations-title">{t.stations}</h3>
     <p className={ui.note}>{t.stationsHelp}</p>
-    <ul className={styles.managePlayers}>
+    <ul className={`${shared.managePlayers} ${styles.managePlayers}`}>
       {lobby.stations.map(station => <li key={station.id}>
         <span>{station.name}</span>
         <Button className={ui.removeButton} isDisabled={disabled} aria-label={`${t.removeStation} ${station.name}`}

@@ -11,7 +11,8 @@ The UI uses a small CSS-based design system. A new colour palette, type treatmen
 | Colours, fonts, type sizes, shared spacing, corners, shadows, page/card sizing | [`src/styles/theme.css`](../src/styles/theme.css) | The editable visual theme, using semantic CSS custom properties. |
 | Downloaded fonts | [`src/styles/fonts.css`](../src/styles/fonts.css) | Optional Google Fonts import. Change or remove it alongside the font-family tokens; fallbacks keep the app usable. |
 | Buttons, form fields, tabs, language switch, cards, feedback and dialogs | [`src/styles/ui.module.css`](../src/styles/ui.module.css) | Shared control styling, including hover/selected states. |
-| Page composition, responsive layouts, roster, role card arrangement and house illustration | [`src/App.module.css`](../src/App.module.css) | Layout and feature-specific styles, separate from shared controls. |
+| Page shell, header/footer, lobby and round layout, roster and connection line | [`src/App.module.css`](../src/App.module.css) | Layout that several screens share. |
+| One screen's layout: house illustration and join form, lobby, role card and organiser controls, meetings, task list, practice and print sheets | `src/features/<screen>/<screen>.module.css` | Each screen's own styles, beside its components. |
 | Task game boards (order, wiring, codebook safe, Simon pads) | `src/features/tasks/games/` | `games.module.css` holds the shared dark board and solved glow; each game folder has its own CSS module. |
 | Reset, page defaults, focus, minimum control height, reduced motion | [`src/global.css`](../src/global.css) | Global foundation. Imports fonts and theme once. |
 | Visible wording | [`src/i18n.ts`](../src/i18n.ts) | Matched English/Dutch dictionaries. |
@@ -59,20 +60,22 @@ React screens import shared styles alongside their layout module:
 
 ```tsx
 import { Button } from 'react-aria-components';
-import ui from './styles/ui.module.css';
-import styles from './App.module.css';
+import ui from '../../styles/ui.module.css';
+import shared from '../../App.module.css';
+import styles from './round.module.css';
 
 <Button className={ui.primary}>Action label</Button>
-<section className={`${ui.card} ${styles.lobbyCard}`}>...</section>
+<section className={`${ui.card} ${shared.lobbyCard}`}>...</section>
+<section className={`${ui.card} ${styles.roleCard}`}>...</section>
 ```
 
-Paths in this example assume a component in `src/`; adjust for nested feature directories. The shared `card` class supplies the surface, border and radius; screen classes supply padding and layout. Import shared classes directly rather than duplicating them or using cross-file CSS `composes` (which currently triggers a build-plugin warning).
+Paths in this example assume a component in `src/features/round/`. The shared `card` class supplies the surface, border and radius; screen classes supply padding and layout. Import shared classes directly rather than duplicating them or using cross-file CSS `composes` (which currently triggers a build-plugin warning).
 
 Change a shared button or dialog once in `ui.module.css` to update every screen. Avoid overriding shared colours in a feature module or inline JSX; add a semantic variant if a distinct control really needs one. Keep React Aria's state selectors such as `[data-hovered]`, `[data-selected]` and `[data-focus-visible]` working.
 
 ## Responsive behaviour
 
-`App.module.css` contains screen responsive rules; `ui.module.css` contains shared-control responsive rules. Breakpoint values are deliberately literal because ordinary CSS custom properties cannot serve as media-query thresholds:
+Each screen module contains its own responsive rules, using the same breakpoints; `ui.module.css` contains shared-control responsive rules. Breakpoint values are deliberately literal because ordinary CSS custom properties cannot serve as media-query thresholds:
 
 - 1500px and wider: extra desktop breathing room.
 - 1050px and narrower: smaller gutters and column gaps.

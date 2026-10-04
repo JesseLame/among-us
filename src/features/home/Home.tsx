@@ -3,7 +3,8 @@ import { Button, Input, Label, Tab, TabList, TabPanel, Tabs, TextField } from 'r
 import { createGame, joinGame, type ErrorCode, type Lobby, type SessionEndReason } from '../../../shared/protocol';
 import { codeFor, request } from '../../lib/api';
 import { errorMessages, translations, type Language } from '../../i18n';
-import styles from '../../App.module.css';
+import shared from '../../App.module.css';
+import styles from './home.module.css';
 import ui from '../../styles/ui.module.css';
 
 type Props = {
@@ -41,9 +42,9 @@ export default function Home({ language, sessionNotice, initialError, name, onNa
   return <main>
     <div className={styles.hero}>
       <section className={styles.story}>
-        <p className={styles.eyebrow}>{t.eyebrow}</p>
+        <p className={shared.eyebrow}>{t.eyebrow}</p>
         <h1>{t.title}<br/><em>{t.titleAccent}</em></h1>
-        <p className={styles.intro}>{t.intro}</p>
+        <p className={shared.intro}>{t.intro}</p>
         <ul className={styles.facts}><li>{t.players}</li><li>{t.duration}</li><li>{t.devices}</li></ul>
         <div className={styles.house} role="img" aria-label={`${t.mapTitle} ${t.kitchen}, ${t.living}, ${t.hallway}, ${t.study}.`}>
           <span className={styles.mapNumber} aria-hidden="true">{t.mapLabel}</span>

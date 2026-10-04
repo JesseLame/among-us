@@ -5,7 +5,8 @@ import { codeFor, request } from '../../lib/api';
 import StationScanner from './Scanner';
 import { kindLabel, PuzzleView } from './games/registry';
 import { errorMessages, translations, type Language } from '../../i18n';
-import styles from '../../App.module.css';
+import shared from '../../App.module.css';
+import styles from './tasks.module.css';
 import ui from '../../styles/ui.module.css';
 
 export type Scan = { stationId: string; fresh: boolean };
@@ -71,7 +72,7 @@ export default function Tasks({ lobby, language, connected, onUpdate, scan, onSc
   </section>;
   if (lobby.you.tasks.length === 0) return null;
   if (open) return <section className={`${ui.card} ${styles.taskCard}`} aria-labelledby="task-title">
-    <p className={styles.eyebrow}>{t.doTaskAt} · {stationName(open)}</p>
+    <p className={shared.eyebrow}>{t.doTaskAt} · {stationName(open)}</p>
     <h2 id="task-title" ref={heading} tabIndex={-1}>{kindLabel(t, open.puzzle.kind)}</h2>
     <PuzzleView key={open.id} puzzle={open.puzzle} t={t} disabled={locked} solved={solved} rejected={rejected} onSubmit={answer => void submit(open, answer)}/>
     {error && <p className={ui.error} role="alert">{errorMessages[language][error]}</p>}

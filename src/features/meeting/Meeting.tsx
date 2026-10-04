@@ -3,7 +3,8 @@ import { Button, Dialog, Heading, Modal, ModalOverlay } from 'react-aria-compone
 import type { CallMeeting, ErrorCode, Lobby } from '../../../shared/protocol';
 import { codeFor, commandId, request } from '../../lib/api';
 import { errorMessages, translations, type Language } from '../../i18n';
-import styles from '../../App.module.css';
+import shared from '../../App.module.css';
+import styles from './meeting.module.css';
 import ui from '../../styles/ui.module.css';
 
 type Props = { lobby: Lobby; language: Language; connected: boolean; onUpdate: (lobby: Lobby) => void };
@@ -15,7 +16,7 @@ const clock = (ms: number) => {
 // Shown to everyone during a meeting. Gathering: wait for the host. Discussion: who was
 // found out and the countdown. Voting: phone ballot (living players) or progress. Result:
 // who was ejected; the host screen also lists the votes.
-export function MeetingCard({ lobby, language, connected = true, onUpdate }: Pick<Props, 'lobby' | 'language'> & Partial<Pick<Props, 'connected' | 'onUpdate'>>) {
+export function MeetingCard({ lobby, language, connected = true, onUpdate, className }: Pick<Props, 'lobby' | 'language'> & Partial<Pick<Props, 'connected' | 'onUpdate'>> & { className?: string }) {
   const t = translations[language];
   const meeting = lobby.meeting;
   const [received, setReceived] = useState(() => Date.now());
@@ -35,8 +36,8 @@ export function MeetingCard({ lobby, language, connected = true, onUpdate }: Pic
   const title = meeting.kind === 'report' ? t.meetingReport : meeting.kind === 'emergency' ? t.meetingEmergency : t.meetingOrganiser;
   const ghosts = meeting.newGhosts.map(name).filter(Boolean);
   const ghost = lobby.you.status !== 'alive' && lobby.you.playing;
-  return <section className={`${ui.card} ${styles.meetingCard}`} aria-labelledby="meeting-title">
-    <p className={styles.eyebrow}>{t.meetingEyebrow}</p>
+  return <section className={`${ui.card} ${styles.meetingCard} ${className ?? ''}`} aria-labelledby="meeting-title">
+    <p className={shared.eyebrow}>{t.meetingEyebrow}</p>
     <h2 id="meeting-title">{title}</h2>
     {caller && <p>{meeting.kind === 'report' ? t.reportedBy : t.calledBy} <strong>{caller}</strong></p>}
     {meeting.stage === 'gathering' && <p className={styles.meetingVote} role="status">{t.gatherWait}</p>}

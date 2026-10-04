@@ -1,0 +1,272 @@
+/* Round: organiser controls, the private role card, eliminations, corrections and room management. */
+.roundControls {
+  border-top: 1px solid var(--color-border);
+  padding-top: 22px;
+  margin-top: 26px;
+}
+
+.roundControls h2, .roundControls h3 {
+  font: 600 var(--text-md) var(--font-heading);
+  margin: 0 0 var(--space-3);
+}
+
+.roleCard {
+  padding: var(--layout-card-padding);
+  text-align: center;
+  align-self: start;
+  box-shadow: var(--shadow-card);
+}
+
+.roleCard .roleHeading {
+  font: 500 var(--text-role-title)/1.2 var(--font-heading);
+  letter-spacing: -1px;
+  margin: var(--space-5) 0;
+}
+
+.roleHeading:focus {
+  outline: none;
+}
+
+.playerRound {
+  max-width: var(--layout-player-width);
+  margin: 0 auto;
+  padding: var(--space-8) 0;
+}
+
+.roleLanguage {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-5);
+}
+
+.roleSymbol {
+  height: 94px;
+  width: 84px;
+  border-radius: 33px 33px 16px 16px;
+  display: grid;
+  place-items: center;
+  background: var(--color-text);
+  color: var(--color-page);
+  font: 45px var(--font-accent);
+  margin: 30px auto var(--space-6);
+  box-shadow: var(--shadow-symbol);
+}
+
+.roleContent {
+  min-height: 145px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.roleContent h2, .roleContent h3 {
+  font: 500 var(--text-title) var(--font-heading);
+  color: var(--color-accent);
+  margin: 0 0 var(--space-3);
+}
+
+.roleContent p {
+  font-size: var(--text-base);
+  line-height: 1.75;
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-6);
+}
+
+.roomControls {
+  border-top: 1px dashed var(--color-border);
+  margin-top: 22px;
+  padding-top: var(--space-2);
+}
+
+.roomControls summary {
+  cursor: pointer;
+  padding: 15px 0;
+  min-height: var(--control-height);
+  font: 600 var(--text-base) var(--font-heading);
+}
+
+.testPlayers {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 var(--space-4);
+}
+
+.corrections {
+  display: grid;
+  gap: var(--space-5);
+  padding-bottom: var(--space-4);
+}
+
+.corrections section {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.corrections h3 {
+  font: 600 var(--text-sm) var(--font-heading);
+  margin: 0;
+}
+
+.selectField {
+  display: grid;
+  gap: var(--space-1);
+  font: 600 var(--text-xs) var(--font-heading);
+}
+
+.selectField select {
+  min-height: var(--control-height);
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-control);
+  background: var(--color-input);
+  color: var(--color-text);
+  font: 400 var(--text-md) var(--font-body);
+  padding: 0 var(--space-3);
+}
+
+.correctionActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.rejoinQr {
+  width: min(240px, 100%);
+  margin: var(--space-3) auto;
+}
+
+.roomCode {
+  font-family: var(--font-heading);
+  font-weight: 600;
+}
+
+/* Round: shared progress, task list and puzzles */
+.roundColumn {
+  display: grid;
+  gap: var(--space-6);
+  align-content: start;
+}
+
+.playerRound {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.playerRound .progress {
+  margin: 0;
+}
+
+/* Impostor: elimination panel inside the revealed role card */
+.eliminate {
+  text-align: left;
+  border-top: 1px dashed var(--color-border);
+  padding-top: var(--space-4);
+  margin-bottom: var(--space-5);
+  display: grid;
+  gap: var(--space-3);
+}
+
+.eliminate h3 {
+  margin: 0;
+  font: 600 var(--text-lg) var(--font-heading);
+  color: var(--color-accent);
+}
+
+.eliminate p {
+  margin: 0;
+}
+
+.eliminateTimer strong {
+  font: 700 var(--text-xl) var(--font-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+.eliminateTargets {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: var(--space-2);
+}
+
+.eliminateTargets button {
+  width: 100%;
+  min-height: var(--control-height);
+  overflow-wrap: anywhere;
+}
+
+.eliminationsOff {
+  text-align: left;
+  border-top: 1px dashed var(--color-border);
+  padding-top: var(--space-4);
+  margin: 0 0 var(--space-5);
+}
+
+.hostRound .meetingCard {
+  margin: var(--space-6) 0;
+}
+
+.hostRoster {
+  align-self: start;
+}
+
+/* Organiser controls: link to print materials */
+.printLink {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+@media (max-width: 760px) {
+  .roleCard {
+    padding: var(--layout-card-padding-mobile);
+  }
+}
+
+.history {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.history li {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--text-sm);
+}
+
+.history li > span {
+  min-width: 0;
+  margin-right: auto;
+  overflow-wrap: anywhere;
+}
+
+.history time, .history small {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.history [data-undone] > span {
+  text-decoration: line-through;
+  color: var(--color-text-muted);
+}
+
+.proposal {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-notice-surface);
+  border-radius: var(--radius-control);
+}
+
+.proposal h3 {
+  font: 600 var(--text-md)/1.4 var(--font-heading);
+  margin: 0;
+}
+
+.proposal p {
+  margin: 0;
+}

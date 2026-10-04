@@ -1,0 +1,243 @@
+/* Print materials: screen preview looks like paper; print gives one A4 page per sheet */
+.print {
+  padding: var(--space-8) 0;
+  display: grid;
+  gap: var(--space-8);
+  max-width: 820px;
+  margin: 0 auto;
+}
+
+.printHeader {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.printHeader h1 {
+  font: 500 var(--text-title) var(--font-heading);
+  margin: 0;
+}
+
+.printHeader p {
+  margin: 0;
+}
+
+.printChoices {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  padding: var(--space-3) var(--space-4);
+  margin: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.printChoices legend {
+  font: 600 var(--text-sm) var(--font-heading);
+  padding: 0 var(--space-1);
+}
+
+.printChoices label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.printChoices input {
+  width: 22px;
+  height: 22px;
+  min-height: 0;
+  accent-color: var(--color-primary);
+}
+
+.printActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.printActions > button {
+  width: auto;
+}
+
+.sheet {
+  border: 2px solid var(--color-text);
+  border-radius: var(--radius-card);
+  padding: var(--space-8);
+  background: var(--color-surface);
+  color: var(--color-text);
+  break-inside: avoid;
+}
+
+.sheet h2 {
+  font: 600 48px/1.1 var(--font-heading);
+  margin: var(--space-2) 0 var(--space-4);
+  overflow-wrap: anywhere;
+}
+
+.sheet p {
+  margin: 0 0 var(--space-3);
+  line-height: var(--leading-help);
+}
+
+.sheetTop {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-6);
+  align-items: flex-start;
+  margin-bottom: var(--space-4);
+}
+
+.sheetTop .qr {
+  width: 170px;
+  flex-shrink: 0;
+}
+
+.joinPoster {
+  text-align: center;
+  display: grid;
+  justify-items: center;
+}
+
+.joinPoster .qr {
+  width: min(320px, 100%);
+  margin: var(--space-4) 0;
+}
+
+.joinCode {
+  font: 700 56px/1 var(--font-heading);
+  letter-spacing: 10px;
+}
+
+.codebook {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-3);
+  margin: var(--space-4) 0 0;
+}
+
+.codebook > div {
+  border: 1px solid var(--color-text);
+  border-radius: var(--radius-control);
+  padding: var(--space-3);
+  text-align: center;
+}
+
+.codebook dt {
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+}
+
+.codebook dt span {
+  font-size: 44px;
+  line-height: 1.1;
+}
+
+.codebook dd {
+  margin: var(--space-2) 0 0;
+  font: 700 40px var(--font-heading);
+}
+
+.markerSheet h2 {
+  font-size: var(--text-card-title);
+}
+
+.markers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.markers > div {
+  border: 1px dashed var(--color-text);
+  padding: var(--space-5);
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  text-align: center;
+  min-height: 150px;
+}
+
+.markers span {
+  font-size: 40px;
+  line-height: 1;
+}
+
+.markers strong {
+  font: 700 var(--text-title) var(--font-heading);
+  letter-spacing: 3px;
+}
+
+.markers small {
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+
+[data-marker='body'] span {
+  color: var(--color-accent);
+}
+
+@page {
+  size: A4;
+  margin: 12mm;
+}
+
+@media print {
+  div:has(> .print) {
+    padding: 0;
+    max-width: none;
+  }
+  .printHeader {
+    display: none;
+  }
+  .print {
+    padding: 0;
+    gap: 0;
+    max-width: none;
+  }
+  .sheet {
+    break-after: page;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    background: none;
+  }
+  .sheet h2 {
+    font-size: 40pt;
+  }
+  .sheetTop .qr {
+    width: 55mm;
+  }
+  .joinPoster .qr {
+    width: 110mm;
+  }
+  .codebook {
+    gap: 4mm;
+  }
+  .codebook > div {
+    padding: 4mm 2mm;
+  }
+  .markerSheet h2 {
+    font-size: 22pt;
+  }
+  .markers > div {
+    min-height: 55mm;
+    padding: 4mm;
+  }
+}
+
+@media (max-width: 760px) {
+  .sheet {
+    padding: var(--layout-card-padding-mobile);
+  }
+  .codebook {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .sheetTop {
+    flex-direction: column;
+  }
+  .markers {
+    grid-template-columns: 1fr;
+  }
+}

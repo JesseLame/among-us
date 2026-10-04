@@ -130,3 +130,14 @@
   25% { transform: translateX(-4px); }
   75% { transform: translateX(4px); }
 }
+
+@media (max-width: 360px) {
+  .wireEnd, .wireSocket {
+    flex-direction: column;
+    justify-content: center;
+    padding: var(--space-2) var(--space-1);
+  }
+  .wireEnd i {
+    order: -1;
+  }
+}

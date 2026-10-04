@@ -1,0 +1,11 @@
+/* QR codes: a square on a light background, whatever size the screen gives it. */
+.qr {
+  aspect-ratio: 1;
+  background: var(--color-qr-background);
+}
+
+.qr svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}

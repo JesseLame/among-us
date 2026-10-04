@@ -1,0 +1,84 @@
+/* Practice page (/practice): every task game, playable without a room. */
+.practice {
+  display: grid;
+  gap: var(--space-6);
+  max-width: 560px;
+  margin: 0 auto;
+  padding: var(--space-8) 0;
+}
+
+.practiceIntro h1 {
+  font: 500 var(--text-card-title)/1.2 var(--font-heading);
+  margin: var(--space-2) 0;
+}
+
+.practiceGames {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.practiceGames button {
+  min-height: var(--control-height);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-secondary-border);
+  border-radius: var(--radius-control);
+  background: var(--color-secondary);
+  color: var(--color-on-secondary);
+  font: 600 var(--text-sm) var(--font-body);
+  cursor: pointer;
+}
+
+.practiceGames button:hover {
+  background: var(--color-secondary-hover);
+}
+
+.practiceGames button[aria-pressed='true'] {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.practiceGames button:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.practiceSheet summary {
+  min-height: var(--control-height);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.practiceSheet summary::before {
+  content: '▸';
+  transition: transform var(--motion-fast);
+}
+
+.practiceSheet[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.practiceSheet .codebook {
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.practiceSheet .codebook > div {
+  padding: var(--space-2);
+}
+
+.practiceSheet .codebook dt span {
+  font-size: 28px;
+}
+
+.practiceSheet .codebook dd {
+  font-size: 28px;
+}

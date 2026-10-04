@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
-import styles from '../App.module.css';
+import shared from '../App.module.css';
+import styles from './qr.module.css';
 import ui from '../styles/ui.module.css';
 
 const LOCAL_HOSTS = ['localhost', '127.0.0.1', '[::1]'];
@@ -45,7 +46,7 @@ export function PhoneAddressNote({ origin, usesAddress, noNetwork, lookupFailed 
   if (!onLocalhost() || origin === undefined) return null;
   const known = origin !== null && origin !== 'unavailable';
   return <p className={known ? ui.note : ui.error} role="note">
-    {known ? <>{usesAddress} <strong className={styles.phoneAddress}>{origin}</strong></> : origin === 'unavailable' ? lookupFailed : noNetwork}
+    {known ? <>{usesAddress} <strong className={shared.phoneAddress}>{origin}</strong></> : origin === 'unavailable' ? lookupFailed : noNetwork}
   </p>;
 }
 

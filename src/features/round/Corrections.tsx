@@ -4,7 +4,7 @@ import type { Correction, ErrorCode, HistoryEntry, Lobby } from '../../../shared
 import { codeFor, commandId, request } from '../../lib/api';
 import { errorMessages, translations, type Language } from '../../i18n';
 import { PreviewNote, usePreview } from '../lobby/Preview';
-import styles from '../../App.module.css';
+import styles from './round.module.css';
 import ui from '../../styles/ui.module.css';
 
 type Props = { lobby: Lobby; language: Language; connected: boolean; onUpdate: (lobby: Lobby) => void };

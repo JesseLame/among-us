@@ -1,7 +1,8 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import type { Lobby, SessionEndReason } from '../../../shared/protocol';
 import { translations, type Language } from '../../i18n';
-import styles from '../../App.module.css';
+import shared from '../../App.module.css';
+import styles from './round.module.css';
 import ui from '../../styles/ui.module.css';
 import Tasks, { type Scan } from '../tasks/Tasks';
 import SharedProgress from '../tasks/SharedProgress';
@@ -30,40 +31,40 @@ export default function RoundView(props: Props) {
   // An eliminated player sees that first; everyone else starts with their role card.
   // A meeting comes first for everyone.
   const body = lobby.you.status === 'body';
-  const meeting = <MeetingCard lobby={lobby} language={language} connected={connected} onUpdate={props.onUpdate}/>;
+  const meeting = <MeetingCard lobby={lobby} language={language} connected={connected} onUpdate={props.onUpdate} className={styles.meetingCard}/>;
   const calls = <CallMeetingButtons lobby={lobby} language={language} connected={connected} onUpdate={props.onUpdate}/>;
   if (!lobby.you.organiser && lobby.phase !== 'ended') return <main className={styles.playerRound}>
     {meeting}
     {body && tasks}
     <PrivateRole key={`${lobby.roundId}:${lobby.phase}`} lobby={lobby} language={language} connected={connected} languageControl={props.languageControl}/>
-    <SharedProgress lobby={lobby} language={language}/>
+    <SharedProgress lobby={lobby} language={language} className={styles.progress}/>
     {calls}
     {!body && tasks}
   </main>;
 
-  return <main className={styles.lobby}>
+  return <main className={`${shared.lobby} ${styles.hostRound}`}>
     <section>
-      <p className={styles.eyebrow}>{t.invite} · {lobby.code}</p>
+      <p className={shared.eyebrow}>{t.invite} · {lobby.code}</p>
       <h1 ref={heading} tabIndex={-1}>{title}</h1>
-      {lobby.phase !== 'meeting' && <p className={styles.intro} role="status">{lobby.phase === 'paused' ? lobby.pauseReason === 'restart' ? t.restartMessage : lobby.pauseReason === 'victory' ? t.checkingResult : t.pausedMessage : lobby.phase === 'ended' ? endedMessage : lobby.you.playing ? t.roundMessage : t.hostRoundMessage}</p>}
+      {lobby.phase !== 'meeting' && <p className={shared.intro} role="status">{lobby.phase === 'paused' ? lobby.pauseReason === 'restart' ? t.restartMessage : lobby.pauseReason === 'victory' ? t.checkingResult : t.pausedMessage : lobby.phase === 'ended' ? endedMessage : lobby.you.playing ? t.roundMessage : t.hostRoundMessage}</p>}
       {meeting}
-      <p className={styles.connection} role="status"><i data-connected={connected}/>{connected ? t.connected : t.reconnecting}</p>
-      <SharedProgress lobby={lobby} language={language}/>
+      <p className={shared.connection} role="status"><i data-connected={connected}/>{connected ? t.connected : t.reconnecting}</p>
+      <SharedProgress lobby={lobby} language={language} className={styles.progress}/>
       <RoundControls lobby={lobby} language={language} connected={connected} onUpdate={props.onUpdate} onExit={props.onExit}/>
-      {lobby.phase !== 'ended' && <aside className={styles.buildNote}><h2>{t.nextTitle}</h2><p>{t.nextText}</p></aside>}
+      {lobby.phase !== 'ended' && <aside className={shared.buildNote}><h2>{t.nextTitle}</h2><p>{t.nextText}</p></aside>}
     </section>
-    {lobby.phase === 'ended' ? <section className={`${ui.card} ${styles.lobbyCard}`} aria-labelledby="revealed-title">
-      <p className={styles.eyebrow}>{t.allRevealed}</p><h2 id="revealed-title">{t.whoWasWho}</h2>
-      <ul className={styles.roster}>{lobby.players.map((player, index) => <li key={player.id}>
-        <span className={styles.avatar} data-color={index % 4} aria-hidden="true">{player.name.charAt(0).toUpperCase()}</span>
-        <span className={styles.playerName}>{player.name}{player.id === lobby.you.id && <small> · {t.you}</small>}{player.removed && <small> · {t.removedPlayer}</small>}</span>
+    {lobby.phase === 'ended' ? <section className={`${ui.card} ${shared.lobbyCard}`} aria-labelledby="revealed-title">
+      <p className={shared.eyebrow}>{t.allRevealed}</p><h2 id="revealed-title">{t.whoWasWho}</h2>
+      <ul className={shared.roster}>{lobby.players.map((player, index) => <li key={player.id}>
+        <span className={shared.avatar} data-color={index % 4} aria-hidden="true">{player.name.charAt(0).toUpperCase()}</span>
+        <span className={shared.playerName}>{player.name}{player.id === lobby.you.id && <small> · {t.you}</small>}{player.removed && <small> · {t.removedPlayer}</small>}</span>
         <span className={ui.badge}>{!player.playing ? t.hostBadge : lobby.revealedRoles?.find(role => role.id === player.id)?.role === 'impostor' ? t.impostor : t.crewmate}</span>
       </li>)}</ul><p className={ui.note}>{t.newRoundNote}</p>
-    </section> : !lobby.you.playing ? <section className={`${ui.card} ${styles.lobbyCard} ${styles.hostRoster}`} aria-labelledby="playing-title">
-      <div className={styles.cardTop}><h2 id="playing-title">{t.playingNow}</h2><span>{lobby.players.filter(player => player.playing).length}</span></div>
-      <ul className={styles.roster}>{lobby.players.filter(player => player.playing).map((player, index) => <li key={player.id}>
-        <span className={styles.avatar} data-color={index % 4} aria-hidden="true">{player.name.charAt(0).toUpperCase()}</span>
-        <span className={styles.playerName}>{player.name}</span>
+    </section> : !lobby.you.playing ? <section className={`${ui.card} ${shared.lobbyCard} ${styles.hostRoster}`} aria-labelledby="playing-title">
+      <div className={shared.cardTop}><h2 id="playing-title">{t.playingNow}</h2><span>{lobby.players.filter(player => player.playing).length}</span></div>
+      <ul className={shared.roster}>{lobby.players.filter(player => player.playing).map((player, index) => <li key={player.id}>
+        <span className={shared.avatar} data-color={index % 4} aria-hidden="true">{player.name.charAt(0).toUpperCase()}</span>
+        <span className={shared.playerName}>{player.name}</span>
         {player.test && <span className={ui.badge}>{t.testBadge}</span>}
         {player.out && <span className={ui.badge}>{t.ghostBadge}</span>}
       </li>)}</ul>

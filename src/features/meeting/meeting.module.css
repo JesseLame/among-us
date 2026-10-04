@@ -1,0 +1,111 @@
+/* Meetings */
+.meetingCard {
+  padding: var(--layout-card-padding);
+  box-shadow: var(--shadow-card);
+  display: grid;
+  gap: var(--space-3);
+}
+
+.meetingCard h2 {
+  font: 600 var(--text-card-title)/1.2 var(--font-heading);
+  color: var(--color-accent);
+  margin: 0;
+}
+
+.meetingCard p {
+  margin: 0;
+  line-height: var(--leading-help);
+}
+
+.meetingGhosts strong {
+  overflow-wrap: anywhere;
+}
+
+.meetingTimer strong {
+  font: 700 var(--text-title) var(--font-heading);
+  font-variant-numeric: tabular-nums;
+  display: block;
+}
+
+.meetingVote {
+  font: 600 var(--text-lg)/1.4 var(--font-heading);
+}
+
+.callMeeting {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.callMeeting > button {
+  min-height: var(--control-height);
+  justify-content: center;
+  text-align: center;
+}
+
+.callMeeting > p {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.ballot {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.ballotOptions {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: var(--space-2);
+}
+
+.ballotOptions button {
+  justify-content: center;
+  overflow-wrap: anywhere;
+}
+
+.ballotOptions button[aria-pressed='true'] {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border-color: var(--color-primary);
+}
+
+.tally {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tally li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px var(--space-3);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.tally li[data-ejected] strong {
+  color: var(--color-accent);
+}
+
+.tally span {
+  font: 700 var(--text-xl) var(--font-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+.tally small {
+  grid-column: 1 / -1;
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.meetingControls {
+  display: grid;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.choicesHelp {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}

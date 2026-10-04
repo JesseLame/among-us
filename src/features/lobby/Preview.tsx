@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import type { ChangePreview, Lobby } from '../../../shared/protocol';
 import { commandId, request } from '../../lib/api';
 import { translations, type Language } from '../../i18n';
-import styles from '../../App.module.css';
+import styles from './lobby.module.css';
 import ui from '../../styles/ui.module.css';
 
 // Asks the server what a correction or removal would do, when the organiser has previews on.

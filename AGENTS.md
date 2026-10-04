@@ -15,7 +15,7 @@ This is the shared project instruction file. `CLAUDE.md` imports it; keep shared
 
 - Read `docs/design-system.md` before changing the look and feel.
 - Start with `src/styles/theme.css` for colours, typography, shared spacing, radii, shadows and sizing. Use semantic CSS variables; do not scatter new palette literals through components.
-- Shared buttons, inputs, tabs, language controls, cards and dialogs live in `src/styles/ui.module.css`. Screen layouts and decorative geometry live in `src/App.module.css`; new features should import the shared styles.
+- Shared buttons, inputs, tabs, language controls, cards and dialogs live in `src/styles/ui.module.css`. Each screen's layout lives in its own CSS module beside it (`src/features/<screen>/<screen>.module.css`; task games in `src/features/tasks/games/<kind>/`). `src/App.module.css` holds only what several screens share: the page shell, header/footer, the lobby/round layout, roster and connection line. New features should import the shared styles and add their own module. A CSS Module selector can only use its own classes, so when a screen styles another feature's element in context, pass that element a class from the screen's own module (as `QrCode` and `MeetingCard` take `className`).
 - Keep `src/global.css` limited to imports, base styles and accessibility defaults. Font loading is in `src/styles/fonts.css`.
 - Keep ordinary joined-player screens minimal during a round: the private role card, its language control, shared crew progress, the player's own task list/puzzle, and only necessary pause/disconnection feedback. Organiser controls belong to the organiser view.
 - Station access defaults to QR-only (`settings.stationAccess`); keep the manual option working for organisers who switch it on.

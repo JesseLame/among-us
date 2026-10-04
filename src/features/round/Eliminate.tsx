@@ -3,7 +3,7 @@ import { Button, Dialog, Heading, Modal, ModalOverlay } from 'react-aria-compone
 import type { Eliminate, ErrorCode, RoleInfo } from '../../../shared/protocol';
 import { codeFor, commandId, request } from '../../lib/api';
 import { errorMessages, translations, type Language } from '../../i18n';
-import styles from '../../App.module.css';
+import styles from './round.module.css';
 import ui from '../../styles/ui.module.css';
 
 type Elimination = NonNullable<RoleInfo['elimination']>;

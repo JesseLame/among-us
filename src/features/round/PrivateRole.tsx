@@ -3,7 +3,8 @@ import { Button } from 'react-aria-components';
 import type { ErrorCode, Lobby, RoleInfo } from '../../../shared/protocol';
 import { codeFor, request } from '../../lib/api';
 import { errorMessages, translations, type Language } from '../../i18n';
-import styles from '../../App.module.css';
+import shared from '../../App.module.css';
+import styles from './round.module.css';
 import ui from '../../styles/ui.module.css';
 import EliminatePanel from './Eliminate';
 
@@ -51,7 +52,7 @@ export default function PrivateRole({ lobby, language, connected, languageContro
   useEffect(() => { if (shown.current) void reveal(true); }, [lobby.revision]);
 
   return <section className={`${ui.card} ${styles.roleCard}`} aria-labelledby="private-role-title">
-    <p className={styles.eyebrow}>{t.onlyYou}</p>
+    <p className={shared.eyebrow}>{t.onlyYou}</p>
     {!lobby.you.organiser && (lobby.phase === 'paused' || !connected) && <p className={ui.note} role="status">{!connected ? t.reconnecting : lobby.pauseReason === 'victory' ? t.checkingResult : t.roundPaused}</p>}
     <div className={styles.roleSymbol} aria-hidden="true">{role ? role === 'impostor' ? '?' : '✳' : '◇'}</div>
     <RoleHeading id="private-role-title" ref={heading} tabIndex={-1} className={styles.roleHeading}>{t.yourRole}</RoleHeading>
