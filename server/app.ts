@@ -131,13 +131,22 @@ export function createApp(options: { databasePath: string; production?: boolean;
 
   app.get('/api/stations/print', (req, res, next) => {
     try {
-      const stations = store.printableStations(sessionToken(req.headers.cookie));
-      // Lets the print page suggest a phone-reachable address when opened via localhost.
-      const lanAddresses = Object.values(networkInterfaces()).flat()
-        .filter(address => address && address.family === 'IPv4' && !address.internal).map(address => address!.address);
-      res.json({ stations, lanAddresses });
+      res.json({ stations: store.printableStations(sessionToken(req.headers.cookie)) });
     }
     catch (error) { next(error); }
+  });
+
+  // The computer's addresses on the home network, home-Wi-Fi ranges first. A screen
+  // opened via localhost uses these in QR codes so phones can reach the game.
+  app.get('/api/network', (req, res, next) => {
+    try {
+      if (!store.lobby(sessionToken(req.headers.cookie))) throw new GameError('NO_SESSION', 401);
+      const rank = (ip: string) => ip.startsWith('192.168.') ? 0 : ip.startsWith('10.') ? 1 : /^172\.(1[6-9]|2\d|3[01])\./.test(ip) ? 2 : 3;
+      const lanAddresses = Object.values(networkInterfaces()).flat()
+        .filter(address => address && address.family === 'IPv4' && !address.internal).map(address => address!.address)
+        .sort((a, b) => rank(a) - rank(b));
+      res.json({ lanAddresses });
+    } catch (error) { next(error); }
   });
 
   app.post('/api/room/commands', (req, res, next) => {

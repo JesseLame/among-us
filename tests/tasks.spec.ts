@@ -23,8 +23,9 @@ test('organiser edits stations and prints sheets; a player completes phone and c
   await expect(print.getByRole('heading', { level: 2 })).toHaveCount(6);
   await expect(print.getByRole('img', { name: /^TASK STATION: / })).toHaveCount(4);
   await expect(print.locator('[role=img] svg')).toHaveCount(5);
-  // Tests run on 127.0.0.1, so the page warns that phones cannot reach these QR codes.
-  await expect(print.getByText('This page is open on “localhost”', { exact: false })).toBeVisible();
+  // Tests run on 127.0.0.1, so QR codes use this computer's network address instead.
+  await expect(print.getByText('This screen is open on “localhost”. QR codes and links use', { exact: false })).toBeVisible();
+  await expect(print.locator('[class*=phoneAddress]')).toHaveText(/^http:\/\/(\d+\.){3}\d+:5174$/);
   await print.getByRole('checkbox', { name: 'Body and ghost markers' }).uncheck();
   await expect(print.getByRole('heading', { name: 'Body and ghost markers' })).toHaveCount(0);
   expect((await new AxeBuilder({ page: print }).analyze()).violations).toEqual([]);

@@ -17,21 +17,28 @@ export function QrCode({ value, label, className }: { value: string; label: stri
   return <div className={`${styles.qr} ${className ?? ''}`} role="img" aria-label={label} dangerouslySetInnerHTML={{ __html: svg }}/>;
 }
 
-// Phones cannot reach "localhost". When this page was opened that way, link to the
-// same page on the computer's network address (organiser only: it uses the print endpoint).
-export function LanHint({ message, path }: { message: string; path: string }) {
-  const [addresses, setAddresses] = useState<string[]>([]);
+// The address phones should use in links and QR codes. Phones cannot reach "localhost",
+// so a screen opened that way uses the computer's network address instead.
+// undefined while loading; null when this computer has no network address.
+// The address needs a session, so pass the room code to fetch it again after joining.
+export function usePhoneOrigin(room?: string) {
+  const [origin, setOrigin] = useState<string | null | undefined>(() => onLocalhost() ? undefined : location.origin);
   useEffect(() => {
-    if (!onLocalhost()) return;
-    fetch('/api/stations/print').then(response => response.ok ? response.json() : null)
-      .then(result => setAddresses(result?.lanAddresses ?? [])).catch(() => undefined);
-  }, []);
-  if (!onLocalhost()) return null;
-  return <div className={ui.sessionNotice} role="note">
-    <p>{message}</p>
-    {addresses.length > 0 && <ul className={styles.lanLinks}>{addresses.map(address => {
-      const url = `${location.protocol}//${address}${location.port ? `:${location.port}` : ''}${path}`;
-      return <li key={address}><a href={url}>{url}</a></li>;
-    })}</ul>}
-  </div>;
+    if (!onLocalhost() || room === undefined) return;
+    fetch('/api/network').then(response => response.ok ? response.json() : null)
+      .then((result: { lanAddresses?: string[] } | null) => {
+        const address = result?.lanAddresses?.[0];
+        setOrigin(address ? `${location.protocol}//${address}${location.port ? `:${location.port}` : ''}` : null);
+      })
+      .catch(() => setOrigin(null));
+  }, [room]);
+  return origin;
+}
+
+// Shown only on localhost: which address the QR codes use, or why phones cannot connect.
+export function PhoneAddressNote({ origin, usesAddress, noNetwork }: { origin: string | null | undefined; usesAddress: string; noNetwork: string }) {
+  if (!onLocalhost() || origin === undefined) return null;
+  return <p className={origin ? ui.note : ui.error} role="note">
+    {origin ? <>{usesAddress} <strong className={styles.phoneAddress}>{origin}</strong></> : noNetwork}
+  </p>;
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Button } from 'react-aria-components';
-import { LanHint, QrCode } from './Qr';
+import { PhoneAddressNote, QrCode, usePhoneOrigin } from './Qr';
 import { symbolGlyphs, symbols, type ErrorCode, type Lobby, type PrintableStation } from '../shared/protocol';
 import { codeFor, request } from './api';
 import { errorMessages, translations, type Language } from './i18n';
@@ -18,7 +18,7 @@ export default function PrintSheets({ language, languageControl }: { language: L
   const [code, setCode] = useState('');
   const [error, setError] = useState<ErrorCode | null>(null);
   const [documents, setDocuments] = useState<Documents>({ join: true, stations: true, markers: true });
-  const origin = location.origin;
+  const origin = usePhoneOrigin('print');
   useEffect(() => {
     request<{ stations: PrintableStation[]; lanAddresses: string[] }>('/api/stations/print')
       .then(result => setStations(result.stations))
@@ -34,7 +34,7 @@ export default function PrintSheets({ language, languageControl }: { language: L
     <header className={styles.printHeader}>
       <h1>{t.printTitle}</h1>
       <p className={ui.note}>{t.printIntro}</p>
-      <LanHint message={t.localhostWarning} path="/print"/>
+      <PhoneAddressNote origin={origin} usesAddress={t.qrUsesAddress} noNetwork={t.qrNoNetwork}/>
       <fieldset className={styles.printChoices}>
         <legend>{t.printChoose}</legend>
         {choice('join', t.docJoin)}
@@ -42,14 +42,14 @@ export default function PrintSheets({ language, languageControl }: { language: L
         {choice('markers', t.docMarkers)}
       </fieldset>
       <div className={styles.printActions}>
-        <Button className={ui.primary} isDisabled={!stations || nothing} onPress={() => window.print()}>{t.printButton}<span aria-hidden="true">⎙</span></Button>
+        <Button className={ui.primary} isDisabled={!stations || !origin || nothing} onPress={() => window.print()}>{t.printButton}<span aria-hidden="true">⎙</span></Button>
         <a className={ui.secondary} href="/">{t.backToGame}</a>
         {languageControl}
       </div>
       {error && <p className={ui.error} role="alert">{errorMessages[language][error]}</p>}
     </header>
 
-    {documents.join && code && <section className={`${styles.sheet} ${styles.joinPoster}`} aria-labelledby="join-poster">
+    {documents.join && code && origin && <section className={`${styles.sheet} ${styles.joinPoster}`} aria-labelledby="join-poster">
       <p className={styles.eyebrow}>AMONG US · {t.home}</p>
       <h2 id="join-poster">{t.joinPosterTitle}</h2>
       <QrCode value={`${origin}/?code=${code}`} label={t.joinPosterTitle}/>
@@ -58,7 +58,7 @@ export default function PrintSheets({ language, languageControl }: { language: L
       <p className={ui.note}>{t.joinPosterOr} <strong>{origin}</strong></p>
     </section>}
 
-    {documents.stations && stations?.map(station => <StationSheet key={station.id} station={station} origin={origin} t={t}/>)}
+    {documents.stations && origin && stations?.map(station => <StationSheet key={station.id} station={station} origin={origin} t={t}/>)}
 
     {documents.markers && <section className={`${styles.sheet} ${styles.markerSheet}`} aria-labelledby="markers-title">
       <h2 id="markers-title">{t.docMarkers}</h2>

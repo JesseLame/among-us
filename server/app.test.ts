@@ -354,9 +354,9 @@ describe('stations and tasks', () => {
     lobby = (await (await app.post('/api/stations/commands', add, host)).json()).lobby;
     expect((await (await app.post('/api/stations/commands', add, host)).json()).lobby).toEqual(lobby);
     expect(lobby.stations).toHaveLength(5);
-    const printed = await (await fetch(`${app.url}/api/stations/print`, { headers: { Cookie: host } })).json();
-    expect(Array.isArray(printed.lanAddresses)).toBe(true);
-    const printable: PrintableStation[] = printed.stations;
+    const printable: PrintableStation[] = (await (await fetch(`${app.url}/api/stations/print`, { headers: { Cookie: host } })).json()).stations;
+    expect(Array.isArray((await (await fetch(`${app.url}/api/network`, { headers: { Cookie: guest } })).json()).lanAddresses)).toBe(true);
+    expect((await fetch(`${app.url}/api/network`)).status).toBe(401);
     expect(printable.map(station => station.name)).toEqual(lobby.stations.map(station => station.name));
     expect(Object.values(printable[0].codebook).every(digit => Number.isInteger(digit) && digit >= 0 && digit <= 9)).toBe(true);
     expect(JSON.stringify(lobby)).not.toMatch(/codebook"|"star":/);

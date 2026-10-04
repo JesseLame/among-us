@@ -1126,9 +1126,7 @@
   font: 600 var(--text-sm) var(--font-heading);
 }
 
-.lanLinks {
-  margin: var(--space-2) 0 0;
-  padding-left: var(--space-5);
+.phoneAddress {
   overflow-wrap: anywhere;
 }
 
@@ -1180,12 +1178,6 @@
 
 .printHeader p {
   margin: 0;
-}
-
-.printHeader ul {
-  margin: var(--space-2) 0 0;
-  padding-left: var(--space-5);
-  overflow-wrap: anywhere;
 }
 
 .printChoices {

@@ -10,7 +10,7 @@ import RoundView, { RoundControls } from './RoundView';
 import type { Scan } from './Tasks';
 import Stations from './Stations';
 import PrintSheets from './PrintSheets';
-import { LanHint, QrCode } from './Qr';
+import { PhoneAddressNote, QrCode, usePhoneOrigin } from './Qr';
 
 export default function App() {
   const [language, setLanguage] = useState<Language>(initialLanguage);
@@ -52,6 +52,7 @@ export default function App() {
   const sessionRequest = useRef(0);
   const lobbyCode = lobby?.code;
   const playingCount = lobby?.players.filter(player => player.playing).length ?? 0;
+  const phoneOrigin = usePhoneOrigin(lobbyCode ?? undefined);
   const privatePlayerScreen = lobby && !lobby.you.organiser && (lobby.phase === 'active' || lobby.phase === 'paused');
   const updateLobby = useCallback((next: Lobby) => {
     // Ignore late responses from a removed session or a previously visited room.
@@ -110,7 +111,7 @@ export default function App() {
 
   async function copyInvite() {
     try {
-      await navigator.clipboard.writeText(`${location.origin}/?code=${lobby!.code}`);
+      await navigator.clipboard.writeText(`${phoneOrigin ?? location.origin}/?code=${lobby!.code}`);
       setCopyState('copied');
     } catch { setCopyState('failed'); }
   }
@@ -143,12 +144,12 @@ export default function App() {
             <Button className={ui.secondary} onPress={() => void copyInvite()}>{copyState === 'copied' ? t.copied : t.copy} <span aria-hidden="true">↗</span></Button>
             <span role="status">{copyState === 'failed' ? t.copyFailed : copyState === 'copied' ? t.copied : ''}</span>
           </div>
-          {lobby.you.organiser && <div className={styles.joinQr}>
-            <QrCode value={`${location.origin}/?code=${lobby.code}`} label={`${t.scanToJoin}: ${lobby.code}`}/>
+          {lobby.you.organiser && phoneOrigin && <div className={styles.joinQr}>
+            <QrCode value={`${phoneOrigin}/?code=${lobby.code}`} label={`${t.scanToJoin}: ${lobby.code}`}/>
             <p>{t.scanToJoin}</p>
           </div>}
         </div>
-        {lobby.you.organiser && <LanHint message={t.localhostJoinWarning} path="/"/>}
+        {lobby.you.organiser && <PhoneAddressNote origin={phoneOrigin} usesAddress={t.qrUsesAddress} noNetwork={t.qrNoNetwork}/>}
         <p className={ui.note}>{lobby.you.organiser ? lobby.you.playing ? t.hostNote : t.hostOnlyNote : t.playerNote}</p>
       </section>
       <section className={`${ui.card} ${styles.lobbyCard}`} aria-labelledby="roster">
