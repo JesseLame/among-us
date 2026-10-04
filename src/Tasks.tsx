@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Button, Input, Label, ProgressBar, TextField } from 'react-aria-components';
+import { Button, Label, ProgressBar } from 'react-aria-components';
 import { symbolGlyphs, type CompleteTask, type ErrorCode, type Lobby, type Task, type TaskPuzzle } from '../shared/protocol';
 import { codeFor, request } from './api';
 import { errorMessages, translations, type Language } from './i18n';
@@ -29,8 +29,13 @@ export default function Tasks({ lobby, language, connected, onUpdate }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ErrorCode | null>(null);
   const [notice, setNotice] = useState(false);
+  // After a correct answer the solved puzzle stays on screen briefly before closing.
+  const [solved, setSolved] = useState(false);
+  const [rejected, setRejected] = useState(0);
+  const closing = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(closing.current), []);
   const heading = useRef<HTMLHeadingElement>(null);
-  const open = lobby.you.tasks.find(task => task.id === openId && !task.done);
+  const open = lobby.you.tasks.find(task => task.id === openId);
   const stationName = (task: Task) => lobby.stations.find(station => station.id === task.stationId)?.name ?? '';
   const active = lobby.phase === 'active';
   // Move focus between the list and an opened task, but not on first render.
@@ -42,21 +47,28 @@ export default function Tasks({ lobby, language, connected, onUpdate }: Props) {
     setBusy(true); setError(null);
     try {
       const result = await request('/api/tasks/complete', { roundId: lobby.roundId, taskId: task.id, answer });
-      if (result.lobby) onUpdate(result.lobby);
-      setOpenId(null); setNotice(true);
-    } catch (failure) { setError(codeFor(failure)); }
-    finally { setBusy(false); }
+      setSolved(true);
+      closing.current = setTimeout(() => {
+        if (result.lobby) onUpdate(result.lobby);
+        setOpenId(null); setSolved(false); setNotice(true);
+      }, 800);
+    } catch (failure) {
+      const code = codeFor(failure);
+      setError(code);
+      if (code === 'WRONG_ANSWER') setRejected(count => count + 1);
+    } finally { setBusy(false); }
   }
+  const locked = busy || solved || !connected || !active;
 
   if (lobby.you.tasks.length === 0) return null;
   if (open) return <section className={`${ui.card} ${styles.taskCard}`} aria-labelledby="task-title">
     <p className={styles.eyebrow}>{t.doTaskAt} · {stationName(open)}</p>
     <h2 id="task-title" ref={heading} tabIndex={-1}>{kindLabel(t, open.puzzle.kind)}</h2>
-    {open.puzzle.kind === 'order' && <OrderPuzzle puzzle={open.puzzle} t={t} disabled={busy || !connected || !active} onSolved={answer => void submit(open, answer)}/>}
-    {open.puzzle.kind === 'wires' && <WiresPuzzle puzzle={open.puzzle} t={t} disabled={busy || !connected || !active} onSolved={answer => void submit(open, answer)}/>}
-    {open.puzzle.kind === 'codebook' && <CodebookPuzzle puzzle={open.puzzle} t={t} busy={busy} disabled={busy || !connected || !active} onSubmit={answer => void submit(open, answer)}/>}
+    {open.puzzle.kind === 'order' && <OrderPuzzle puzzle={open.puzzle} t={t} disabled={locked} solved={solved} onSolved={answer => void submit(open, answer)}/>}
+    {open.puzzle.kind === 'wires' && <WiresPuzzle puzzle={open.puzzle} t={t} disabled={locked} onSolved={answer => void submit(open, answer)}/>}
+    {open.puzzle.kind === 'codebook' && <CodebookPuzzle puzzle={open.puzzle} t={t} disabled={locked} solved={solved} rejected={rejected} onSubmit={answer => void submit(open, answer)}/>}
     {error && <p className={ui.error} role="alert">{errorMessages[language][error]}</p>}
-    <Button className={ui.secondary} isDisabled={busy} onPress={() => { setOpenId(null); setError(null); }}>{t.backToTasks}</Button>
+    <Button className={ui.secondary} isDisabled={busy || solved} onPress={() => { setOpenId(null); setError(null); }}>{t.backToTasks}</Button>
   </section>;
 
   const allDone = lobby.you.tasks.every(task => task.done);
@@ -75,21 +87,49 @@ export default function Tasks({ lobby, language, connected, onUpdate }: Props) {
   </section>;
 }
 
-function OrderPuzzle({ puzzle, t, disabled, onSolved }: { puzzle: Extract<TaskPuzzle, { kind: 'order' }>; t: Copy; disabled: boolean; onSolved: (answer: number[]) => void }) {
+// Spread the lights over a 3×3 panel, the same way every time for a given puzzle.
+function lightPositions(numbers: number[]): Point[] {
+  let seed = numbers.reduce((sum, value, index) => sum + value * (index + 7), 0);
+  const random = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  const cells = Array.from({ length: 9 }, (_, cell) => cell);
+  for (let index = cells.length - 1; index > 0; index--) {
+    const other = Math.floor(random() * (index + 1));
+    [cells[index], cells[other]] = [cells[other], cells[index]];
+  }
+  const jitter = () => (random() - .5) * .2;
+  return numbers.map((_, index) => ({
+    x: (cells[index] % 3 + .5 + jitter()) / 3 * 100,
+    y: (Math.floor(cells[index] / 3) + .5 + jitter()) / 3 * 100,
+  }));
+}
+
+function OrderPuzzle({ puzzle, t, disabled, solved, onSolved }: { puzzle: Extract<TaskPuzzle, { kind: 'order' }>; t: Copy; disabled: boolean; solved: boolean; onSolved: (answer: number[]) => void }) {
   const [tapped, setTapped] = useState<number[]>([]);
-  const [wrong, setWrong] = useState(false);
+  const [wrong, setWrong] = useState(0);
   const sorted = [...puzzle.numbers].sort((a, b) => a - b);
+  const positions = lightPositions(puzzle.numbers);
+  const at = (value: number) => positions[puzzle.numbers.indexOf(value)];
+  useEffect(() => {
+    if (!wrong) return;
+    const timer = setTimeout(() => setWrong(0), 500);
+    return () => clearTimeout(timer);
+  }, [wrong]);
   function tap(value: number) {
-    if (value !== sorted[tapped.length]) { setTapped([]); setWrong(true); return; }
+    if (value !== sorted[tapped.length]) { setTapped([]); setWrong(count => count + 1); return; }
     const next = [...tapped, value];
-    setTapped(next); setWrong(false);
+    setTapped(next); setWrong(0);
     if (next.length === sorted.length) onSolved(next);
   }
   return <>
     <p>{t.orderInstructions}</p>
-    <div className={styles.numberGrid}>
-      {puzzle.numbers.map(value => <Button key={value} className={styles.puzzleButton} data-selected={tapped.includes(value) || undefined}
-        isDisabled={disabled || tapped.includes(value)} onPress={() => tap(value)}>{value}</Button>)}
+    <div className={styles.lightBoard} data-wrong={wrong > 0 || undefined} data-complete={solved || tapped.length === sorted.length || undefined}>
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <polyline points={tapped.map(value => `${at(value).x},${at(value).y}`).join(' ')}/>
+      </svg>
+      {puzzle.numbers.map((value, index) => <button key={value} type="button" className={styles.light}
+        style={{ left: `${positions[index].x}%`, top: `${positions[index].y}%` }}
+        data-lit={tapped.includes(value) || undefined} aria-pressed={tapped.includes(value)}
+        disabled={disabled || tapped.includes(value)} onClick={() => tap(value)}>{value}</button>)}
     </div>
     <p className={wrong ? ui.error : ui.note} role="status">{wrong ? t.orderWrong : `${tapped.length} / ${sorted.length}`}</p>
   </>;
@@ -138,10 +178,7 @@ function WiresPuzzle({ puzzle, t, disabled, onSolved }: { puzzle: Extract<TaskPu
     return () => clearTimeout(timer);
   }, [wrong]);
   useEffect(() => {
-    if (!complete) return;
-    // Let the last cable land before the task closes.
-    const timer = setTimeout(() => onSolved(puzzle.left.map((_, index) => pairs[index])), 500);
-    return () => clearTimeout(timer);
+    if (complete) onSolved(puzzle.left.map((_, index) => pairs[index]));
   }, [complete]);
 
   function connect(left: number, right: number) {
@@ -218,17 +255,55 @@ function WiresPuzzle({ puzzle, t, disabled, onSolved }: { puzzle: Extract<TaskPu
   </>;
 }
 
-function CodebookPuzzle({ puzzle, t, busy, disabled, onSubmit }: { puzzle: Extract<TaskPuzzle, { kind: 'codebook' }>; t: Copy; busy: boolean; disabled: boolean; onSubmit: (answer: string) => void }) {
+const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'back', '0', 'enter'] as const;
+
+// A safe: each symbol has a slot on the display, filled from the keypad (or a keyboard).
+function CodebookPuzzle({ puzzle, t, disabled, solved, rejected, onSubmit }: { puzzle: Extract<TaskPuzzle, { kind: 'codebook' }>; t: Copy; disabled: boolean; solved: boolean; rejected: number; onSubmit: (answer: string) => void }) {
   const [code, setCode] = useState('');
-  const complete = code.length === puzzle.symbols.length;
-  return <form onSubmit={event => { event.preventDefault(); if (complete && !disabled) onSubmit(code); }}>
+  const [shake, setShake] = useState(false);
+  const length = puzzle.symbols.length;
+  useEffect(() => {
+    if (!rejected) return;
+    setCode(''); setShake(true);
+    const timer = setTimeout(() => setShake(false), 600);
+    return () => clearTimeout(timer);
+  }, [rejected]);
+  function press(key: typeof KEYS[number]) {
+    if (disabled) return;
+    if (key === 'back') setCode(current => current.slice(0, -1));
+    else if (key === 'enter') { if (code.length === length) onSubmit(code); }
+    else setCode(current => current.length < length ? current + key : current);
+  }
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (/^\d$/.test(event.key)) press(event.key as typeof KEYS[number]);
+      else if (event.key === 'Backspace') press('back');
+      // Enter on a focused keypad button already presses that button.
+      else if (event.key === 'Enter' && !(document.activeElement instanceof HTMLButtonElement)) press('enter');
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+  return <>
     <p>{t.codebookInstructions}</p>
-    <ol className={styles.symbolRow}>
-      {puzzle.symbols.map(symbol => <li key={symbol}><span aria-hidden="true">{symbolGlyphs[symbol]}</span>{t[`symbol_${symbol}` as keyof Copy]}</li>)}
-    </ol>
-    <TextField className={ui.field} value={code} onChange={value => setCode(value.replace(/\D/g, '').slice(0, puzzle.symbols.length))} autoComplete="off">
-      <Label>{t.codeAnswer}</Label><Input className={ui.codeInput} inputMode="numeric" pattern="[0-9]*"/>
-    </TextField>
-    <Button type="submit" className={ui.primary} isDisabled={disabled || !complete}>{busy ? t.working : t.checkCode}<span aria-hidden="true">→</span></Button>
-  </form>;
+    <div className={styles.safe} data-wrong={shake || undefined} data-open={solved || undefined}>
+      <ol className={styles.safeSlots} aria-label={t.codeAnswer}>
+        {puzzle.symbols.map((symbol, index) => <li key={symbol} data-filled={index < code.length || undefined}>
+          <span aria-hidden="true">{symbolGlyphs[symbol]}</span>
+          <small>{t[`symbol_${symbol}` as keyof Copy]}</small>
+          <b>{code[index] ?? <span aria-hidden="true">–</span>}</b>
+        </li>)}
+      </ol>
+      <p className={styles.safeDisplay} role="status">{solved ? t.safeOpen : `${code.length} / ${length}`}</p>
+      <div className={styles.keypad}>
+        {KEYS.map(key => <button key={key} type="button" data-key={key}
+          aria-label={key === 'back' ? t.deleteDigit : key === 'enter' ? t.checkCode : undefined}
+          disabled={disabled || (key === 'enter' && code.length < length) || (key === 'back' && !code)}
+          onClick={() => press(key)}>
+          {key === 'back' ? '⌫' : key === 'enter' ? '✓' : key}
+        </button>)}
+      </div>
+    </div>
+  </>;
 }

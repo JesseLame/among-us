@@ -45,6 +45,7 @@ test('organiser edits stations and prints sheets; a player completes phone and c
       await guest.getByRole('button', { name: String(rest[0]), exact: true }).click();
       await expect(guest.getByText('Not quite. Start again from the smallest number.')).toBeVisible();
       for (const value of [smallest, ...rest]) await guest.getByRole('button', { name: String(value), exact: true }).click();
+      await guest.screenshot({ path: testInfo.outputPath('lights-mobile.png'), fullPage: true });
       await expect(guest.getByText('Task complete.')).toBeVisible();
     }
     const codebook = lobby.you.tasks.find(task => task.puzzle.kind === 'codebook');
@@ -53,8 +54,15 @@ test('organiser edits stations and prints sheets; a player completes phone and c
       await guest.getByRole('button', { name: `Open: Codebook, ${name(codebook)}` }).click();
       expect((await new AxeBuilder({ page: guest }).analyze()).violations).toEqual([]);
       await guest.screenshot({ path: testInfo.outputPath('codebook-task-mobile.png'), fullPage: true });
-      await guest.getByRole('textbox', { name: 'Code' }).fill(codebook.puzzle.symbols.map(symbol => book[symbol]).join(''));
+      // Keyboard digits, a rejected code, then the keypad.
+      await guest.keyboard.type('0000');
+      await guest.keyboard.press('Enter');
+      await expect(guest.getByText('That’s not right. Check the station sheet and try again.')).toBeVisible();
+      await expect(guest.getByRole('status').filter({ hasText: '0 / 4' })).toBeVisible();
+      for (const digit of codebook.puzzle.symbols.map(symbol => String(book[symbol]))) await guest.getByRole('button', { name: digit, exact: true }).click();
       await guest.getByRole('button', { name: 'Check code' }).click();
+      await expect(guest.getByText('OPEN', { exact: true })).toBeVisible();
+      await guest.screenshot({ path: testInfo.outputPath('codebook-open-mobile.png'), fullPage: true });
       await expect(guest.getByText('Task complete.')).toBeVisible();
     }
     const wires = lobby.you.tasks.find(task => task.puzzle.kind === 'wires');

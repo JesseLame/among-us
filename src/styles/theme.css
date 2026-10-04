@@ -121,12 +121,15 @@
   --color-wire-green: #3f8a4b;
   --color-wire-purple: #7b4fa6;
   --color-wire-orange: #e07a26;
-  --color-wire-board: #22362f;
-  --color-wire-panel: #2f463d;
-  --color-wire-panel-border: #4c6559;
-  --color-wire-shadow: #0f1d18;
-  --color-wire-highlight: #f2d27a;
-  --color-wire-lit: #8fc27a;
+  /* Puzzle control panels (lights, wiring, safe) */
+  --color-puzzle-board: #22362f;
+  --color-puzzle-panel: #2f463d;
+  --color-puzzle-panel-border: #4c6559;
+  --color-puzzle-shadow: #0f1d18;
+  --color-puzzle-highlight: #f2d27a;
+  --color-puzzle-lit: #8fc27a;
+  --color-puzzle-on-lit: #1a2b24;
+  --color-puzzle-display: #121f1a;
   --color-progress-track: var(--color-surface-soft);
   --color-progress-fill: var(--color-success);
 

@@ -17,9 +17,11 @@ Manual room selection is available when scanning fails or the organiser prefers 
 
 | Puzzle | Type | How it works |
 | --- | --- | --- |
-| Number order | Phone | Tap six shuffled numbers from smallest to largest. A wrong tap restarts the sequence without penalty. |
+| Number order | Phone | Six numbered lights are scattered over a panel; switch them on from smallest to largest and a line joins them. A wrong tap makes the lights flicker off and restarts without penalty. |
 | Fix the wiring | Phone | Drag each of four wires to the socket of the same colour; a cable follows the finger and a wrong socket shakes. Tapping a wire then its socket, or the keyboard, works too. Colour names are always shown, not only swatches. |
-| Codebook | Physical answer | Each station has a printed sheet of 12 symbols, each with a digit. The task shows four symbols; the player enters their digits in order. Players share one sheet but get different symbols. |
+| Codebook | Physical answer | Each station has a printed sheet of 12 symbols, each with a digit. The task shows a safe with four symbol slots; the player keys in the digits on the keypad (or keyboard) to open it. A wrong code shakes and clears the display. Players share one sheet but get different symbols. |
+
+Solved puzzles stay on screen briefly in their finished state before returning to the task list.
 
 Each player receives four tasks (one of each kind plus one extra) spread across the stations. The organiser prints the sheets from **Print station sheets** in the lobby; a sheet's numbers stay the same until that station is removed, so reprint only after adding a station. Manual station choice applies: the task list names the station, and players open the task once they are there. QR scanning is still planned for stage 5.
 

@@ -734,33 +734,79 @@
   font-size: var(--text-xs);
 }
 
-.numberGrid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-3);
+/* Number order: lights scattered over a panel, joined by a line as they switch on */
+.lightBoard {
+  position: relative;
+  aspect-ratio: 1;
+  width: 100%;
+  max-width: 360px;
+  margin: 0 auto;
+  border-radius: var(--radius-card);
+  background: var(--color-puzzle-board);
 }
 
-.puzzleButton {
-  min-height: 56px;
-  border-radius: var(--radius-control);
-  border: 1px solid var(--color-secondary-border);
-  background: var(--color-input);
-  color: var(--color-text);
+.lightBoard svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.lightBoard polyline {
+  fill: none;
+  stroke: var(--color-puzzle-highlight);
+  stroke-width: 4;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.light {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 3px solid var(--color-puzzle-panel-border);
+  background: var(--color-puzzle-panel);
+  color: var(--color-on-primary);
   font: 600 var(--text-xl) var(--font-heading);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
+  transition: background var(--motion-fast), box-shadow var(--motion-fast);
 }
 
-.puzzleButton[data-selected] {
-  background: var(--color-secondary);
-  border-color: var(--color-success);
+.light:disabled {
+  cursor: default;
+  opacity: 1;
 }
 
-.puzzleButton[aria-pressed='true'] {
-  outline: var(--focus-width) solid var(--color-text);
-  outline-offset: 2px;
+.light[data-lit] {
+  background: var(--color-puzzle-highlight);
+  border-color: var(--color-puzzle-highlight);
+  color: var(--color-puzzle-on-lit);
+  box-shadow: 0 0 18px var(--color-puzzle-highlight);
+}
+
+.lightBoard[data-wrong] .light {
+  animation: lights-flicker 160ms steps(2) 3;
+}
+
+.lightBoard[data-complete] {
+  box-shadow: 0 0 0 3px var(--color-puzzle-lit);
+}
+
+.lightBoard[data-complete] .light {
+  background: var(--color-puzzle-lit);
+  border-color: var(--color-puzzle-lit);
+  box-shadow: 0 0 18px var(--color-puzzle-lit);
+}
+
+.lightBoard[data-complete] polyline {
+  stroke: var(--color-puzzle-lit);
+}
+
+@keyframes lights-flicker {
+  50% { border-color: var(--color-danger); background: var(--color-puzzle-display); }
 }
 
 /* Wiring: plugs on the left, sockets on the right, cables drawn between them */
@@ -770,7 +816,7 @@
   grid-template-columns: 1fr minmax(36px, .5fr) 1fr;
   padding: var(--space-4) var(--space-2);
   border-radius: var(--radius-card);
-  background: var(--color-wire-board);
+  background: var(--color-puzzle-board);
   user-select: none;
   -webkit-user-select: none;
 }
@@ -799,7 +845,7 @@
   fill: none;
   stroke-width: 10;
   stroke-linecap: round;
-  filter: drop-shadow(0 2px 0 var(--color-wire-shadow));
+  filter: drop-shadow(0 2px 0 var(--color-puzzle-shadow));
 }
 
 .wireLayer path[data-live] {
@@ -813,8 +859,8 @@
   align-items: center;
   gap: var(--space-2);
   border-radius: var(--radius-control);
-  border: 1px solid var(--color-wire-panel-border);
-  background: var(--color-wire-panel);
+  border: 1px solid var(--color-puzzle-panel-border);
+  background: var(--color-puzzle-panel);
   color: var(--color-on-primary);
   font: 600 var(--text-sm) var(--font-heading);
   padding: var(--space-1) 10px;
@@ -837,7 +883,7 @@
 }
 
 .wireEnd[aria-pressed='true'] {
-  outline: var(--focus-width) solid var(--color-wire-highlight);
+  outline: var(--focus-width) solid var(--color-puzzle-highlight);
   outline-offset: 2px;
 }
 
@@ -860,12 +906,12 @@
 /* Plug: a solid coloured end. Socket: a coloured ring that fills when connected. */
 .wireEnd i {
   background: var(--wire);
-  box-shadow: 0 0 0 3px var(--color-wire-panel-border);
+  box-shadow: 0 0 0 3px var(--color-puzzle-panel-border);
 }
 
 .wireSocket i {
   border: 5px solid var(--wire);
-  background: var(--color-wire-board);
+  background: var(--color-puzzle-board);
 }
 
 .wireSocket[data-connected] i {
@@ -873,8 +919,8 @@
 }
 
 .wireSocket[data-over] {
-  border-color: var(--color-wire-highlight);
-  box-shadow: 0 0 0 2px var(--color-wire-highlight);
+  border-color: var(--color-puzzle-highlight);
+  box-shadow: 0 0 0 2px var(--color-puzzle-highlight);
 }
 
 .wireSocket[data-wrong] {
@@ -883,11 +929,11 @@
 }
 
 .wireEnd[data-connected], .wireSocket[data-connected] {
-  border-color: var(--color-wire-lit);
+  border-color: var(--color-puzzle-lit);
 }
 
 .wireBoard[data-complete] {
-  box-shadow: 0 0 0 3px var(--color-wire-lit);
+  box-shadow: 0 0 0 3px var(--color-puzzle-lit);
 }
 
 [data-wire='red'] { --wire: var(--color-wire-red); }
@@ -902,31 +948,115 @@
   75% { transform: translateX(4px); }
 }
 
-.symbolRow {
+/* Codebook: a safe with one display slot per symbol and a keypad */
+.safe {
+  border-radius: var(--radius-card);
+  background: var(--color-puzzle-board);
+  padding: var(--space-4);
+  display: grid;
+  gap: var(--space-3);
+  max-width: 360px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.safe[data-open] {
+  box-shadow: 0 0 0 3px var(--color-puzzle-lit);
+}
+
+.safeSlots {
   list-style: none;
-  padding: 0;
-  margin: var(--space-4) 0;
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-control);
+  background: var(--color-puzzle-display);
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: var(--space-2);
   text-align: center;
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
+  color: var(--color-on-primary);
 }
 
-.symbolRow li {
+.safe[data-wrong] .safeSlots {
+  box-shadow: 0 0 0 2px var(--color-danger);
+  animation: wire-shake 280ms ease-in-out 2;
+}
+
+.safe[data-open] .safeSlots {
+  box-shadow: 0 0 0 2px var(--color-puzzle-lit);
+  animation: none;
+}
+
+.safeSlots li {
   display: grid;
-  gap: var(--space-1);
-  padding: var(--space-3) var(--space-1);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  background: var(--color-input);
+  gap: 2px;
+  min-width: 0;
 }
 
-.symbolRow span {
-  font-size: 34px;
-  line-height: 1;
-  color: var(--color-text);
+.safeSlots li > span {
+  font-size: 30px;
+  line-height: 1.1;
+}
+
+.safeSlots small {
+  font-size: var(--text-caption);
+  opacity: .8;
+  overflow-wrap: anywhere;
+}
+
+.safeSlots b {
+  margin-top: var(--space-1);
+  font: 700 28px/1.2 var(--font-heading);
+  border-top: 2px solid var(--color-puzzle-panel-border);
+  padding-top: var(--space-1);
+  color: var(--color-puzzle-highlight);
+}
+
+.safe[data-open] .safeSlots b {
+  color: var(--color-puzzle-lit);
+}
+
+.safeDisplay {
+  margin: 0;
+  text-align: center;
+  font: 600 var(--text-sm) var(--font-heading);
+  letter-spacing: 2px;
+  color: var(--color-on-primary);
+}
+
+.safe[data-open] .safeDisplay {
+  color: var(--color-puzzle-lit);
+  font-size: var(--text-xl);
+}
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+}
+
+.keypad button {
+  min-height: 52px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--color-puzzle-panel-border);
+  background: var(--color-puzzle-panel);
+  color: var(--color-on-primary);
+  font: 600 var(--text-xl) var(--font-heading);
+  box-shadow: 0 3px 0 var(--color-puzzle-shadow);
+}
+
+.keypad button:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--color-puzzle-shadow);
+}
+
+.keypad button:disabled {
+  cursor: default;
+}
+
+.keypad [data-key='enter'] {
+  background: var(--color-puzzle-lit);
+  color: var(--color-puzzle-on-lit);
 }
 
 /* Lobby: task stations */
@@ -1152,6 +1282,11 @@
 }
 
 @media (max-width: 360px) {
+  .light {
+    width: 50px;
+    height: 50px;
+    font-size: var(--text-md);
+  }
   .wireEnd, .wireSocket {
     flex-direction: column;
     justify-content: center;
