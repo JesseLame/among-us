@@ -3,14 +3,15 @@ import { createServer } from 'node:http';
 import { createServer as createSecureServer } from 'node:https';
 import { resolve } from 'node:path';
 import { Server } from 'socket.io';
-import { callMeeting, castVote, completeTask, correction, createGame, eliminate, meetingCommand, rejoin, joinGame, roomCommand, roundCommand, settingsCommand, stationCommand, type ClientEvents, type ServerEvents, type SessionEndReason } from '../shared/protocol.js';
-import { createStore, GameError } from './store.js';
-import { lanAddresses } from './network.js';
+import type { ClientEvents, ServerEvents, SessionEndReason } from '../shared/protocol.js';
+import { createStore, GameError } from './store/index.js';
 import { practiceRoutes } from './practice.js';
-
-export function sessionToken(cookie = '') {
-  return cookie.split(';').map(part => part.trim()).find(part => part.startsWith('home_session='))?.slice('home_session='.length);
-}
+import type { RouteContext } from './routes/context.js';
+import { gamesRoutes } from './routes/games.js';
+import { meetingsRoutes } from './routes/meetings.js';
+import { organiserRoutes } from './routes/organiser.js';
+import { roundRoutes } from './routes/round.js';
+import { sessionToken } from './session.js';
 
 export function createApp(options: { databasePath: string; production?: boolean; clientPath?: string; now?: () => number; tls?: { key: string; cert: string; ca?: string } }) {
   const store = createStore(options.databasePath, options.now);
@@ -43,17 +44,6 @@ export function createApp(options: { databasePath: string; production?: boolean;
     });
   }
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
-  app.get('/api/session', (req, res) => {
-    const lobby = store.lobby(sessionToken(req.headers.cookie));
-    if (!lobby) res.clearCookie('home_session', { path: '/' });
-    res.json({ lobby });
-  });
-  app.get('/api/role', (req, res, next) => {
-    try {
-      if (typeof req.query.roundId !== 'string') throw new GameError('INVALID_INPUT');
-      res.json(store.role(sessionToken(req.headers.cookie), req.query.roundId));
-    } catch (error) { next(error); }
-  });
 
   function broadcast(code: string, reason: SessionEndReason = 'removed') {
     for (const socket of io.sockets.sockets.values()) {
@@ -67,79 +57,9 @@ export function createApp(options: { databasePath: string; production?: boolean;
     }
   }
 
-  app.post(['/api/games', '/api/games/join'], (req, res, next) => {
-    try {
-      if (store.lobby(sessionToken(req.headers.cookie))) throw new GameError('ALREADY_JOINED', 409);
-      const joining = req.path.endsWith('/join');
-      const result = (() => {
-        if (joining) {
-          const parsed = joinGame.safeParse(req.body);
-          if (!parsed.success) throw new GameError('INVALID_INPUT');
-          return store.join(parsed.data.code, parsed.data.name);
-        }
-        const parsed = createGame.safeParse(req.body);
-        if (!parsed.success) throw new GameError('INVALID_INPUT');
-        return store.create(parsed.data.name, parsed.data.language, parsed.data.playing);
-      })();
-      setSession(res, result.token);
-      res.status(201).json({ lobby: result.lobby });
-      broadcast(result.lobby.code);
-    } catch (error) { next(error); }
-  });
-
   const setSession = (res: express.Response, token: string) => res.cookie('home_session', token, {
     httpOnly: true, secure: Boolean(options.production || options.tls), sameSite: 'lax',
     maxAge: 30 * 24 * 60 * 60 * 1000, path: '/',
-  });
-
-  // Rejoining replaces whatever session this browser had: the phone becomes that player again.
-  app.post('/api/games/rejoin', (req, res, next) => {
-    try {
-      const parsed = rejoin.safeParse(req.body);
-      if (!parsed.success) throw new GameError('INVALID_INPUT');
-      const result = store.rejoinPlayer(parsed.data.code);
-      setSession(res, result.token);
-      res.json({ lobby: result.lobby });
-      // The player's old phone, if still connected, is signed out.
-      broadcast(result.lobby.code, 'unavailable');
-    } catch (error) { next(error); }
-  });
-
-  app.post('/api/corrections', (req, res, next) => {
-    try {
-      const parsed = correction.safeParse(req.body);
-      if (!parsed.success) throw new GameError('INVALID_INPUT');
-      const token = sessionToken(req.headers.cookie);
-      const code = store.correct(token, parsed.data);
-      res.json({ lobby: store.lobby(token) });
-      broadcast(code);
-    } catch (error) { next(error); }
-  });
-
-  // What a correction or a player removal would do, without applying it (organiser only).
-  app.post('/api/corrections/preview', (req, res, next) => {
-    try {
-      const parsed = correction.safeParse(req.body);
-      if (!parsed.success) throw new GameError('INVALID_INPUT');
-      res.json({ preview: store.previewCorrection(sessionToken(req.headers.cookie), parsed.data) });
-    } catch (error) { next(error); }
-  });
-  app.post('/api/room/preview', (req, res, next) => {
-    try {
-      const parsed = roomCommand.safeParse(req.body);
-      if (!parsed.success) throw new GameError('INVALID_INPUT');
-      res.json({ preview: store.previewRemoval(sessionToken(req.headers.cookie), parsed.data) });
-    } catch (error) { next(error); }
-  });
-
-  app.post('/api/round/commands', (req, res, next) => {
-    try {
-      const parsed = roundCommand.safeParse(req.body);
-      if (!parsed.success) throw new GameError('INVALID_INPUT');
-      const lobby = store.command(sessionToken(req.headers.cookie), parsed.data);
-      res.json({ lobby });
-      broadcast(lobby.code);
-    } catch (error) { next(error); }
   });
 
   // Only the player's own sockets learn about their task, unless it ended the round.
@@ -151,110 +71,11 @@ export function createApp(options: { databasePath: string; production?: boolean;
     }
   }
 
-  app.post('/api/tasks/complete', (req, res, next) => {
-    try {
-      const parsed = completeTask.safeParse(req.body);
-      if (!parsed.success) throw new GameError('INVALID_INPUT');
-      const result = store.completeTask(sessionToken(req.headers.cookie), parsed.data);
-      res.json({ lobby: result.lobby });
-      if (result.ended) broadcast(result.lobby.code);
-      else syncPlayer(result.lobby.you.id);
-    } catch (error) { next(error); }
-  });
-
-  app.post('/api/meetings', (req, res, next) => {
-    try {
-      const parsed = callMeeting.safeParse(req.body);
-      if (!parsed.success) throw new GameError('INVALID_INPUT');
-      const token = sessionToken(req.headers.cookie);
-      const code = store.startMeeting(token, parsed.data);
-      res.json({ lobby: store.lobby(token) });
-      broadcast(code);
-    } catch (error) { next(error); }
-  });
-
-  app.post('/api/meeting/commands', (req, res, next) => {
-    try {
-      const parsed = meetingCommand.safeParse(req.body);
-      if (!parsed.success) throw new GameError('INVALID_INPUT');
-      const token = sessionToken(req.headers.cookie);
-      const code = store.runMeeting(token, parsed.data);
-      res.json({ lobby: store.lobby(token) });
-      broadcast(code);
-    } catch (error) { next(error); }
-  });
-
-  // A vote changes no revision; every phone gets the new vote count.
-  app.post('/api/vote', (req, res, next) => {
-    try {
-      const parsed = castVote.safeParse(req.body);
-      if (!parsed.success) throw new GameError('INVALID_INPUT');
-      const token = sessionToken(req.headers.cookie);
-      const code = store.vote(token, parsed.data);
-      res.json({ lobby: store.lobby(token) });
-      broadcast(code);
-    } catch (error) { next(error); }
-  });
-
-  app.post('/api/eliminate', (req, res, next) => {
-    try {
-      const parsed = eliminate.safeParse(req.body);
-      if (!parsed.success) throw new GameError('INVALID_INPUT');
-      const token = sessionToken(req.headers.cookie);
-      const result = store.eliminatePlayer(token, parsed.data);
-      // The Impostor's refreshed private view (new cooldown, remaining targets), unless the round just ended.
-      res.json(result.ended ? { ended: true } : { ended: false, role: store.role(token, parsed.data.roundId) });
-      if (result.ended) broadcast(result.code);
-      else syncPlayer(result.victim);
-    } catch (error) { next(error); }
-  });
-
-  app.post('/api/stations/commands', (req, res, next) => {
-    try {
-      const parsed = stationCommand.safeParse(req.body);
-      if (!parsed.success) throw new GameError('INVALID_INPUT');
-      const lobby = store.manageStations(sessionToken(req.headers.cookie), parsed.data);
-      res.json({ lobby });
-      broadcast(lobby.code);
-    } catch (error) { next(error); }
-  });
-
-  app.post('/api/settings/commands', (req, res, next) => {
-    try {
-      const parsed = settingsCommand.safeParse(req.body);
-      if (!parsed.success) throw new GameError('INVALID_INPUT');
-      const lobby = store.changeSettings(sessionToken(req.headers.cookie), parsed.data);
-      res.json({ lobby });
-      broadcast(lobby.code);
-    } catch (error) { next(error); }
-  });
-
-  app.get('/api/stations/print', (req, res, next) => {
-    try {
-      res.json({ stations: store.printableStations(sessionToken(req.headers.cookie)) });
-    }
-    catch (error) { next(error); }
-  });
-
-  // The computer's addresses on the home network, home-Wi-Fi ranges first. A screen
-  // opened via localhost uses these in QR codes so phones can reach the game.
-  app.get('/api/network', (req, res, next) => {
-    try {
-      if (!store.lobby(sessionToken(req.headers.cookie))) throw new GameError('NO_SESSION', 401);
-      res.json({ lanAddresses: lanAddresses() });
-    } catch (error) { next(error); }
-  });
-
-  app.post('/api/room/commands', (req, res, next) => {
-    try {
-      const parsed = roomCommand.safeParse(req.body);
-      if (!parsed.success) throw new GameError('INVALID_INPUT');
-      const result = store.manageRoom(sessionToken(req.headers.cookie), parsed.data);
-      if (!result.lobby) res.clearCookie('home_session', { path: '/' });
-      res.json({ lobby: result.lobby, ...('rejoin' in result ? { rejoin: result.rejoin } : {}) });
-      broadcast(result.code, parsed.data.action === 'destroy' ? 'destroyed' : 'removed');
-    } catch (error) { next(error); }
-  });
+  const routes: RouteContext = { store, broadcast, syncPlayer, setSession };
+  app.use(gamesRoutes(routes));
+  app.use(roundRoutes(routes));
+  app.use(meetingsRoutes(routes));
+  app.use(organiserRoutes(routes));
 
   io.use((socket, next) => {
     const lobby = store.lobby(sessionToken(socket.request.headers.cookie));

@@ -11,5 +11,5 @@
     "types": ["node"]
   },
   "include": ["server", "shared"],
-  "exclude": ["**/*.test.ts"]
+  "exclude": ["**/*.test.ts", "server/test"]
 }

@@ -20,7 +20,7 @@ This is the shared project instruction file. `CLAUDE.md` imports it; keep shared
 - Keep ordinary joined-player screens minimal during a round: the private role card, its language control, shared crew progress, the player's own task list/puzzle, and only necessary pause/disconnection feedback. Organiser controls belong to the organiser view.
 - Station access defaults to QR-only (`settings.stationAccess`); keep the manual option working for organisers who switch it on.
 - Sounds (`src/lib/sound.ts`) are synthesised with Web Audio and unlocked by the first tap. Never add a sound that reveals hidden events, such as an elimination.
-- Fake tasks must look identical to real ones in every payload and screen. Task completions update only the completing player's view; shared progress is published on a fixed cadence (`tick()` in `server/store.ts`).
+- Fake tasks must look identical to real ones in every payload and screen. Task completions update only the completing player's view; shared progress is published on a fixed cadence (`tick()` in `server/store/round.ts`).
 - Use native controls or React Aria for interaction, preserving focus, keyboard behaviour and semantic labels. Keep controls at least 44px tall, normally 48px, and support 320px screens, text zoom and reduced motion. Maintain readable contrast when changing a theme.
 - A visual redesign should not change game rules, session behaviour or server contracts unless requested. Explain any intentional interaction changes separately.
 
@@ -33,7 +33,7 @@ This is the shared project instruction file. `CLAUDE.md` imports it; keep shared
 - Preserve players' identities and roles through reconnect. Restore active rounds paused after a server restart; never silently reshuffle roles or resume after a public reveal.
 - Player removal revokes the session. A Crewmate removal during a round pauses it; an Impostor removal ends it without a winner. Keep role-dependent details out of removal previews.
 - Room deletion is organiser-only, confirmed in the UI, revokes all room sessions and affects only that room. The organiser cannot remove themselves individually.
-- Evolve the SQLite schema with forward migrations in `server/store.ts`; preserve existing lobbies/sessions. Never reset a user's database as an implementation shortcut.
+- Evolve the SQLite schema with forward migrations in `server/store/db.ts`; preserve existing lobbies/sessions. Never reset a user's database as an implementation shortcut.
 
 ## Development and verification
 

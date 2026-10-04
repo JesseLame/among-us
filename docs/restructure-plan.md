@@ -42,11 +42,12 @@ src/
         simon/     SimonGame.tsx, simon.module.css
     practice/   Practice.tsx, practice.module.css
 server/
-  index.ts, app.ts (wiring), tls.ts, network.ts, practice.ts
-  routes/     lobby.ts, round.ts, tasks.ts, meeting.ts, organiser.ts
-  store/      index.ts, db.ts, migrations.ts, lobby.ts, round.ts, meeting.ts
+  index.ts, app.ts (setup, sockets, broadcast), session.ts, tls.ts, network.ts, practice.ts
+  routes/     context.ts, games.ts, round.ts, meetings.ts, organiser.ts
+  store/      index.ts, db.ts (open + migrations), shared.ts, base.ts, rules.ts, view.ts,
+              rooms.ts, round.ts, meetings.ts, corrections.ts
   tasks/      index.ts, random.ts, types.ts, order.ts, wires.ts, codebook.ts, simon.ts
-  test/       split from app.test.ts by area
+  test/       helpers.ts, lobby, round, room, tasks, meetings, corrections (.test.ts)
 shared/protocol.ts
 ```
 
@@ -58,7 +59,7 @@ Each feature owns its CSS module. `App.module.css` keeps only the decorative geo
 2. ✅ Move the remaining files into feature folders with `git mv`, and take `Home`, `Lobby`, `RoundControls`, `PrivateRole` and `SharedProgress` out of their current files.
 3. ✅ Split the rest of `App.module.css` into feature modules.
 4. ✅ Split i18n into one file per language.
-5. Split the server into routes, store modules and test files.
+5. ✅ Split the server into routes, store modules and test files.
 6. Update `AGENTS.md`, `README.md` and `docs/design-system.md`.
 
 Check after each step: `npm run build`, `npm test`, the full `npm run test:e2e`, and a look at `/practice` at mobile width.
