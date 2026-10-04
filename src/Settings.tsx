@@ -28,7 +28,7 @@ export default function GameSettings({ lobby, language, connected, onUpdate }: P
     finally { inFlight.current = false; setBusy(false); }
   }
 
-  const { stationAccess, eliminations, bodyReports, emergencyMeetings } = lobby.settings;
+  const { stationAccess, eliminations, bodyReports, emergencyMeetings, phoneVoting } = lobby.settings;
   const setting = (label: string, selected: boolean, help: string, onChange: (selected: boolean) => void) => <div className={styles.setting}>
     <Switch className={ui.switch} isSelected={selected} isDisabled={busy || !connected} onChange={onChange}>
       <span className={ui.switchTrack} aria-hidden="true"><span/></span>{label}
@@ -61,6 +61,7 @@ export default function GameSettings({ lobby, language, connected, onUpdate }: P
     {setting(t.eliminationsSetting, eliminations, eliminations ? t.eliminationsOn : t.eliminationsOffHelp,
       on => void change({ eliminations: on }))}
     {setting(t.bodyReportsSetting, bodyReports, bodyReports ? t.bodyReportsOn : t.bodyReportsOff, on => void change({ bodyReports: on }))}
+    {setting(t.phoneVotingSetting, phoneVoting, phoneVoting ? t.phoneVotingOn : t.phoneVotingOff, on => void change({ phoneVoting: on }))}
     {setting(t.emergencySetting, emergencyMeetings, emergencyMeetings ? t.emergencyOn : t.emergencyOff, on => void change({ emergencyMeetings: on }))}
     <details className={styles.gameSettings}>
       <summary>{t.gameSettings}</summary>

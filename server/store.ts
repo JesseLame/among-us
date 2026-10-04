@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { dirname } from 'node:path';
 import { mkdirSync } from 'node:fs';
-import type { CallMeeting, CompleteTask, Eliminate, MeetingKind, ErrorCode, Lobby, PlayerStatus, RoleInfo, Phase, PrintableStation, Role, RoundCommand, RoomCommand, RoundResult, SettingsCommand, StationAccess, StationCommand, Task, TaskPuzzle } from '../shared/protocol.js';
+import type { CallMeeting, CastVote, CompleteTask, Eliminate, MeetingCommand, MeetingKind, MeetingStage, ErrorCode, Lobby, PlayerStatus, RoleInfo, Phase, PrintableStation, Role, RoundCommand, RoomCommand, RoundResult, SettingsCommand, StationAccess, StationCommand, Task, TaskPuzzle } from '../shared/protocol.js';
 import { codebook, puzzle, shuffle, solved, type Codebook, type TaskKind } from './puzzles.js';
 
 export class GameError extends Error {
@@ -18,6 +18,7 @@ type Game = {
   meeting_kind: MeetingKind | null; meeting_by: string | null; meeting_at: number | null; meeting_ghosts: string | null;
   // The discussion length fixed when the meeting started, so later edits affect the next meeting.
   meeting_discussion: number | null; emergency_allowance: number;
+  phone_voting: number; meeting_stage: MeetingStage | null; meeting_votes: string | null; meeting_result: string | null;
   opening_protection: number; kill_cooldown: number;
   // Active play time: clock_ms plus, while active, the time since clock_at.
   // The play-clock time from which the Impostor may eliminate (protection, then cooldown).
@@ -134,6 +135,16 @@ export function createStore(path: string, now: () => number = Date.now) {
         PRAGMA user_version = 10;
       `);
     }
+    if (version < 11) {
+      db.exec(`
+        ALTER TABLE games ADD COLUMN phone_voting INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE games ADD COLUMN meeting_stage TEXT;
+        ALTER TABLE games ADD COLUMN meeting_votes TEXT;
+        ALTER TABLE games ADD COLUMN meeting_result TEXT;
+        UPDATE games SET meeting_stage = 'discussion' WHERE phase = 'meeting';
+        PRAGMA user_version = 11;
+      `);
+    }
   });
   function addStations(code: string, names: string[]) {
     const insert = db.prepare('INSERT INTO stations (id, game_code, name, position, codebook) VALUES (?, ?, ?, (SELECT COALESCE(MAX(position), -1) + 1 FROM stations WHERE game_code = ?), ?)');
@@ -169,21 +180,24 @@ export function createStore(path: string, now: () => number = Date.now) {
       stations: db.prepare('SELECT id, name FROM stations WHERE game_code = ? ORDER BY position').all(game.code) as Lobby['stations'],
       settings: {
         stationAccess: game.station_access, eliminations: Boolean(game.eliminations),
-        bodyReports: Boolean(game.body_reports), emergencyMeetings: Boolean(game.emergency_meetings),
+        bodyReports: Boolean(game.body_reports), emergencyMeetings: Boolean(game.emergency_meetings), phoneVoting: Boolean(game.phone_voting),
         openingProtection: game.opening_protection, killCooldown: game.kill_cooldown, discussionTime: game.discussion_time,
         emergencyAllowance: game.emergency_allowance, progressInterval: game.progress_interval,
         tasksPerPlayer: game.tasks_per_player, taskGoalPercent: game.task_goal_percent,
       },
       ...(game.phase === 'meeting' ? { meeting: {
-        kind: game.meeting_kind!, calledBy: game.meeting_by,
-        discussionMs: game.meeting_discussion ? Math.max(0, game.meeting_at! + game.meeting_discussion * 1000 - now()) : null,
+        kind: game.meeting_kind!, calledBy: game.meeting_by, stage: game.meeting_stage ?? 'discussion',
+        discussionMs: game.meeting_at && game.meeting_discussion ? Math.max(0, game.meeting_at + game.meeting_discussion * 1000 - now()) : null,
         newGhosts: JSON.parse(game.meeting_ghosts ?? '[]') as string[],
+        ...(game.meeting_stage === 'voting' ? { votes: { cast: Object.keys(votesOf(game)).length, eligible: voters(game).length } } : {}),
+        ...(game.meeting_result ? { result: JSON.parse(game.meeting_result) as NonNullable<NonNullable<Lobby['meeting']>['result']> } : {}),
       } } : {}),
       progress: totals && { done: game.phase === 'ended' ? totals.done : Math.min(game.progress_shown, totals.goal), goal: totals.goal },
       // Status is private to its owner: an undiscovered body looks alive to everyone else.
       you: {
         id: player.id, organiser: Boolean(player.organiser), playing: Boolean(player.playing), status: playing ? player.status : 'alive',
         emergencyLeft: Math.max(0, game.emergency_allowance - player.emergency_used), tasks,
+        ...(game.phase === 'meeting' && game.meeting_stage === 'voting' && votesOf(game)[player.id] ? { vote: votesOf(game)[player.id] } : {}),
       },
       ...(game.phase === 'ended' ? {
         revealedRoles: players.filter(p => p.playing && p.role).map(p => ({ id: p.id, role: p.role! })),
@@ -200,7 +214,12 @@ export function createStore(path: string, now: () => number = Date.now) {
   }
   // With no real tasks (for example a solo Impostor) the round never ends by tasks.
   const tasksWon = (game: Game) => { const { done, goal } = progress(game); return goal > 0 && done >= goal; };
-  // Active play time in this round, excluding pauses (and later, meetings).
+  const votesOf = (game: Game) => JSON.parse(game.meeting_votes ?? '{}') as Record<string, string>;
+  // Living real players may vote; test players and ghosts may not.
+  const voters = (game: Game) => db.prepare("SELECT id FROM players WHERE game_code = ? AND playing = 1 AND removed = 0 AND test = 0 AND status = 'alive'")
+    .all(game.code) as { id: string }[];
+
+  // Active play time in this round, excluding pauses and meetings.
   const elapsed = (game: Game) => game.clock_ms + (game.phase === 'active' ? Math.max(0, now() - game.clock_at) : 0);
   // The Impostor wins when at most one living Crewmate remains.
   const impostorWon = (game: Game) => (db.prepare("SELECT COUNT(*) AS living FROM players WHERE game_code = ? AND playing = 1 AND removed = 0 AND role = 'crewmate' AND status = 'alive'")
@@ -353,7 +372,8 @@ export function createStore(path: string, now: () => number = Date.now) {
       case 'endMeeting':
         // Discussion and the physical vote are over: play (and its clock) continues.
         if (phase !== 'meeting') throw new GameError('INVALID_PHASE', 409);
-        db.prepare('UPDATE games SET clock_at = ?, meeting_kind = NULL, meeting_by = NULL, meeting_at = NULL, meeting_ghosts = NULL WHERE code = ?').run(now(), game.code);
+        db.prepare(`UPDATE games SET clock_at = ?, meeting_kind = NULL, meeting_by = NULL, meeting_at = NULL, meeting_ghosts = NULL,
+          meeting_stage = NULL, meeting_votes = NULL, meeting_result = NULL WHERE code = ?`).run(now(), game.code);
         phase = 'active'; break;
       case 'end':
         if (phase !== 'active' && phase !== 'paused' && phase !== 'meeting') throw new GameError('INVALID_PHASE', 409);
@@ -456,12 +476,12 @@ export function createStore(path: string, now: () => number = Date.now) {
     if ((input.tasksPerPlayer !== undefined || input.taskGoalPercent !== undefined) && game.phase !== 'lobby') throw new GameError('INVALID_PHASE', 409);
     const flag = (value: boolean | undefined) => value === undefined ? null : Number(value);
     db.prepare(`UPDATE games SET station_access = COALESCE(?, station_access), eliminations = COALESCE(?, eliminations),
-      body_reports = COALESCE(?, body_reports), emergency_meetings = COALESCE(?, emergency_meetings),
+      body_reports = COALESCE(?, body_reports), emergency_meetings = COALESCE(?, emergency_meetings), phone_voting = COALESCE(?, phone_voting),
       opening_protection = COALESCE(?, opening_protection), kill_cooldown = COALESCE(?, kill_cooldown),
       discussion_time = COALESCE(?, discussion_time), emergency_allowance = COALESCE(?, emergency_allowance),
       progress_interval = COALESCE(?, progress_interval), tasks_per_player = COALESCE(?, tasks_per_player),
       task_goal_percent = COALESCE(?, task_goal_percent), revision = revision + 1 WHERE code = ?`)
-      .run(input.stationAccess ?? null, flag(input.eliminations), flag(input.bodyReports), flag(input.emergencyMeetings),
+      .run(input.stationAccess ?? null, flag(input.eliminations), flag(input.bodyReports), flag(input.emergencyMeetings), flag(input.phoneVoting),
         input.openingProtection ?? null, input.killCooldown ?? null, input.discussionTime ?? null, input.emergencyAllowance ?? null,
         input.progressInterval ?? null, input.tasksPerPlayer ?? null, input.taskGoalPercent ?? null, game.code);
     recordCommand(input.commandId, game.code, organiser.id, payload);
@@ -476,8 +496,8 @@ export function createStore(path: string, now: () => number = Date.now) {
   }
 
   // A living player reports a body or calls an emergency meeting; the organiser may
-  // always call one. Play and its clock stop, and every undiscovered body becomes a
-  // ghost whose name is shown to everyone.
+  // always call one. Play and its clock stop while everyone gathers; the organiser then
+  // starts the meeting itself.
   const startMeeting = db.transaction((token: string | undefined, input: CallMeeting) => {
     const player = playerFor(token);
     if (!player) throw new GameError('NO_SESSION', 401);
@@ -498,11 +518,89 @@ export function createStore(path: string, now: () => number = Date.now) {
         db.prepare('UPDATE players SET emergency_used = emergency_used + 1 WHERE id = ?').run(player.id);
       }
     }
-    const found = (db.prepare("SELECT id FROM players WHERE game_code = ? AND status = 'body' AND removed = 0").all(game.code) as { id: string }[]).map(p => p.id);
-    db.prepare("UPDATE players SET status = 'ghost' WHERE game_code = ? AND status = 'body'").run(game.code);
-    db.prepare(`UPDATE games SET phase = 'meeting', clock_ms = ?, meeting_kind = ?, meeting_by = ?, meeting_at = ?, meeting_ghosts = ?,
-      meeting_discussion = discussion_time, revision = revision + 1 WHERE code = ?`).run(elapsed(game), input.kind, input.kind === 'organiser' ? null : player.id, now(), JSON.stringify(found), game.code);
+    db.prepare(`UPDATE games SET phase = 'meeting', clock_ms = ?, meeting_kind = ?, meeting_by = ?, meeting_stage = 'gathering', meeting_at = NULL,
+      meeting_ghosts = '[]', meeting_discussion = NULL, meeting_votes = NULL, meeting_result = NULL, revision = revision + 1 WHERE code = ?`)
+      .run(elapsed(game), input.kind, input.kind === 'organiser' ? null : player.id, game.code);
     recordCommand(input.commandId, game.code, player.id, payload);
+    return game.code;
+  });
+
+  // The result of a vote: an ejected player becomes a ghost. Ejecting the Impostor wins
+  // the round for the crew; otherwise the Impostor may now have enough eliminations.
+  function eject(game: Game, ejected: string | null, tally: { target: string; voters: string[] }[] | null) {
+    db.prepare("UPDATE games SET meeting_stage = 'result', meeting_result = ? WHERE code = ?").run(JSON.stringify({ ejected, tally }), game.code);
+    if (!ejected) return;
+    const target = db.prepare('SELECT role FROM players WHERE id = ?').get(ejected) as { role: Role };
+    db.prepare("UPDATE players SET status = 'ghost' WHERE id = ?").run(ejected);
+    if (target.role === 'impostor') endRound(game.code, 'crew', 'ejected');
+    else if (impostorWon(game)) endRound(game.code, 'impostor', 'eliminations');
+  }
+
+  // The organiser starts the gathered meeting, opens and closes phone voting, or records
+  // the outcome of a physical vote.
+  const runMeeting = db.transaction((token: string | undefined, input: MeetingCommand) => {
+    const { player: organiser, game } = organiserFor(token);
+    const payload = JSON.stringify(input);
+    if (alreadyApplied(input.commandId, organiser.id, payload)) return game.code;
+    if (game.round_id !== input.roundId || game.revision !== input.expectedRevision) throw new GameError('STALE_COMMAND', 409);
+    if (game.phase !== 'meeting') throw new GameError('INVALID_PHASE', 409);
+    const stage = game.meeting_stage ?? 'discussion';
+    switch (input.action) {
+      case 'start': {
+        if (stage !== 'gathering') throw new GameError('INVALID_PHASE', 409);
+        // Recorded bodies and the players the organiser marks as found all become ghosts.
+        // The list the organiser chooses from never shows who the app already knows is dead.
+        const mark = db.prepare("UPDATE players SET status = 'ghost' WHERE id = ? AND game_code = ? AND playing = 1 AND removed = 0 AND status != 'ghost'");
+        const bodies = (db.prepare("SELECT id FROM players WHERE game_code = ? AND status = 'body' AND removed = 0").all(game.code) as { id: string }[]).map(p => p.id);
+        const found = [...new Set([...bodies, ...input.out])].filter(id => mark.run(id, game.code).changes > 0);
+        db.prepare("UPDATE games SET meeting_stage = 'discussion', meeting_at = ?, meeting_discussion = discussion_time, meeting_ghosts = ? WHERE code = ?")
+          .run(now(), JSON.stringify(found), game.code);
+        if (impostorWon(game)) endRound(game.code, 'impostor', 'eliminations');
+        break;
+      }
+      case 'openVote':
+        if (stage !== 'discussion') throw new GameError('INVALID_PHASE', 409);
+        if (!game.phone_voting) throw new GameError('PHONE_VOTING_OFF', 409);
+        db.prepare("UPDATE games SET meeting_stage = 'voting', meeting_votes = '{}' WHERE code = ?").run(game.code);
+        break;
+      case 'closeVote': {
+        if (stage !== 'voting') throw new GameError('INVALID_PHASE', 409);
+        // The unique highest total is ejected; a tie or a winning Skip ejects nobody.
+        const votes = votesOf(game);
+        const groups = new Map<string, string[]>();
+        for (const [voter, target] of Object.entries(votes)) groups.set(target, [...(groups.get(target) ?? []), voter]);
+        const tally = [...groups].map(([target, voters]) => ({ target, voters })).sort((a, b) => b.voters.length - a.voters.length);
+        const top = tally[0];
+        const unique = top && (tally.length === 1 || tally[1].voters.length < top.voters.length);
+        eject(game, unique && top.target !== 'skip' ? top.target : null, tally);
+        break;
+      }
+      case 'record':
+        if (stage !== 'discussion' && stage !== 'voting') throw new GameError('INVALID_PHASE', 409);
+        if (input.ejected && !db.prepare("SELECT 1 FROM players WHERE id = ? AND game_code = ? AND playing = 1 AND removed = 0 AND status = 'alive'").get(input.ejected, game.code)) {
+          throw new GameError('PLAYER_NOT_FOUND', 404);
+        }
+        eject(game, input.ejected, null);
+        break;
+    }
+    db.prepare('UPDATE games SET revision = revision + 1 WHERE code = ?').run(game.code);
+    recordCommand(input.commandId, game.code, organiser.id, payload);
+    return game.code;
+  });
+
+  // A living player votes on their phone while voting is open; they can change their mind
+  // until the organiser closes the vote. Everyone sees only how many have voted.
+  const vote = db.transaction((token: string | undefined, input: CastVote) => {
+    const player = playerFor(token);
+    if (!player) throw new GameError('NO_SESSION', 401);
+    const game = gameFor(player.game_code)!;
+    if (game.round_id !== input.roundId) throw new GameError('STALE_COMMAND', 409);
+    if (game.phase !== 'meeting' || game.meeting_stage !== 'voting') throw new GameError('VOTING_CLOSED', 409);
+    if (!voters(game).some(voter => voter.id === player.id)) throw new GameError('NOT_ALIVE', 409);
+    if (input.target !== 'skip' && !db.prepare("SELECT 1 FROM players WHERE id = ? AND game_code = ? AND playing = 1 AND removed = 0 AND status = 'alive'").get(input.target, game.code)) {
+      throw new GameError('PLAYER_NOT_FOUND', 404);
+    }
+    db.prepare('UPDATE games SET meeting_votes = ? WHERE code = ?').run(JSON.stringify({ ...votesOf(game), [player.id]: input.target }), game.code);
     return game.code;
   });
 
@@ -542,5 +640,5 @@ export function createStore(path: string, now: () => number = Date.now) {
     return changed;
   }
 
-  return { lobby, create, join, role, eliminatePlayer, startMeeting, command, manageRoom, manageStations, changeSettings, printableStations, completeTask, tick, close: () => db.close() };
+  return { lobby, create, join, role, eliminatePlayer, startMeeting, runMeeting, vote, command, manageRoom, manageStations, changeSettings, printableStations, completeTask, tick, close: () => db.close() };
 }

@@ -29,7 +29,7 @@ In the lobby, **Room management → Add test player** adds "Test 1", "Test 2"…
 
 ## Meetings — implemented
 
-**Body reports** and **Emergency meetings** (organiser controls, any phase, both on by default) control the players' Report body and Emergency meeting buttons; when off, the buttons disappear and the server refuses those calls. **Call meeting** is always available to the organiser during play, for example after an out-loud report. During a meeting the organiser ends it with **End meeting and continue**; recording the vote result is not built yet. 
+**Body reports** and **Emergency meetings** (organiser controls, any phase, both on by default) control the players' Report body and Emergency meeting buttons; when off, the buttons disappear and the server refuses those calls. **Call meeting** is always available to the organiser during play, for example after an out-loud report. A call only gathers everyone; the organiser then: (1) **Start meeting**, ticking who was found eliminated (recorded bodies are added automatically; every living-looking player is listed alike); (2) with **Vote on phones** (off by default) **Start voting on phones** and **Close voting and show results**, which lists who voted for whom on the host screen, or otherwise records the physical result (a player or nobody); (3) **End meeting and continue**. **Continue without a result** skips the vote. An ejected player becomes a ghost; ejecting the Impostor ends the round with a crew win. 
 
 ## Game settings — implemented
 

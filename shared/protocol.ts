@@ -7,7 +7,7 @@ export const language = z.enum(['en', 'nl']);
 export const createGame = z.object({ name: playerName, language: language.optional(), playing: z.boolean().optional() });
 export const joinGame = z.object({ name: playerName, code: gameCode });
 
-export const errors = ['INVALID_INPUT', 'GAME_NOT_FOUND', 'GAME_FULL', 'NAME_TAKEN', 'NO_SESSION', 'SERVER_ERROR', 'CONNECTION_ERROR', 'ALREADY_JOINED', 'FORBIDDEN', 'NOT_ENOUGH_PLAYERS', 'ROUND_IN_PROGRESS', 'STALE_COMMAND', 'INVALID_PHASE', 'PLAYER_NOT_FOUND', 'CANNOT_REMOVE_ORGANISER', 'NO_STATIONS', 'TOO_MANY_STATIONS', 'STATION_EXISTS', 'TASK_NOT_FOUND', 'WRONG_ANSWER', 'NOT_PLAYING', 'NOT_READY', 'NOT_ALIVE', 'ELIMINATIONS_OFF', 'REPORTS_OFF', 'EMERGENCY_OFF', 'NO_EMERGENCY_LEFT'] as const;
+export const errors = ['INVALID_INPUT', 'GAME_NOT_FOUND', 'GAME_FULL', 'NAME_TAKEN', 'NO_SESSION', 'SERVER_ERROR', 'CONNECTION_ERROR', 'ALREADY_JOINED', 'FORBIDDEN', 'NOT_ENOUGH_PLAYERS', 'ROUND_IN_PROGRESS', 'STALE_COMMAND', 'INVALID_PHASE', 'PLAYER_NOT_FOUND', 'CANNOT_REMOVE_ORGANISER', 'NO_STATIONS', 'TOO_MANY_STATIONS', 'STATION_EXISTS', 'TASK_NOT_FOUND', 'WRONG_ANSWER', 'NOT_PLAYING', 'NOT_READY', 'NOT_ALIVE', 'ELIMINATIONS_OFF', 'REPORTS_OFF', 'EMERGENCY_OFF', 'NO_EMERGENCY_LEFT', 'VOTING_CLOSED', 'PHONE_VOTING_OFF'] as const;
 export type ErrorCode = typeof errors[number];
 export type Role = 'crewmate' | 'impostor';
 export type Phase = 'lobby' | 'active' | 'paused' | 'meeting' | 'ended';
@@ -42,6 +42,7 @@ const seconds = z.number().int().min(0).max(600);
 export const settingsCommand = roundCommand.omit({ action: true }).extend({
   stationAccess: stationAccess.optional(), eliminations: z.boolean().optional(),
   bodyReports: z.boolean().optional(), emergencyMeetings: z.boolean().optional(), discussionTime: seconds.optional(),
+  phoneVoting: z.boolean().optional(),
   emergencyAllowance: z.number().int().min(0).max(5).optional(), progressInterval: z.number().int().min(5).max(300).optional(),
   // These two change the next round only and can be set in the lobby.
   tasksPerPlayer: z.number().int().min(1).max(8).optional(), taskGoalPercent: z.number().int().min(10).max(100).optional(),
@@ -74,13 +75,25 @@ export type TaskPuzzle =
 export type Task = { id: string; stationId: string; done: boolean; puzzle: TaskPuzzle };
 export type Station = { id: string; name: string };
 export type PrintableStation = Station & { codebook: Record<SymbolId, number> };
-export type RoundResult = { winner: 'crew' | 'impostor' | null; reason: 'tasks' | 'eliminations' | 'organiser' | 'departure' };
+export type RoundResult = { winner: 'crew' | 'impostor' | null; reason: 'tasks' | 'eliminations' | 'ejected' | 'organiser' | 'departure' };
 // A body waits silently to be found; it becomes a ghost at the next meeting.
 export type PlayerStatus = 'alive' | 'body' | 'ghost';
 export type MeetingKind = 'report' | 'emergency' | 'organiser';
 // Living players report a body or call an emergency meeting; the organiser can always call one.
 export const callMeeting = z.object({ commandId: z.uuid(), roundId: z.uuid(), kind: z.enum(['report', 'emergency', 'organiser']) });
 export type CallMeeting = z.infer<typeof callMeeting>;
+export type MeetingStage = 'gathering' | 'discussion' | 'voting' | 'result';
+const meetingCommandBase = z.object({ commandId: z.uuid(), roundId: z.uuid(), expectedRevision: z.number().int().nonnegative() });
+// Organiser steps through a meeting. `out`: players found eliminated (besides recorded bodies).
+export const meetingCommand = z.discriminatedUnion('action', [
+  meetingCommandBase.extend({ action: z.literal('start'), out: z.array(z.uuid()).max(8) }),
+  meetingCommandBase.extend({ action: z.literal('openVote') }),
+  meetingCommandBase.extend({ action: z.literal('closeVote') }),
+  meetingCommandBase.extend({ action: z.literal('record'), ejected: z.uuid().nullable() }),
+]);
+export type MeetingCommand = z.infer<typeof meetingCommand>;
+export const castVote = z.object({ roundId: z.uuid(), target: z.union([z.uuid(), z.literal('skip')]) });
+export type CastVote = z.infer<typeof castVote>;
 export const eliminate = z.object({ commandId: z.uuid(), roundId: z.uuid(), targetId: z.uuid() });
 export type Eliminate = z.infer<typeof eliminate>;
 // Returned only to the player who reveals their own role. The Impostor also learns
@@ -103,19 +116,26 @@ export type Lobby = {
   stations: Station[];
   // eliminations: whether the Impostor records eliminations in the app (bodies, Impostor win).
   settings: {
-    stationAccess: StationAccess; eliminations: boolean; bodyReports: boolean; emergencyMeetings: boolean;
+    stationAccess: StationAccess; eliminations: boolean; bodyReports: boolean; emergencyMeetings: boolean; phoneVoting: boolean;
     openingProtection: number; killCooldown: number; discussionTime: number;
     emergencyAllowance: number; progressInterval: number; tasksPerPlayer: number; taskGoalPercent: number;
   };
   // Public while a meeting is on: who called it, the discussion time left when this
   // snapshot was made, and who was found out (bodies turned into ghosts) at its start.
-  // discussionMs is null for an untimed discussion (discussion time 0).
-  meeting?: { kind: MeetingKind; calledBy: string | null; discussionMs: number | null; newGhosts: string[] };
+  // A meeting first gathers everyone, then the organiser starts the discussion, then the
+  // vote (on phones or physical) gives a result. discussionMs is null before the discussion
+  // starts or when it is untimed. Votes stay secret until the vote closes.
+  meeting?: {
+    kind: MeetingKind; calledBy: string | null; stage: MeetingStage; discussionMs: number | null; newGhosts: string[];
+    votes?: { cast: number; eligible: number };
+    result?: { ejected: string | null; tally: { target: string; voters: string[] }[] | null };
+  };
   // Shared progress is published in batches during a round so a single
   // completion cannot prove innocence. It is exact once the round has ended.
   progress: { done: number; goal: number } | null;
   result?: RoundResult;
-  you: { id: string; organiser: boolean; playing: boolean; status: PlayerStatus; emergencyLeft: number; tasks: Task[] };
+  // vote: this player's own vote while voting is open ('skip' or a player id).
+  you: { id: string; organiser: boolean; playing: boolean; status: PlayerStatus; emergencyLeft: number; tasks: Task[]; vote?: string };
 };
 
 export interface ServerEvents {

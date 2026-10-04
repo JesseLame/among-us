@@ -55,7 +55,7 @@ Each living player also has the configured emergency meeting allowance. Ghosts c
 
 On a countdown, all living players simultaneously point at a player or cross their arms to skip. The unique highest vote total determines the result. If a player wins the vote, they are ejected. If skip wins or the highest totals tie, nobody is ejected.
 
-The organiser records the physical result and resumes play if nobody has won. In the default automatic mode, ejecting the Impostor ends the round. Organiser-confirmed results are also available. In-app voting is for later.
+The organiser records the physical result and resumes play if nobody has won. *(Implemented, including an optional in-app phone vote whose results appear on the host screen.)* In the default automatic mode, ejecting the Impostor ends the round. Organiser-confirmed results are also available. In-app voting is for later.
 
 ## Win conditions
 
