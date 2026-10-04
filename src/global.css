@@ -1,0 +1,63 @@
+@import "./styles/fonts.css";
+@import "./styles/theme.css";
+
+:root {
+  font-family: var(--font-body);
+  color: var(--color-text);
+  background: var(--color-page);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+button, input {
+  font: inherit;
+}
+
+button, a, input, [role='tab'], [role='radio'] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: var(--control-disabled-opacity);
+}
+
+:focus-visible, [data-focus-visible] {
+  outline: var(--focus-width) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+
+button, input:not([type='radio']), [role='tab'] {
+  min-height: var(--control-height);
+}
+
+button {
+  border: 0;
+}
+
+::selection {
+  background: var(--color-selection);
+  color: var(--color-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

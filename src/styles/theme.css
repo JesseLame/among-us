@@ -1,0 +1,133 @@
+/* The app's visual theme. Start here for a new look; see docs/design-system.md.
+   Prefer semantic tokens over colour names so components survive a palette change. */
+:root {
+  /* Surfaces, text and borders */
+  --color-page: #f5f3e9;
+  --color-surface: #fffcf4;
+  --color-surface-soft: #edf0e3;
+  --color-text: #263d35;
+  --color-text-muted: #636b61;
+  --color-accent: #b94426;
+  --color-border: #d5d8c8;
+  --color-border-card: #cdd2c2;
+  --color-border-dashed: #afb6a3;
+  --color-label-decorative: #69775d;
+
+  /* Controls and feedback: normal, hover, foreground and focus together */
+  --color-primary: var(--color-text);
+  --color-primary-hover: #3b5846;
+  --color-on-primary: #fffef4;
+  --color-secondary: #e1e7d4;
+  --color-secondary-hover: #d3ddc2;
+  --color-secondary-border: #c2cbb4;
+  --color-on-secondary: var(--color-text);
+  --color-danger: #a83d24;
+  --color-danger-hover: #8c311c;
+  --color-on-danger: #fffaf0;
+  --color-danger-outline: var(--color-accent);
+  --color-danger-border: #ca9c83;
+  --color-danger-subtle-hover: #f3e5d7;
+  --color-input: #fffef9;
+  --color-input-border: #b9bfaf;
+  --color-input-placeholder: #75796e;
+  --color-error-surface: #fbe9dc;
+  --color-error-text: #91351f;
+  --color-notice-surface: #e9eddf;
+  --color-success: #557543;
+  --color-overlay: #15271fd6;
+  --color-focus: var(--color-accent);
+  --color-selection: #edc28b;
+
+  /* Typography. Font loading lives in fonts.css, not in screen components. */
+  --font-body: 'DM Sans', system-ui, sans-serif;
+  --font-heading: 'Space Grotesk', system-ui, sans-serif;
+  --font-accent: Georgia, serif;
+  --text-tiny: 8px;
+  --text-micro: 9px;
+  --text-kicker: 10px;
+  --text-caption: 11px;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-md: 15px;
+  --text-lg: 16px;
+  --text-xl: 18px;
+  --text-brand: 19px;
+  --text-brand-accent: 17px;
+  --text-title: 30px;
+  --text-entry-title: 28px;
+  --text-card-title: 26px;
+  --text-role-title: 27px;
+  --text-dialog-title: 29px;
+  --text-display: clamp(40px, 4.7vw, 65px);
+  --text-display-tablet: 48px;
+  --text-display-mobile: clamp(39px, 8vw, 58px);
+  --text-round-title-mobile: 44px;
+  --text-invite-code: clamp(38px, 5vw, 60px);
+  --leading-copy: 1.7;
+  --leading-help: 1.6;
+  --leading-display: 1.05;
+  --tracking-display: -3.4px;
+  --tracking-display-mobile: -2px;
+
+  /* Shared spacing scale; illustration coordinates stay in the layout module. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-9: 36px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+
+  /* Shape, elevation and interaction */
+  --radius-small: 4px;
+  --radius-control: 5px;
+  --radius-card: 10px;
+  --radius-language-group: 28px;
+  --radius-language-option: 24px;
+  --color-shadow-card: #e2e4d7;
+  --shadow-card: 0 5px 0 var(--color-shadow-card);
+  --shadow-symbol: 5px 5px 0 var(--color-map-furniture);
+  --control-height: 48px;
+  --language-control-height: 44px;
+  --control-disabled-opacity: .65;
+  --focus-width: 3px;
+  --focus-offset: 5px;
+  --motion-fast: 120ms;
+
+  /* Layout sizing: breakpoints remain literal in the CSS modules. */
+  --layout-page-width: 1328px;
+  --layout-player-width: 460px;
+  --layout-dialog-width: 490px;
+  --layout-page-gutter: var(--space-16);
+  --layout-page-gutter-tablet: var(--space-8);
+  --layout-page-gutter-mobile: 22px;
+  --layout-page-gutter-small: var(--space-4);
+  --layout-hero-gap: 84px;
+  --layout-round-gap: var(--space-20);
+  --layout-gap-tablet: 35px;
+  --layout-card-padding: var(--space-8);
+  --layout-card-padding-mobile: var(--space-6);
+
+  /* Decorative house diagram and player avatars */
+  --color-avatar-1: #e8c3a5;
+  --color-avatar-2: #d0dbc1;
+  --color-avatar-3: #cedbdc;
+  --color-avatar-4: #e0d1e0;
+  --color-map-wall: #70806a;
+  --color-map-floor: #e7eadb;
+  --color-map-shadow: #e0e3d4;
+  --color-map-label: #68745f;
+  --color-map-counter-border: #89957c;
+  --color-map-counter: #d4dcc5;
+  --color-map-furniture-border: #88977a;
+  --color-map-furniture: #cbd5be;
+  --color-map-path: #96a086;
+  --color-map-pawn-text: #fff8e8;
+  --color-map-pawn-shadow: #a13720;
+}

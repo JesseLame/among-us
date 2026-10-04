@@ -1,0 +1,271 @@
+/* Shared controls and surfaces. Use theme tokens; keep game logic in React/server. */
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-card);
+  border-radius: var(--radius-card);
+}
+
+.languages {
+  display: flex;
+  gap: var(--space-1);
+  border: 1px solid var(--color-border);
+  padding: var(--space-1);
+  border-radius: var(--radius-language-group);
+}
+
+.languages > label {
+  min-width: var(--control-height);
+  min-height: var(--language-control-height);
+  display: grid;
+  place-items: center;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  border-radius: var(--radius-language-option);
+  cursor: pointer;
+}
+
+.languages > label[data-selected] {
+  background: var(--color-text);
+  color: var(--color-page);
+}
+
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: var(--space-6);
+  gap: 22px;
+}
+
+.tabs > * {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0 2px 10px;
+}
+
+.tabs > [data-selected] {
+  color: var(--color-text);
+}
+
+.tabs > [data-selected]::after {
+  content: '';
+  height: 3px;
+  background: var(--color-text);
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-bottom: 22px;
+}
+
+.field label {
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.field input {
+  width: 100%;
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-control);
+  padding: 14px;
+  color: var(--color-text);
+  background: var(--color-input);
+  font-size: var(--text-lg);
+}
+
+.field input::placeholder {
+  color: var(--color-input-placeholder);
+  font-size: var(--text-sm);
+  letter-spacing: 0;
+}
+
+.field small {
+  font-size: var(--text-caption);
+  color: var(--color-text-muted);
+}
+
+.codeInput {
+  letter-spacing: 4px;
+  font-family: var(--font-heading);
+}
+
+.primary {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border-radius: var(--radius-control);
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-4) 19px;
+  gap: var(--space-4);
+  font-weight: 600;
+  font-size: var(--text-base);
+  transition: background var(--motion-fast);
+}
+
+.primary[data-hovered] {
+  background: var(--color-primary-hover);
+}
+
+.primary span {
+  font-size: 23px;
+  line-height: 1;
+}
+
+.error {
+  background: var(--color-error-surface);
+  color: var(--color-error-text);
+  padding: var(--space-3);
+  border-radius: var(--radius-small);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.secondary {
+  background: var(--color-secondary);
+  color: var(--color-on-secondary);
+  border: 1px solid var(--color-secondary-border);
+  border-radius: var(--radius-control);
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  font-size: var(--text-sm);
+}
+
+.secondary[data-hovered] {
+  background: var(--color-secondary-hover);
+}
+
+.badge {
+  margin-left: auto;
+  font-size: var(--text-micro);
+  background: var(--color-notice-surface);
+  padding: 6px var(--space-2);
+  border-radius: var(--radius-small);
+}
+
+.note {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-copy);
+}
+
+.endButton {
+  color: var(--color-danger-outline);
+  background: transparent;
+  border: 1px solid var(--color-danger-border);
+  border-radius: var(--radius-control);
+  padding: var(--space-3) var(--space-4);
+  margin-top: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.endButton[data-hovered] {
+  background: var(--color-danger-subtle-hover);
+}
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: var(--color-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  padding: var(--space-5);
+  overflow-y: auto;
+}
+
+.modal {
+  background: var(--color-page);
+  color: var(--color-text);
+  border-radius: var(--radius-card);
+  padding: 30px;
+  width: 100%;
+  max-width: var(--layout-dialog-width);
+  max-height: calc(100dvh - 40px);
+  overflow: auto;
+}
+
+.modal h2 {
+  font: 500 var(--text-dialog-title)/1.2 var(--font-heading);
+  letter-spacing: -1px;
+  margin: 0 0 var(--space-4);
+}
+
+.modal p {
+  font-size: var(--text-md);
+  line-height: var(--leading-copy);
+}
+
+.dialogActions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+}
+
+.dialogActions button {
+  justify-content: center;
+}
+
+.dangerButton {
+  background: var(--color-danger);
+  color: var(--color-on-danger);
+  border-radius: var(--radius-control);
+  padding: 14px var(--space-4);
+  font-weight: 600;
+}
+
+.dangerButton[data-hovered] {
+  background: var(--color-danger-hover);
+}
+
+.removeButton {
+  background: transparent;
+  border: 1px solid var(--color-danger-border);
+  border-radius: var(--radius-control);
+  padding: 10px var(--space-3);
+  color: var(--color-danger-outline);
+  font-size: var(--text-xs);
+  flex-shrink: 0;
+}
+
+.removeButton[data-hovered] {
+  background: var(--color-danger-subtle-hover);
+}
+
+.sessionNotice {
+  background: var(--color-notice-surface);
+  color: var(--color-text);
+  padding: 14px;
+  border-left: 3px solid var(--color-text);
+  font-size: var(--text-sm);
+  line-height: var(--leading-help);
+}
+
+@media (max-width: 760px) {
+  .modal {
+    padding: var(--space-6);
+  }
+}
+
+@media (max-width: 360px) {
+  .badge {
+    padding: 5px;
+    font-size: var(--text-tiny);
+  }
+}
