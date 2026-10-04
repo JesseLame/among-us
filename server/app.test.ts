@@ -765,13 +765,17 @@ describe('organiser corrections and recovery', () => {
       const current = await game.snapshot();
       return (await app.post('/api/corrections', { ...change, commandId: randomUUID(), roundId: current.roundId, expectedRevision: current.revision }, cookie)).json();
     };
-    return { app, game, lobby, roles, ids, fix };
+    // Stations get tasks at random, and the goal is rounded up, so removing a station with
+    // only one real task can leave the goal unchanged. The busiest station always lowers it.
+    const crewTasks = (await Promise.all(game.cookies.filter((_, index) => roles[index] === 'crewmate').map(async cookie => (await game.snapshot(cookie)).you.tasks))).flat();
+    const busiest = [...lobby.stations].sort((a, b) => crewTasks.filter(task => task.stationId === b.id).length - crewTasks.filter(task => task.stationId === a.id).length)[0];
+    return { app, game, lobby, roles, ids, fix, busiest };
   }
 
   it('credits or removes a broken station for everyone and rechecks the task goal', async () => {
-    const { game, lobby, fix } = await round();
+    const { game, lobby, fix, busiest: first } = await round();
     expect((await fix({ action: 'restoreEmergency' }, game.cookies[1])).error).toBe('FORBIDDEN');
-    const [first, ...others] = lobby.stations;
+    const others = lobby.stations.filter(station => station.id !== first.id);
     const before = (await game.snapshot()).progress!;
     await fix({ action: 'removeStationTasks', stationId: first.id });
     for (const cookie of game.cookies) expect((await game.snapshot(cookie)).you.tasks.some(task => task.stationId === first.id)).toBe(false);
@@ -863,7 +867,7 @@ describe('organiser corrections and recovery', () => {
   });
 
   it('previews whether a change ends the round without applying it or naming a team', async () => {
-    const { app, game, roles, ids, lobby } = await round();
+    const { app, game, roles, ids, lobby, busiest } = await round();
     const preview = async (path: string, body: object, cookie = game.cookies[0]) => {
       const current = await game.snapshot();
       return (await app.post(path, { ...body, commandId: randomUUID(), roundId: current.roundId, expectedRevision: current.revision, code: current.code }, cookie)).json();
@@ -875,7 +879,7 @@ describe('organiser corrections and recovery', () => {
     expect(await preview('/api/corrections/preview', { action: 'setStatus', playerId: crewmate, status: 'ghost' })).toEqual({ preview: { outcome: 'continues', goal: lobby.progress!.goal } });
     expect((await preview('/api/room/preview', { action: 'remove', playerId: impostor })).preview.outcome).toBe('ends');
     expect((await preview('/api/room/preview', { action: 'remove', playerId: crewmate })).preview.goal).toBeLessThan(lobby.progress!.goal);
-    const removeStation = await preview('/api/corrections/preview', { action: 'removeStationTasks', stationId: lobby.stations[0].id });
+    const removeStation = await preview('/api/corrections/preview', { action: 'removeStationTasks', stationId: busiest.id });
     expect(removeStation.preview.goal).toBeLessThan(lobby.progress!.goal);
     // Nothing was applied.
     const unchanged = await game.snapshot();
