@@ -9,7 +9,6 @@ export class GameError extends Error {
   constructor(public code: ErrorCode, public status = 400) { super(code); }
 }
 type Player = { id: string; game_code: string; name: string; organiser: number; playing: number; role: Role | null; removed: number; status: PlayerStatus; emergency_used: number; test: number };
-const EMERGENCY_ALLOWANCE = 1;
 type Game = {
   code: string; phase: Phase; round_id: string | null; revision: number; pause_reason: Lobby['pauseReason'];
   winner: RoundResult['winner']; end_reason: RoundResult['reason'] | null;
@@ -17,6 +16,8 @@ type Game = {
   progress_interval: number; progress_shown: number; progress_shown_at: number;
   station_access: StationAccess; eliminations: number; body_reports: number; emergency_meetings: number; discussion_time: number;
   meeting_kind: MeetingKind | null; meeting_by: string | null; meeting_at: number | null; meeting_ghosts: string | null;
+  // The discussion length fixed when the meeting started, so later edits affect the next meeting.
+  meeting_discussion: number | null; emergency_allowance: number;
   opening_protection: number; kill_cooldown: number;
   // Active play time: clock_ms plus, while active, the time since clock_at.
   // The play-clock time from which the Impostor may eliminate (protection, then cooldown).
@@ -125,6 +126,14 @@ export function createStore(path: string, now: () => number = Date.now) {
     if (version < 9) {
       db.exec('ALTER TABLE players ADD COLUMN test INTEGER NOT NULL DEFAULT 0; PRAGMA user_version = 9;');
     }
+    if (version < 10) {
+      db.exec(`
+        ALTER TABLE games ADD COLUMN emergency_allowance INTEGER NOT NULL DEFAULT 1;
+        ALTER TABLE games ADD COLUMN meeting_discussion INTEGER;
+        UPDATE games SET meeting_discussion = discussion_time WHERE phase = 'meeting';
+        PRAGMA user_version = 10;
+      `);
+    }
   });
   function addStations(code: string, names: string[]) {
     const insert = db.prepare('INSERT INTO stations (id, game_code, name, position, codebook) VALUES (?, ?, ?, (SELECT COALESCE(MAX(position), -1) + 1 FROM stations WHERE game_code = ?), ?)');
@@ -162,17 +171,19 @@ export function createStore(path: string, now: () => number = Date.now) {
         stationAccess: game.station_access, eliminations: Boolean(game.eliminations),
         bodyReports: Boolean(game.body_reports), emergencyMeetings: Boolean(game.emergency_meetings),
         openingProtection: game.opening_protection, killCooldown: game.kill_cooldown, discussionTime: game.discussion_time,
+        emergencyAllowance: game.emergency_allowance, progressInterval: game.progress_interval,
+        tasksPerPlayer: game.tasks_per_player, taskGoalPercent: game.task_goal_percent,
       },
       ...(game.phase === 'meeting' ? { meeting: {
         kind: game.meeting_kind!, calledBy: game.meeting_by,
-        discussionMs: Math.max(0, game.meeting_at! + game.discussion_time * 1000 - now()),
+        discussionMs: game.meeting_discussion ? Math.max(0, game.meeting_at! + game.meeting_discussion * 1000 - now()) : null,
         newGhosts: JSON.parse(game.meeting_ghosts ?? '[]') as string[],
       } } : {}),
       progress: totals && { done: game.phase === 'ended' ? totals.done : Math.min(game.progress_shown, totals.goal), goal: totals.goal },
       // Status is private to its owner: an undiscovered body looks alive to everyone else.
       you: {
         id: player.id, organiser: Boolean(player.organiser), playing: Boolean(player.playing), status: playing ? player.status : 'alive',
-        emergencyLeft: Math.max(0, EMERGENCY_ALLOWANCE - player.emergency_used), tasks,
+        emergencyLeft: Math.max(0, game.emergency_allowance - player.emergency_used), tasks,
       },
       ...(game.phase === 'ended' ? {
         revealedRoles: players.filter(p => p.playing && p.role).map(p => ({ id: p.id, role: p.role! })),
@@ -442,13 +453,17 @@ export function createStore(path: string, now: () => number = Date.now) {
     const payload = JSON.stringify(input);
     if (alreadyApplied(input.commandId, organiser.id, payload)) return lobby(token)!;
     if (game.revision !== input.expectedRevision || game.round_id !== input.roundId) throw new GameError('STALE_COMMAND', 409);
+    if ((input.tasksPerPlayer !== undefined || input.taskGoalPercent !== undefined) && game.phase !== 'lobby') throw new GameError('INVALID_PHASE', 409);
     const flag = (value: boolean | undefined) => value === undefined ? null : Number(value);
     db.prepare(`UPDATE games SET station_access = COALESCE(?, station_access), eliminations = COALESCE(?, eliminations),
       body_reports = COALESCE(?, body_reports), emergency_meetings = COALESCE(?, emergency_meetings),
       opening_protection = COALESCE(?, opening_protection), kill_cooldown = COALESCE(?, kill_cooldown),
-      discussion_time = COALESCE(?, discussion_time), revision = revision + 1 WHERE code = ?`)
+      discussion_time = COALESCE(?, discussion_time), emergency_allowance = COALESCE(?, emergency_allowance),
+      progress_interval = COALESCE(?, progress_interval), tasks_per_player = COALESCE(?, tasks_per_player),
+      task_goal_percent = COALESCE(?, task_goal_percent), revision = revision + 1 WHERE code = ?`)
       .run(input.stationAccess ?? null, flag(input.eliminations), flag(input.bodyReports), flag(input.emergencyMeetings),
-        input.openingProtection ?? null, input.killCooldown ?? null, input.discussionTime ?? null, game.code);
+        input.openingProtection ?? null, input.killCooldown ?? null, input.discussionTime ?? null, input.emergencyAllowance ?? null,
+        input.progressInterval ?? null, input.tasksPerPlayer ?? null, input.taskGoalPercent ?? null, game.code);
     recordCommand(input.commandId, game.code, organiser.id, payload);
     return lobby(token)!;
   });
@@ -479,14 +494,14 @@ export function createStore(path: string, now: () => number = Date.now) {
       if (input.kind === 'report' && !game.body_reports) throw new GameError('REPORTS_OFF', 409);
       if (input.kind === 'emergency') {
         if (!game.emergency_meetings) throw new GameError('EMERGENCY_OFF', 409);
-        if (player.emergency_used >= EMERGENCY_ALLOWANCE) throw new GameError('NO_EMERGENCY_LEFT', 409);
+        if (player.emergency_used >= game.emergency_allowance) throw new GameError('NO_EMERGENCY_LEFT', 409);
         db.prepare('UPDATE players SET emergency_used = emergency_used + 1 WHERE id = ?').run(player.id);
       }
     }
     const found = (db.prepare("SELECT id FROM players WHERE game_code = ? AND status = 'body' AND removed = 0").all(game.code) as { id: string }[]).map(p => p.id);
     db.prepare("UPDATE players SET status = 'ghost' WHERE game_code = ? AND status = 'body'").run(game.code);
     db.prepare(`UPDATE games SET phase = 'meeting', clock_ms = ?, meeting_kind = ?, meeting_by = ?, meeting_at = ?, meeting_ghosts = ?,
-      revision = revision + 1 WHERE code = ?`).run(elapsed(game), input.kind, input.kind === 'organiser' ? null : player.id, now(), JSON.stringify(found), game.code);
+      meeting_discussion = discussion_time, revision = revision + 1 WHERE code = ?`).run(elapsed(game), input.kind, input.kind === 'organiser' ? null : player.id, now(), JSON.stringify(found), game.code);
     recordCommand(input.commandId, game.code, player.id, payload);
     return game.code;
   });

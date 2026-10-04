@@ -221,7 +221,7 @@ describe('private roles and round lifecycle', () => {
     expect(lobby.roundId).toBeNull();
     const originalSession = (await (await fetch(`${app.url}/api/session`, { headers: { Cookie: 'home_session=old-session' } })).json()).lobby;
     expect(originalSession.you).toEqual({ id: 'original', organiser: true, playing: true, status: 'alive', emergencyLeft: 1, tasks: [] });
-    expect(originalSession.settings).toEqual({ stationAccess: 'qr', eliminations: true, bodyReports: true, emergencyMeetings: true, openingProtection: 60, killCooldown: 60, discussionTime: 90 });
+    expect(originalSession.settings).toEqual({ stationAccess: 'qr', eliminations: true, bodyReports: true, emergencyMeetings: true, openingProtection: 60, killCooldown: 60, discussionTime: 90, emergencyAllowance: 1, progressInterval: 30, tasksPerPlayer: 4, taskGoalPercent: 80 });
     expect(originalSession.stations.map((station: { name: string }) => station.name)).toEqual(['Kitchen', 'Living room', 'Hallway', 'Study']);
   });
 });
@@ -370,7 +370,7 @@ describe('stations and tasks', () => {
     lobby = (await (await app.post('/api/round/commands', roundInput(lobby, 'start'), host)).json()).lobby;
     expect((await (await app.post('/api/stations/commands', stationInput(lobby, { action: 'add', name: 'Tuin' }), host)).json()).error).toBe('INVALID_PHASE');
     // Station access defaults to QR-only; only the organiser can change it, also mid-round.
-    expect(lobby.settings).toEqual({ stationAccess: 'qr', eliminations: true, bodyReports: true, emergencyMeetings: true, openingProtection: 60, killCooldown: 60, discussionTime: 90 });
+    expect(lobby.settings).toEqual({ stationAccess: 'qr', eliminations: true, bodyReports: true, emergencyMeetings: true, openingProtection: 60, killCooldown: 60, discussionTime: 90, emergencyAllowance: 1, progressInterval: 30, tasksPerPlayer: 4, taskGoalPercent: 80 });
     const settings = { commandId: randomUUID(), expectedRevision: lobby.revision, roundId: lobby.roundId, stationAccess: 'manual' };
     expect((await app.post('/api/settings/commands', settings, guest)).status).toBe(403);
     expect((await app.post('/api/settings/commands', { ...settings, stationAccess: 'anything' }, host)).status).toBe(400);
@@ -656,5 +656,30 @@ describe('test players', () => {
     const ended: Lobby = (await (await fetch(`${app.url}/api/session`, { headers: { Cookie: host } })).json()).lobby;
     expect(ended.result).toEqual({ winner: 'impostor', reason: 'eliminations' });
     expect(ended.revealedRoles!.filter(entry => entry.role === 'crewmate')).toHaveLength(3);
+  });
+});
+
+describe('game settings', () => {
+  it('changes numbers within limits, keeps task settings for the lobby, and applies them to the next round or meeting', async () => {
+    const app = await start();
+    const game = await crew(app);
+    const change = async (lobby: Lobby, settings: object) => (await app.post('/api/settings/commands', { commandId: randomUUID(), expectedRevision: lobby.revision, roundId: lobby.roundId, ...settings }, game.cookies[0])).json();
+    expect((await app.post('/api/settings/commands', { commandId: randomUUID(), expectedRevision: game.lobby.revision, roundId: null, tasksPerPlayer: 9 }, game.cookies[0])).status).toBe(400);
+    let lobby: Lobby = (await change(game.lobby, { tasksPerPlayer: 2, taskGoalPercent: 50, discussionTime: 0, emergencyAllowance: 2, openingProtection: 0 })).lobby;
+    expect(lobby.settings).toMatchObject({ tasksPerPlayer: 2, taskGoalPercent: 50, discussionTime: 0, emergencyAllowance: 2 });
+    lobby = (await (await app.post('/api/round/commands', roundInput(lobby, 'start'), game.cookies[0])).json()).lobby;
+    expect(lobby.progress).toEqual({ done: 0, goal: 5 });
+    expect((await change(lobby, { tasksPerPlayer: 3 })).error).toBe('INVALID_PHASE');
+    const guest = await game.snapshot(game.cookies[1]);
+    expect(guest.you.tasks).toHaveLength(2);
+    expect(guest.you.emergencyLeft).toBe(2);
+    // An untimed discussion; changing the time mid-meeting only affects the next meeting.
+    const meeting = await (await app.post('/api/meetings', { commandId: randomUUID(), roundId: lobby.roundId, kind: 'organiser' }, game.cookies[0])).json();
+    expect(meeting.lobby.meeting.discussionMs).toBeNull();
+    lobby = (await change(meeting.lobby, { discussionTime: 45 })).lobby;
+    expect(lobby.meeting!.discussionMs).toBeNull();
+    lobby = (await (await app.post('/api/round/commands', roundInput(lobby, 'endMeeting'), game.cookies[0])).json()).lobby;
+    lobby = (await (await app.post('/api/meetings', { commandId: randomUUID(), roundId: lobby.roundId, kind: 'organiser' }, game.cookies[0])).json()).lobby;
+    expect(lobby.meeting!.discussionMs).toBe(45_000);
   });
 });

@@ -42,6 +42,9 @@ const seconds = z.number().int().min(0).max(600);
 export const settingsCommand = roundCommand.omit({ action: true }).extend({
   stationAccess: stationAccess.optional(), eliminations: z.boolean().optional(),
   bodyReports: z.boolean().optional(), emergencyMeetings: z.boolean().optional(), discussionTime: seconds.optional(),
+  emergencyAllowance: z.number().int().min(0).max(5).optional(), progressInterval: z.number().int().min(5).max(300).optional(),
+  // These two change the next round only and can be set in the lobby.
+  tasksPerPlayer: z.number().int().min(1).max(8).optional(), taskGoalPercent: z.number().int().min(10).max(100).optional(),
   openingProtection: seconds.optional(), killCooldown: seconds.optional(),
 });
 export type SettingsCommand = z.infer<typeof settingsCommand>;
@@ -102,10 +105,12 @@ export type Lobby = {
   settings: {
     stationAccess: StationAccess; eliminations: boolean; bodyReports: boolean; emergencyMeetings: boolean;
     openingProtection: number; killCooldown: number; discussionTime: number;
+    emergencyAllowance: number; progressInterval: number; tasksPerPlayer: number; taskGoalPercent: number;
   };
   // Public while a meeting is on: who called it, the discussion time left when this
   // snapshot was made, and who was found out (bodies turned into ghosts) at its start.
-  meeting?: { kind: MeetingKind; calledBy: string | null; discussionMs: number; newGhosts: string[] };
+  // discussionMs is null for an untimed discussion (discussion time 0).
+  meeting?: { kind: MeetingKind; calledBy: string | null; discussionMs: number | null; newGhosts: string[] };
   // Shared progress is published in batches during a round so a single
   // completion cannot prove innocence. It is exact once the round has ended.
   progress: { done: number; goal: number } | null;

@@ -1322,6 +1322,19 @@
   padding: 6px var(--space-2);
 }
 
+.gameSettings {
+  margin-top: var(--space-4);
+  padding-top: var(--space-2);
+  border-top: 1px dashed var(--color-border);
+}
+
+.gameSettings summary {
+  cursor: pointer;
+  padding: 15px 0;
+  min-height: var(--control-height);
+  font: 600 var(--text-base) var(--font-heading);
+}
+
 /* Organiser controls: link to print materials */
 .printLink {
   display: grid;

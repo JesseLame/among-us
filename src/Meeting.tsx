@@ -19,7 +19,8 @@ export function MeetingCard({ lobby, language }: Pick<Props, 'lobby' | 'language
   const [received, setReceived] = useState(() => Date.now());
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { setReceived(Date.now()); setNow(Date.now()); }, [meeting?.discussionMs]);
-  const remaining = meeting ? Math.max(0, meeting.discussionMs - (now - received)) : 0;
+  const untimed = meeting?.discussionMs === null;
+  const remaining = meeting && !untimed ? Math.max(0, meeting.discussionMs! - (now - received)) : 0;
   useEffect(() => {
     if (remaining <= 0) return;
     const timer = setInterval(() => setNow(Date.now()), 250);
@@ -36,7 +37,8 @@ export function MeetingCard({ lobby, language }: Pick<Props, 'lobby' | 'language
     {caller && <p>{meeting.kind === 'report' ? t.reportedBy : t.calledBy} <strong>{caller}</strong></p>}
     <p>{t.gatherText}</p>
     <p className={styles.meetingGhosts}>{ghosts.length ? <>{t.newGhostsText} <strong>{ghosts.join(', ')}</strong></> : t.noNewGhosts}</p>
-    {remaining > 0
+    {untimed ? <p className={styles.meetingVote} role="status">{t.discussionUntimed}</p>
+      : remaining > 0
       ? <p className={styles.meetingTimer} role="timer" aria-live="off">{t.discussionLeft} <strong>{clock(remaining)}</strong></p>
       : <p className={styles.meetingVote} role="status">{t.voteNow}</p>}
     {lobby.you.status === 'ghost' && <p className={ui.note}>{t.ghostMeeting}</p>}

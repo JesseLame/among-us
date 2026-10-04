@@ -29,11 +29,23 @@ In the lobby, **Room management → Add test player** adds "Test 1", "Test 2"…
 
 ## Meetings — implemented
 
-**Body reports** and **Emergency meetings** (organiser controls, any phase, both on by default) control the players' Report body and Emergency meeting buttons; when off, the buttons disappear and the server refuses those calls. **Call meeting** is always available to the organiser during play, for example after an out-loud report. During a meeting the organiser ends it with **End meeting and continue**; recording the vote result is not built yet. Discussion time (default 90 s) is stored per room and accepted by the settings command; there is no on-screen control yet.
+**Body reports** and **Emergency meetings** (organiser controls, any phase, both on by default) control the players' Report body and Emergency meeting buttons; when off, the buttons disappear and the server refuses those calls. **Call meeting** is always available to the organiser during play, for example after an out-loud report. During a meeting the organiser ends it with **End meeting and continue**; recording the vote result is not built yet. 
 
-## Timer settings — partly implemented
+## Game settings — implemented
 
-Opening protection and elimination cooldown (default 60 s each, 0–600 s) are stored per room and accepted by the settings command; changes apply to the next timer, not one already running. There are no organiser controls for them on screen yet (stage 4); the browser tests use the command to shorten them.
+**Game settings** in the organiser controls holds number fields that save automatically:
+
+| Setting | Default | Range | Takes effect |
+| --- | --- | --- | --- |
+| Time before the first elimination | 60 s | 0–600 | next round start |
+| Time between eliminations | 60 s | 0–600 | next elimination |
+| Discussion time (0 = no limit) | 90 s | 0–600 | next meeting |
+| Emergency meetings per player | 1 | 0–5 | immediately |
+| Tasks per player | 4 | 1–8 | next round; lobby only |
+| Task goal (% of real tasks) | 80 % | 10–100 | next round; lobby only |
+| Progress update interval | 30 s | 5–300 | immediately |
+
+Task count and goal can only change in the lobby, so a change cannot end a running round. Timer changes never alter a timer already running.
 
 ## Station access — implemented
 

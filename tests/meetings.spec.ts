@@ -71,3 +71,20 @@ test('reports and emergency meetings gather everyone, reveal ghosts, and can be 
     await expect(pages[1].getByRole('heading', { name: 'Meeting called.' })).toBeVisible();
   } finally { for (const context of contexts) await context.close(); }
 });
+
+test('the organiser changes game settings with number fields', async ({ page }, testInfo) => {
+  await page.request.post('/api/games', { data: { name: 'Laptop', language: 'en', playing: false } });
+  await page.goto('/');
+  await page.getByText('Game settings', { exact: true }).click();
+  const increase = page.getByRole('button', { name: 'Increase Time before the first elimination (seconds)' });
+  await increase.click();
+  await increase.click();
+  await page.getByRole('textbox', { name: 'Discussion time (seconds, 0 = no limit)' }).fill('0');
+  await page.getByRole('textbox', { name: 'Discussion time (seconds, 0 = no limit)' }).blur();
+  await expect.poll(async () => (await (await page.request.get('/api/session')).json()).lobby.settings).toMatchObject({ openingProtection: 70, discussionTime: 0 });
+  await expect(page.getByRole('textbox', { name: 'Time before the first elimination (seconds)' })).toHaveValue('70');
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.getByText('Game settings', { exact: true }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: testInfo.outputPath('game-settings-mobile.png'), fullPage: true });
+});
