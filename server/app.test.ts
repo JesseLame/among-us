@@ -627,3 +627,34 @@ describe('meetings', () => {
     expect(lobby.phase).toBe('ended');
   });
 });
+
+describe('test players', () => {
+  it('adds Crewmate test players without tasks that the Impostor can eliminate', async () => {
+    const app = await start();
+    const created = await app.post('/api/games', { name: 'Laptop', playing: false });
+    const host = created.headers.get('set-cookie')!;
+    let lobby: Lobby = (await created.json()).lobby;
+    const add = () => app.post('/api/room/commands', { action: 'addTestPlayer', commandId: randomUUID(), code: lobby.code, expectedRevision: lobby.revision, roundId: lobby.roundId }, host);
+    expect((await (await add()).json()).error).toBeUndefined();
+    lobby = (await (await fetch(`${app.url}/api/session`, { headers: { Cookie: host } })).json()).lobby;
+    // Only test players: nobody real could be the Impostor.
+    expect((await (await app.post('/api/round/commands', roundInput(lobby, 'start'), host)).json()).error).toBe('NOT_ENOUGH_PLAYERS');
+    const phone = (await app.post('/api/games/join', { name: 'Phone', code: lobby.code })).headers.get('set-cookie')!;
+    lobby = (await (await fetch(`${app.url}/api/session`, { headers: { Cookie: host } })).json()).lobby;
+    for (let index = 0; index < 2; index++) lobby = (await (await add()).json()).lobby;
+    expect(lobby.players.filter(player => player.test).map(player => player.name)).toEqual(['Test 1', 'Test 2', 'Test 3']);
+    lobby = (await (await app.post('/api/settings/commands', { commandId: randomUUID(), expectedRevision: lobby.revision, roundId: null, openingProtection: 0, killCooldown: 0 }, host)).json()).lobby;
+    lobby = (await (await app.post('/api/round/commands', roundInput(lobby, 'start'), host)).json()).lobby;
+    expect((await add()).status).toBe(409);
+    const role = await (await fetch(`${app.url}/api/role?roundId=${lobby.roundId}`, { headers: { Cookie: phone } })).json();
+    expect(role.role).toBe('impostor');
+    expect(role.elimination.targets.map((target: { name: string }) => target.name)).toEqual(['Test 1', 'Test 2', 'Test 3']);
+    expect(lobby.progress).toEqual({ done: 0, goal: 0 });
+    const kill = (targetId: string) => app.post('/api/eliminate', { commandId: randomUUID(), roundId: lobby.roundId, targetId }, phone);
+    expect((await (await kill(role.elimination.targets[0].id)).json()).ended).toBe(false);
+    expect((await (await kill(role.elimination.targets[1].id)).json()).ended).toBe(true);
+    const ended: Lobby = (await (await fetch(`${app.url}/api/session`, { headers: { Cookie: host } })).json()).lobby;
+    expect(ended.result).toEqual({ winner: 'impostor', reason: 'eliminations' });
+    expect(ended.revealedRoles!.filter(entry => entry.role === 'crewmate')).toHaveLength(3);
+  });
+});

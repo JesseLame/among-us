@@ -30,6 +30,17 @@ export default function RoomControls({ lobby, language, connected, onUpdate, onE
       : { input: { ...base, action: 'destroy' } });
   }
 
+  // Adding a test player needs no confirmation; it is undone with Remove.
+  async function addTestPlayer() {
+    if (inFlight.current || !connected) return;
+    inFlight.current = true; setBusy(true); setError(null);
+    try {
+      const result = await request('/api/room/commands', { action: 'addTestPlayer', commandId: commandId(), code: lobby.code, expectedRevision: lobby.revision, roundId: lobby.roundId });
+      if (result.lobby) onUpdate(result.lobby);
+    } catch (failure) { setError(codeFor(failure)); }
+    finally { inFlight.current = false; setBusy(false); }
+  }
+
   async function confirm() {
     if (!selection || inFlight.current || !connected) return;
     inFlight.current = true; setBusy(true); setError(null);
@@ -57,10 +68,15 @@ export default function RoomControls({ lobby, language, connected, onUpdate, onE
     <p className={ui.note}>{t.managePlayersHelp}</p>
     <ul className={styles.managePlayers}>
       {lobby.players.filter(player => !player.removed).map(player => <li key={player.id}>
-        <span>{player.name}</span>
+        <span>{player.name}{player.test && <small> · {t.testBadge}</small>}</span>
         {player.organiser ? <small>{t.you}</small> : <Button className={ui.removeButton} isDisabled={busy || !connected} aria-label={`${t.removePlayer} ${player.name}`} onPress={() => choose(player)}>{t.removePlayer}</Button>}
       </li>)}
     </ul>
+    {lobby.phase === 'lobby' && lobby.players.filter(player => player.playing).length < 8 && <div className={styles.testPlayers}>
+      <Button className={ui.secondary} isDisabled={busy || !connected} onPress={() => void addTestPlayer()}>{t.addTestPlayer}<span aria-hidden="true">+</span></Button>
+      <p className={ui.note}>{t.testPlayersHelp}</p>
+    </div>}
+    {error && !selection && <p className={ui.error} role="alert">{errorMessages[language][error]}</p>}
     <Button className={ui.endButton} isDisabled={busy || !connected} onPress={() => choose()}>{t.deleteRoom}</Button>
     <ModalOverlay className={ui.modalOverlay} isOpen={Boolean(selection)} onOpenChange={open => { if (!open && !busy) setSelection(null); }} isDismissable={!busy} isKeyboardDismissDisabled={busy}>
       <Modal className={ui.modal}>

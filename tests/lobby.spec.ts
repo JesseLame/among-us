@@ -55,6 +55,11 @@ test('a host-only organiser shows a join QR code and runs the round without a ro
   try {
     expect((await context.request.post('/api/games/join', { data: { code, name: 'Phone' } })).status()).toBe(201);
     await expect(page.getByText('1 / 8', { exact: true })).toBeVisible();
+    await page.getByText('Room management', { exact: true }).click();
+    await page.getByRole('button', { name: 'Add test player' }).click();
+    await page.getByRole('button', { name: 'Add test player' }).click();
+    await expect(page.getByText('3 / 8', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Remove Test 2', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Start round', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Playing' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Your secret role' })).toHaveCount(0);
@@ -63,5 +68,8 @@ test('a host-only organiser shows a join QR code and runs the round without a ro
     const guest = await context.newPage();
     await guest.goto('/');
     await expect(guest.getByRole('heading', { name: 'Your secret role' })).toBeVisible();
+    // Test players are Crewmates, so the only real phone is the Impostor.
+    await guest.getByRole('button', { name: 'Reveal my role' }).click();
+    await expect(guest.getByRole('heading', { name: 'Impostor', exact: true })).toBeVisible();
   } finally { await context.close(); }
 });

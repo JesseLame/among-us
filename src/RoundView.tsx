@@ -206,6 +206,7 @@ export default function RoundView(props: Props) {
       <ul className={styles.roster}>{lobby.players.filter(player => player.playing).map((player, index) => <li key={player.id}>
         <span className={styles.avatar} data-color={index % 4} aria-hidden="true">{player.name.charAt(0).toUpperCase()}</span>
         <span className={styles.playerName}>{player.name}</span>
+        {player.test && <span className={ui.badge}>{t.testBadge}</span>}
         {player.out && <span className={ui.badge}>{t.ghostBadge}</span>}
       </li>)}</ul>
     </section> : <div className={styles.roundColumn}>

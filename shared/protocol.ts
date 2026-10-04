@@ -22,6 +22,8 @@ const roomCommandBase = roundCommand.omit({ action: true }).extend({ code: gameC
 export const roomCommand = z.discriminatedUnion('action', [
   roomCommandBase.extend({ action: z.literal('remove'), playerId: z.uuid() }),
   roomCommandBase.extend({ action: z.literal('destroy') }),
+  // A test player for trying rounds with few phones: always a Crewmate, without tasks.
+  roomCommandBase.extend({ action: z.literal('addTestPlayer') }),
 ]);
 export type RoomCommand = z.infer<typeof roomCommand>;
 export const stationName = z.string().trim().min(1).max(24);
@@ -94,7 +96,7 @@ export type Lobby = {
   pauseReason: 'organiser' | 'restart' | null;
   revealedRoles?: { id: string; role: Role }[];
   // `out`: a ghost, public once found at a meeting. Undiscovered bodies are never marked.
-  players: { id: string; name: string; organiser: boolean; playing: boolean; out?: boolean; removed?: boolean }[];
+  players: { id: string; name: string; organiser: boolean; playing: boolean; test?: boolean; out?: boolean; removed?: boolean }[];
   stations: Station[];
   // eliminations: whether the Impostor records eliminations in the app (bodies, Impostor win).
   settings: {

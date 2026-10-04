@@ -174,6 +174,7 @@ export default function App() {
           <span className={styles.avatar} data-color={i % 4} aria-hidden="true">{player.name.charAt(0).toUpperCase()}</span>
           <span className={styles.playerName}>{player.name}{player.id === lobby.you.id && <small> · {t.you}</small>}</span>
           {player.organiser && <span className={ui.badge}>{player.playing ? t.organiser : t.hostBadge}</span>}
+          {player.test && <span className={ui.badge}>{t.testBadge}</span>}
         </li>)}</ul>
         {playingCount < 8 && <p className={styles.waiting}><span aria-hidden="true">+ </span>{t.waiting}</p>}
         <p className={ui.note}>{t.lobbyHint}</p>

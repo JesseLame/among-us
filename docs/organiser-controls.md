@@ -23,6 +23,10 @@ When creating a game, the organiser chooses **Just host on this screen** (defaul
 
 **Record eliminations in the app** (organiser controls, any phase, on by default). On: the Impostor records eliminations, victims see the body screen and the app can declare an Impostor win. Off: eliminations happen only with the physical signal; the Impostor's card says so, the server refuses elimination requests, and the organiser ends the round. Bodies already recorded stay.
 
+## Test players — implemented
+
+In the lobby, **Room management → Add test player** adds "Test 1", "Test 2"… up to the eight player places. Test players are always Crewmates (so the Impostor is one of the real players), get no tasks (the task goal counts real players only), cannot sign in, report or call meetings, and can be eliminated, which allows testing an Impostor win with one real phone. Remove them like any player.
+
 ## Meetings — implemented
 
 **Body reports** and **Emergency meetings** (organiser controls, any phase, both on by default) control the players' Report body and Emergency meeting buttons; when off, the buttons disappear and the server refuses those calls. **Call meeting** is always available to the organiser during play, for example after an out-loud report. During a meeting the organiser ends it with **End meeting and continue**; recording the vote result is not built yet. Discussion time (default 90 s) is stored per room and accepted by the settings command; there is no on-screen control yet.

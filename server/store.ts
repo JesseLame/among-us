@@ -8,7 +8,7 @@ import { codebook, puzzle, shuffle, solved, type Codebook, type TaskKind } from 
 export class GameError extends Error {
   constructor(public code: ErrorCode, public status = 400) { super(code); }
 }
-type Player = { id: string; game_code: string; name: string; organiser: number; playing: number; role: Role | null; removed: number; status: PlayerStatus; emergency_used: number };
+type Player = { id: string; game_code: string; name: string; organiser: number; playing: number; role: Role | null; removed: number; status: PlayerStatus; emergency_used: number; test: number };
 const EMERGENCY_ALLOWANCE = 1;
 type Game = {
   code: string; phase: Phase; round_id: string | null; revision: number; pause_reason: Lobby['pauseReason'];
@@ -122,6 +122,9 @@ export function createStore(path: string, now: () => number = Date.now) {
         PRAGMA user_version = 8;
       `);
     }
+    if (version < 9) {
+      db.exec('ALTER TABLE players ADD COLUMN test INTEGER NOT NULL DEFAULT 0; PRAGMA user_version = 9;');
+    }
   });
   function addStations(code: string, names: string[]) {
     const insert = db.prepare('INSERT INTO stations (id, game_code, name, position, codebook) VALUES (?, ?, ?, (SELECT COALESCE(MAX(position), -1) + 1 FROM stations WHERE game_code = ?), ?)');
@@ -139,7 +142,7 @@ export function createStore(path: string, now: () => number = Date.now) {
     const player = playerFor(token);
     if (!player) return null;
     const game = gameFor(player.game_code)!;
-    const players = db.prepare('SELECT id, name, organiser, playing, role, removed, status FROM players WHERE game_code = ? AND (removed = 0 OR ? = 1) ORDER BY joined_at, rowid').all(player.game_code, Number(game.phase === 'ended')) as Player[];
+    const players = db.prepare('SELECT id, name, organiser, playing, role, removed, status, test FROM players WHERE game_code = ? AND (removed = 0 OR ? = 1) ORDER BY joined_at, rowid').all(player.game_code, Number(game.phase === 'ended')) as Player[];
     const playing = game.phase === 'active' || game.phase === 'paused' || game.phase === 'meeting';
     const tasks = playing
       ? (db.prepare('SELECT * FROM tasks WHERE player_id = ? AND round_id = ? ORDER BY position').all(player.id, game.round_id) as TaskRow[])
@@ -151,7 +154,7 @@ export function createStore(path: string, now: () => number = Date.now) {
       code: player.game_code, phase: game.phase, roundId: game.round_id,
       revision: game.revision, pauseReason: game.pause_reason,
       players: players.map(p => ({
-        id: p.id, name: p.name, organiser: Boolean(p.organiser), playing: Boolean(p.playing),
+        id: p.id, name: p.name, organiser: Boolean(p.organiser), playing: Boolean(p.playing), ...(p.test ? { test: true } : {}),
         ...(playing && p.status === 'ghost' ? { out: true } : {}), ...(p.removed ? { removed: true } : {}),
       })),
       stations: db.prepare('SELECT id, name FROM stations WHERE game_code = ? ORDER BY position').all(game.code) as Lobby['stations'],
@@ -311,15 +314,18 @@ export function createStore(path: string, now: () => number = Date.now) {
     switch (input.action) {
       case 'start': {
         if (phase !== 'lobby') throw new GameError('INVALID_PHASE', 409);
-        const players = db.prepare('SELECT id FROM players WHERE game_code = ? AND removed = 0 AND playing = 1 ORDER BY rowid').all(game.code) as { id: string }[];
-        if (players.length < 1) throw new GameError('NOT_ENOUGH_PLAYERS');
+        const players = db.prepare('SELECT id, test FROM players WHERE game_code = ? AND removed = 0 AND playing = 1 ORDER BY rowid').all(game.code) as { id: string; test: number }[];
+        // Test players are always Crewmates, so the Impostor is one of the real players.
+        const real = players.filter(p => !p.test);
+        if (real.length < 1) throw new GameError('NOT_ENOUGH_PLAYERS');
         if (!db.prepare('SELECT 1 FROM stations WHERE game_code = ?').get(game.code)) throw new GameError('NO_STATIONS');
-        const impostor = randomInt(players.length);
+        const impostor = real[randomInt(real.length)].id;
         const assign = db.prepare('UPDATE players SET role = ? WHERE id = ?');
-        const roles = players.map((p, index) => ({ id: p.id, role: (index === impostor ? 'impostor' : 'crewmate') as Role }));
+        const roles = players.map(p => ({ id: p.id, role: (p.id === impostor ? 'impostor' : 'crewmate') as Role }));
         roles.forEach(p => assign.run(p.role, p.id));
         roundId = randomUUID(); phase = 'active';
-        assignTasks(game, roundId, roles);
+        // Test players get no tasks, so the shared goal depends only on real players.
+        assignTasks(game, roundId, roles.filter(p => !players.find(other => other.id === p.id)!.test));
         db.prepare("UPDATE players SET status = 'alive', emergency_used = 0 WHERE game_code = ?").run(game.code);
         db.prepare('UPDATE games SET winner = NULL, progress_shown = 0, progress_shown_at = ?, clock_ms = 0, clock_at = ?, eliminate_ready_ms = opening_protection * 1000 WHERE code = ?')
           .run(now(), now(), game.code);
@@ -368,6 +374,19 @@ export function createStore(path: string, now: () => number = Date.now) {
       db.prepare('DELETE FROM players WHERE game_code = ?').run(game.code);
       db.prepare('DELETE FROM games WHERE code = ?').run(game.code);
       return { code: game.code, lobby: null };
+    }
+    if (input.action === 'addTestPlayer') {
+      if (game.phase !== 'lobby') throw new GameError('INVALID_PHASE', 409);
+      const players = db.prepare('SELECT name, playing FROM players WHERE game_code = ? AND removed = 0').all(game.code) as { name: string; playing: number }[];
+      if (players.filter(p => p.playing).length >= 8) throw new GameError('GAME_FULL');
+      let number = 1;
+      while (players.some(p => p.name.toLocaleLowerCase('en') === `test ${number}`)) number++;
+      // The session token is never handed out: nobody can sign in as a test player.
+      db.prepare('INSERT INTO players (id, game_code, name, organiser, playing, test, session_hash, joined_at) VALUES (?, ?, ?, 0, 1, 1, ?, ?)')
+        .run(randomUUID(), game.code, `Test ${number}`, hash(randomBytes(32).toString('hex')), Date.now());
+      db.prepare('UPDATE games SET revision = revision + 1 WHERE code = ?').run(game.code);
+      recordCommand(input.commandId, game.code, organiser.id, payload);
+      return { code: game.code, lobby: lobby(token) };
     }
     const target = db.prepare('SELECT * FROM players WHERE id = ? AND game_code = ? AND removed = 0').get(input.playerId, game.code) as Player | undefined;
     if (!target) throw new GameError('PLAYER_NOT_FOUND', 404);
