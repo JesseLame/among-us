@@ -147,6 +147,15 @@ export function openDatabase(path: string) {
         PRAGMA user_version = 14;
       `);
     }
+    if (version < 15) {
+      // One list of switched-off task games replaces the Simon says switch; every other game stays on.
+      db.exec(`
+        ALTER TABLE games ADD COLUMN task_games_off TEXT NOT NULL DEFAULT '[]';
+        UPDATE games SET task_games_off = '["simon"]' WHERE simon_tasks = 0;
+        ALTER TABLE games DROP COLUMN simon_tasks;
+        PRAGMA user_version = 15;
+      `);
+    }
   });
   migrate();
   return db;

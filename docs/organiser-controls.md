@@ -45,7 +45,7 @@ In the lobby, **Room management → Add test player** adds "Test 1", "Test 2"…
 | Task goal (% of real tasks) | 80 % | 10–100 | next round; lobby only |
 | Progress update interval | 30 s | 5–300 | immediately |
 
-**Simon says tasks** (switch, on by default) decides whether Simon says is among the task games. It applies whenever tasks are handed out: at the next round start, and when replacing a station's tasks.
+**Task games** (a checklist, every game on by default) decides which games are handed out as tasks. At least one stays on: the last checked game cannot be unchecked. It applies whenever tasks are handed out: at the next round start, and when replacing a station's tasks; tasks already handed out stay. The server stores the games switched *off*, so a newly added game starts on in every room. (This list replaced the earlier **Simon says tasks** switch; a room that had it off keeps Simon says off.)
 
 Task count and goal can only change in the lobby, so a change cannot end a running round. Timer changes never alter a timer already running.
 

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { join } from 'node:path';
 import type { Lobby, PrintableStation, Task } from '../../shared/protocol.js';
 import { randomUUID } from 'node:crypto';
-import { cleanup, start, roundInput, roomInput, crew, stationInput, answerFor } from './helpers.js';
+import { cleanup, start, roundInput, roomInput, crew, stationInput, answerFor, mazeRoute } from './helpers.js';
 
 afterEach(cleanup);
 
@@ -27,7 +27,7 @@ describe('stations and tasks', () => {
     expect((await fetch(`${app.url}/api/network`)).status).toBe(401);
     expect(printable.map(station => station.name)).toEqual(lobby.stations.map(station => station.name));
     expect(Object.values(printable[0].codebook).every(digit => Number.isInteger(digit) && digit >= 0 && digit <= 9)).toBe(true);
-    expect(JSON.stringify(lobby)).not.toMatch(/codebook"|"star":/);
+    expect(JSON.stringify(lobby)).not.toMatch(/"codebook":|"star":/);
     for (const station of lobby.stations) {
       lobby = (await (await app.post('/api/stations/commands', stationInput(lobby, { action: 'remove', stationId: station.id }), host)).json()).lobby;
     }
@@ -37,7 +37,7 @@ describe('stations and tasks', () => {
     lobby = (await (await app.post('/api/round/commands', roundInput(lobby, 'start'), host)).json()).lobby;
     expect((await (await app.post('/api/stations/commands', stationInput(lobby, { action: 'add', name: 'Tuin' }), host)).json()).error).toBe('INVALID_PHASE');
     // Station access defaults to QR-only; only the organiser can change it, also mid-round.
-    expect(lobby.settings).toEqual({ stationAccess: 'qr', eliminations: true, bodyReports: true, emergencyMeetings: true, phoneVoting: false, openingProtection: 60, killCooldown: 60, discussionTime: 90, emergencyAllowance: 1, progressInterval: 30, tasksPerPlayer: 4, taskGoalPercent: 80, confirmVictory: false, changePreviews: true, changeHistory: true, simonTasks: true });
+    expect(lobby.settings).toEqual({ stationAccess: 'qr', eliminations: true, bodyReports: true, emergencyMeetings: true, phoneVoting: false, openingProtection: 60, killCooldown: 60, discussionTime: 90, emergencyAllowance: 1, progressInterval: 30, tasksPerPlayer: 4, taskGoalPercent: 80, confirmVictory: false, changePreviews: true, changeHistory: true, taskGames: ['codebook', 'order', 'wires', 'simon', 'maze'] });
     const settings = { commandId: randomUUID(), expectedRevision: lobby.revision, roundId: lobby.roundId, stationAccess: 'manual' };
     expect((await app.post('/api/settings/commands', settings, guest)).status).toBe(403);
     expect((await app.post('/api/settings/commands', { ...settings, stationAccess: 'anything' }, host)).status).toBe(400);
@@ -115,36 +115,49 @@ describe('stations and tasks', () => {
   });
 });
 
-describe('Simon says tasks', () => {
-  it('hands out Simon says by default and none once the organiser switches it off', async () => {
+describe('task game choice', () => {
+  it('hands out every game by default and only the games the organiser leaves on', async () => {
     const app = await start();
     const game = await crew(app);
-    expect(game.lobby.settings.simonTasks).toBe(true);
+    expect(game.lobby.settings.taskGames).toEqual(['codebook', 'order', 'wires', 'simon', 'maze']);
     const kinds = async () => (await Promise.all(game.cookies.map(async cookie => (await game.snapshot(cookie)).you.tasks))).flat().map(task => task.puzzle.kind);
-    let lobby: Lobby = (await (await app.post('/api/round/commands', roundInput(game.lobby, 'start'), game.cookies[0])).json()).lobby;
-    // Four tasks each: one of every game, fake tasks included.
-    const handedOut = await kinds();
-    expect(handedOut.filter(kind => kind === 'simon')).toHaveLength(game.cookies.length);
-    const simon = (await game.snapshot(game.cookies[1])).you.tasks.find(task => task.puzzle.kind === 'simon')!;
-    expect((await (await app.post('/api/tasks/complete', { roundId: lobby.roundId, taskId: simon.id, answer: [9] }, game.cookies[1])).json()).error).toBe('WRONG_ANSWER');
-    const sequence = (simon.puzzle as { sequence: number[] }).sequence;
-    expect((await app.post('/api/tasks/complete', { roundId: lobby.roundId, taskId: simon.id, answer: sequence }, game.cookies[1])).status).toBe(200);
+    const settings = (lobby: Lobby, taskGames: unknown) => app.post('/api/settings/commands', { commandId: randomUUID(), expectedRevision: lobby.revision, roundId: lobby.roundId, taskGames }, game.cookies[0]);
+    // At least one game stays on, each listed once.
+    expect((await (await settings(game.lobby, [])).json()).error).toBe('INVALID_INPUT');
+    expect((await (await settings(game.lobby, ['maze', 'maze'])).json()).error).toBe('INVALID_INPUT');
+    expect((await (await settings(game.lobby, ['chess'])).json()).error).toBe('INVALID_INPUT');
 
+    // Only mazes: everyone gets four, fake tasks included, and a maze is checked by its walls.
+    let lobby: Lobby = (await (await settings(game.lobby, ['maze'])).json()).lobby;
+    expect(lobby.settings.taskGames).toEqual(['maze']);
+    lobby = (await (await app.post('/api/round/commands', roundInput(lobby, 'start'), game.cookies[0])).json()).lobby;
+    expect(await kinds()).toEqual(Array(game.cookies.length * 4).fill('maze'));
+    const maze = (await game.snapshot(game.cookies[1])).you.tasks[0];
+    if (maze.puzzle.kind !== 'maze') throw new Error('Expected a maze');
+    const route = mazeRoute(maze.puzzle);
+    const complete = (answer: number[]) => app.post('/api/tasks/complete', { roundId: lobby.roundId, taskId: maze.id, answer }, game.cookies[1]);
+    expect((await (await complete(route.slice(0, -1))).json()).error).toBe('WRONG_ANSWER');
+    // A route straight to the right runs into a wall somewhere unless that is the direct route.
+    const straight = Array(maze.puzzle.size - 1).fill(1);
+    if (route.join() !== straight.join()) expect((await (await complete(straight)).json()).error).toBe('WRONG_ANSWER');
+    expect((await complete(route)).status).toBe(200);
+
+    // Changes apply to the next tasks handed out.
     lobby = (await (await app.post('/api/round/commands', roundInput(await game.snapshot(), 'end'), game.cookies[0])).json()).lobby;
     lobby = (await (await app.post('/api/round/commands', roundInput(lobby, 'reset'), game.cookies[0])).json()).lobby;
-    lobby = (await (await app.post('/api/settings/commands', { commandId: randomUUID(), expectedRevision: lobby.revision, roundId: lobby.roundId, simonTasks: false }, game.cookies[0])).json()).lobby;
-    expect(lobby.settings.simonTasks).toBe(false);
+    lobby = (await (await settings(lobby, ['simon', 'order'])).json()).lobby;
+    expect(lobby.settings.taskGames).toEqual(['order', 'simon']);
     await app.post('/api/round/commands', roundInput(lobby, 'start'), game.cookies[0]);
     const later = await kinds();
     expect(later.length).toBeGreaterThan(0);
-    expect(later).not.toContain('simon');
+    expect(new Set(later)).toEqual(new Set(['order', 'simon']));
   });
 });
 
 describe('practice page', () => {
   it('serves every task game without a session and checks answers with the task rules', async () => {
     const app = await start();
-    for (const kind of ['order', 'wires', 'codebook', 'simon']) {
+    for (const kind of ['order', 'wires', 'codebook', 'simon', 'maze']) {
       const practice = await (await fetch(`${app.url}/api/practice/${kind}`)).json() as { puzzle: { kind: string }; codebook?: Record<string, number> };
       expect(practice.puzzle.kind).toBe(kind);
       expect(Boolean(practice.codebook)).toBe(kind === 'codebook');
@@ -166,6 +179,9 @@ describe('practice page', () => {
     expect(simon.puzzle.sequence.every(pad => pad >= 0 && pad <= 3)).toBe(true);
     expect((await (await app.post('/api/practice/check', { id: simon.id, answer: simon.puzzle.sequence.slice(0, 4) })).json()).error).toBe('WRONG_ANSWER');
     expect(await (await app.post('/api/practice/check', { id: simon.id, answer: simon.puzzle.sequence })).json()).toEqual({ solved: true });
+    const maze = await (await fetch(`${app.url}/api/practice/maze`)).json() as { id: string; puzzle: { size: number; open: number[]; start: number; exit: number } };
+    expect(maze.puzzle.open).toHaveLength(maze.puzzle.size ** 2);
+    expect(await (await app.post('/api/practice/check', { id: maze.id, answer: mazeRoute(maze.puzzle) })).json()).toEqual({ solved: true });
     // Practice never creates a room or session.
     expect((await (await fetch(`${app.url}/api/session`)).json()).lobby).toBeNull();
   });

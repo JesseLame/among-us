@@ -11,10 +11,11 @@ export function createRound({ db, now, playerFor, gameFor, alreadyApplied, recor
   function assignTasks(game: Game, roundId: string, players: { id: string; role: Role }[]) {
     const stations = shuffle(db.prepare('SELECT id FROM stations WHERE game_code = ?').all(game.code) as { id: string }[]);
     const insert = db.prepare('INSERT INTO tasks (id, game_code, round_id, player_id, station_id, fake, puzzle, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
-    const available = taskKindsFor(game);
     for (const player of players) {
-      // Spread each list across stations, with a mix of puzzle kinds.
+      // Spread each list across stations, with a mix of puzzle kinds. With more games than
+      // tasks, each player gets a different random selection of them.
       const offset = randomInt(stations.length);
+      const available = shuffle(taskKindsFor(game));
       const kinds = shuffle(Array.from({ length: game.tasks_per_player }, (_, index) => available[index % available.length]));
       kinds.forEach((kind, index) => insert.run(
         randomUUID(), game.code, roundId, player.id, stations[(offset + index) % stations.length].id,

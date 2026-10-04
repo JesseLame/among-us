@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
-import type { Lobby, PrintableStation, RoomCommand, RoundCommand, StationCommand, Task } from '../../shared/protocol.js';
+import { mazeStep, type Lobby, type PrintableStation, type RoomCommand, type RoundCommand, type StationCommand, type Task } from '../../shared/protocol.js';
 import { createApp } from '../app.js';
 
 // Shared by the server integration tests: a test server per test, closed afterwards,
@@ -52,11 +52,27 @@ export function stationInput(lobby: Lobby, change: { action: 'add'; name: string
   return { ...change, commandId: randomUUID(), expectedRevision: lobby.revision, roundId: lobby.roundId };
 }
 
+// The direct route through a maze puzzle, found by a breadth-first search.
+export function mazeRoute(puzzle: { size: number; open: number[]; start: number; exit: number }) {
+  const routes = new Map<number, number[]>([[puzzle.start, []]]);
+  const queue = [puzzle.start];
+  while (queue.length) {
+    const cell = queue.shift()!;
+    if (cell === puzzle.exit) return routes.get(cell)!;
+    for (let move = 0; move < 4; move++) {
+      const next = mazeStep(puzzle.size, puzzle.open, cell, move);
+      if (next !== null && !routes.has(next)) { routes.set(next, [...routes.get(cell)!, move]); queue.push(next); }
+    }
+  }
+  throw new Error('No route through the maze');
+}
+
 export function answerFor(task: Task, stations: PrintableStation[]) {
   const { puzzle } = task;
   if (puzzle.kind === 'order') return [...puzzle.numbers].sort((a, b) => a - b);
   if (puzzle.kind === 'wires') return puzzle.left.map(colour => puzzle.right.indexOf(colour));
   if (puzzle.kind === 'simon') return puzzle.sequence;
+  if (puzzle.kind === 'maze') return mazeRoute(puzzle);
   const book = stations.find(station => station.id === task.stationId)!.codebook;
   return puzzle.symbols.map(symbol => book[symbol]).join('');
 }

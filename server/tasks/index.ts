@@ -1,5 +1,6 @@
 import type { CompleteTask, TaskKind, TaskPuzzle } from '../../shared/protocol.js';
 import { codebook, newCodebook } from './codebook.js';
+import { maze } from './maze.js';
 import { order } from './order.js';
 import { simon } from './simon.js';
 import type { Codebook, TaskRules } from './types.js';
@@ -11,7 +12,7 @@ export { shuffle } from './random.js';
 
 // Every task game's rules. The type makes the build fail when a kind in
 // `taskKinds` (shared/protocol.ts) has no rules here.
-const rules: { [K in TaskKind]: TaskRules<K> } = { order, wires, codebook, simon };
+const rules: { [K in TaskKind]: TaskRules<K> } = { order, wires, codebook, simon, maze };
 
 export function puzzle(kind: TaskKind): TaskPuzzle {
   return rules[kind].generate();

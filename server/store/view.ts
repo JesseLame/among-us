@@ -1,7 +1,7 @@
 import type { HistoryEntry, Lobby, Task, TaskPuzzle } from '../../shared/protocol.js';
 import type { Base } from './base.js';
 import type { Rules } from './rules.js';
-import type { ChangeRow, Game, Player, TaskRow } from './shared.js';
+import { taskKindsFor, type ChangeRow, type Game, type Player, type TaskRow } from './shared.js';
 
 // The lobby snapshot each player receives: only what that player may see.
 export function createView({ db, now, playerFor, gameFor }: Base, { progress, votesOf, voters }: Rules) {
@@ -31,7 +31,7 @@ export function createView({ db, now, playerFor, gameFor }: Base, { progress, vo
         openingProtection: game.opening_protection, killCooldown: game.kill_cooldown, discussionTime: game.discussion_time,
         emergencyAllowance: game.emergency_allowance, progressInterval: game.progress_interval,
         tasksPerPlayer: game.tasks_per_player, taskGoalPercent: game.task_goal_percent,
-        confirmVictory: Boolean(game.confirm_victory), changePreviews: Boolean(game.change_previews), changeHistory: Boolean(game.change_history), simonTasks: Boolean(game.simon_tasks),
+        confirmVictory: Boolean(game.confirm_victory), changePreviews: Boolean(game.change_previews), changeHistory: Boolean(game.change_history), taskGames: taskKindsFor(game),
       },
       // The proposed winning team and the change history are for the organiser only.
       ...(player.organiser && game.pause_reason === 'victory' && game.proposed_winner ? { proposedResult: { winner: game.proposed_winner, reason: game.proposed_reason ?? 'organiser' } } : {}),

@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button, Group, Input, Label, NumberField, Switch, Text } from 'react-aria-components';
-import type { ErrorCode, Lobby, SettingsCommand } from '../../../shared/protocol';
+import { taskKinds, type ErrorCode, type Lobby, type SettingsCommand } from '../../../shared/protocol';
 import { codeFor, commandId, request } from '../../lib/api';
 import { errorMessages, translations, type Language } from '../../i18n';
+import { kindLabel } from '../tasks/games/registry';
 import styles from './lobby.module.css';
 import ui from '../../styles/ui.module.css';
 
@@ -28,7 +29,7 @@ export default function GameSettings({ lobby, language, connected, onUpdate }: P
     finally { inFlight.current = false; setBusy(false); }
   }
 
-  const { stationAccess, eliminations, bodyReports, emergencyMeetings, phoneVoting, confirmVictory, changePreviews, changeHistory, simonTasks } = lobby.settings;
+  const { stationAccess, eliminations, bodyReports, emergencyMeetings, phoneVoting, confirmVictory, changePreviews, changeHistory, taskGames } = lobby.settings;
   const setting = (label: string, selected: boolean, help: string, onChange: (selected: boolean) => void) => <div className={styles.setting}>
     <Switch className={ui.switch} isSelected={selected} isDisabled={busy || !connected} onChange={onChange}>
       <span className={ui.switchTrack} aria-hidden="true"><span/></span>{label}
@@ -67,7 +68,21 @@ export default function GameSettings({ lobby, language, connected, onUpdate }: P
       {group('settings-tasks', t.groupTasks, <>
         {setting(t.manualAccess, stationAccess === 'manual', stationAccess === 'manual' ? t.manualAccessOn : t.manualAccessOff,
           manual => void change({ stationAccess: manual ? 'manual' : 'qr' }))}
-        {setting(t.simonTasksSetting, simonTasks, simonTasks ? t.simonTasksOn : t.simonTasksOff, on => void change({ simonTasks: on }))}
+        <div className={styles.setting}>
+          <fieldset className={`${ui.choices} ${styles.gameChoices}`}>
+            <legend>{t.taskGamesSetting}</legend>
+            {taskKinds.map(kind => {
+              const on = taskGames.includes(kind);
+              // The last game left on cannot be switched off.
+              return <label key={kind}>
+                <input type="checkbox" checked={on} disabled={busy || !connected || (on && taskGames.length === 1)}
+                  onChange={event => void change({ taskGames: taskKinds.filter(other => other === kind ? event.target.checked : taskGames.includes(other)) })}/>
+                <span>{kindLabel(t, kind)}</span>
+              </label>;
+            })}
+          </fieldset>
+          <p className={ui.note}>{t.taskGamesHelp}</p>
+        </div>
         {number('tasksPerPlayer', t.settingTasks, t.settingNextRoundHelp, 1, 8, 1, true)}
         {number('taskGoalPercent', t.settingGoal, t.settingNextRoundHelp, 10, 100, 5, true)}
         {number('progressInterval', t.settingProgress, t.settingProgressHelp, 5, 300, 5)}

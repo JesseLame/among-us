@@ -1,0 +1,121 @@
+/* Maze: a square grid of cells with light walls, and an arrow pad underneath. */
+.mazeBoard {
+  display: grid;
+  gap: var(--space-4);
+  max-width: 340px;
+  padding: var(--space-4);
+}
+
+.maze {
+  display: grid;
+  aspect-ratio: 1;
+  border: 2px solid var(--color-puzzle-wall);
+  border-radius: 4px;
+  background: var(--color-puzzle-display);
+  touch-action: none;
+  user-select: none;
+}
+
+.maze:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+/* Each closed side draws half a wall; two neighbours together draw a full one.
+   Inset shadows rather than borders, so walls meet without gaps at the corners. */
+.cell {
+  --up: 0 0 transparent;
+  --right: 0 0 transparent;
+  --down: 0 0 transparent;
+  --left: 0 0 transparent;
+  position: relative;
+  display: grid;
+  place-items: center;
+  box-shadow: var(--up), var(--right), var(--down), var(--left);
+}
+
+.cell[data-up] { --up: inset 0 2px var(--color-puzzle-wall); }
+.cell[data-right] { --right: inset -2px 0 var(--color-puzzle-wall); }
+.cell[data-down] { --down: inset 0 -2px var(--color-puzzle-wall); }
+.cell[data-left] { --left: inset 2px 0 var(--color-puzzle-wall); }
+
+.cell[data-route] {
+  background: var(--color-puzzle-panel);
+}
+
+.exit {
+  color: var(--color-puzzle-lit);
+  font: 600 var(--text-xl) var(--font-heading);
+  line-height: 1;
+}
+
+.marker {
+  position: absolute;
+  width: 62%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--color-puzzle-highlight);
+  box-shadow: 0 0 12px var(--color-puzzle-highlight);
+}
+
+/* Walking into a wall: a short shake (alternating so each bump plays again). */
+.maze[data-bumped] .marker { animation: maze-bump 180ms ease-out; }
+.maze[data-bump-again] .marker { animation: maze-bump-again 180ms ease-out; }
+
+.mazeBoard[data-complete] .marker {
+  background: var(--color-puzzle-lit);
+  box-shadow: 0 0 14px var(--color-puzzle-lit);
+}
+
+.mazeBoard[data-complete] .cell[data-route] {
+  background: color-mix(in srgb, var(--color-puzzle-lit) 30%, var(--color-puzzle-display));
+}
+
+/* Arrow pad: up on top, left/down/right below. */
+.pad {
+  display: grid;
+  grid-template-columns: repeat(3, 56px);
+  grid-template-areas: '. up .' 'left down right';
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.arrow {
+  min-height: 56px;
+  border: 3px solid var(--color-puzzle-panel-border);
+  border-radius: var(--radius-control);
+  background: var(--color-puzzle-panel);
+  color: var(--color-on-primary);
+  font-size: var(--text-lg);
+  cursor: pointer;
+}
+
+.arrow[data-direction='mazeUp'] { grid-area: up; }
+.arrow[data-direction='mazeRight'] { grid-area: right; }
+.arrow[data-direction='mazeDown'] { grid-area: down; }
+.arrow[data-direction='mazeLeft'] { grid-area: left; }
+
+.arrow[data-pressed] {
+  background: var(--color-puzzle-highlight);
+  color: var(--color-puzzle-on-lit);
+}
+
+.arrow[data-focus-visible] {
+  outline: var(--focus-width) solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.arrow[data-disabled] {
+  cursor: default;
+  opacity: var(--control-disabled-opacity);
+}
+
+@keyframes maze-bump {
+  25% { transform: translateX(-3px); background: var(--color-danger); }
+  75% { transform: translateX(3px); }
+}
+
+@keyframes maze-bump-again {
+  25% { transform: translateX(3px); background: var(--color-danger); }
+  75% { transform: translateX(-3px); }
+}

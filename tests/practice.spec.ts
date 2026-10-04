@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import { mazeStep } from '../shared/protocol';
+import { mazeRoute } from './maze';
 
 test.use({ viewport: { width: 375, height: 812 } });
 
@@ -12,7 +14,7 @@ test('practice page plays every task game without a room, in both languages', as
   await page.getByRole('link', { name: 'Practise the task games' }).click();
   await expect(page.getByRole('heading', { name: 'Try the task games' })).toBeVisible();
   const games = page.getByRole('navigation', { name: 'Task games' }).getByRole('button');
-  await expect(games).toHaveText(['Codebook', 'Number order', 'Fix the wiring', 'Simon says']);
+  await expect(games).toHaveText(['Codebook', 'Number order', 'Fix the wiring', 'Simon says', 'Maze']);
 
   // Codebook: read the practice sheet and key in the numbers.
   await expect(page.getByRole('heading', { name: 'Codebook', level: 2 })).toBeVisible();
@@ -69,6 +71,24 @@ test('practice page plays every task game without a room, in both languages', as
   await expect(solvedNote).toBeVisible();
   await settled();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+
+  // Maze: a wall stops the marker; the arrows and arrow keys walk the route to the flag.
+  const mazeLoaded = page.waitForResponse(response => response.url().endsWith('/api/practice/maze'));
+  await games.getByText('Maze').click();
+  const maze = (await (await mazeLoaded).json() as { puzzle: { size: number; open: number[]; start: number; exit: number } }).puzzle;
+  const directions = ['Up', 'Right', 'Down', 'Left'];
+  const controls = page.getByRole('group', { name: 'Move' });
+  const blocked = [0, 1, 2, 3].find(move => mazeStep(maze.size, maze.open, maze.start, move) === null)!;
+  await controls.getByRole('button', { name: directions[blocked] }).click();
+  await expect(page.getByText('A wall is in the way.')).toBeVisible();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  const route = mazeRoute(maze);
+  const [first, ...rest] = route;
+  await controls.getByRole('button', { name: directions[first] }).click();
+  await page.getByRole('group', { name: 'Maze', exact: true }).focus();
+  for (const move of rest) await page.keyboard.press(`Arrow${directions[move]}`);
+  await expect(solvedNote).toBeVisible();
+  await page.screenshot({ path: test.info().outputPath('maze-mobile.png'), fullPage: true });
 
   // Deep links and Dutch.
   await page.goto('/practice?game=wires');

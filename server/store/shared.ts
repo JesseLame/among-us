@@ -19,7 +19,9 @@ export type Game = {
   // Active play time: clock_ms plus, while active, the time since clock_at.
   // The play-clock time from which the Impostor may eliminate (protection, then cooldown).
   clock_ms: number; clock_at: number; eliminate_ready_ms: number;
-  confirm_victory: number; change_previews: number; change_history: number; simon_tasks: number;
+  confirm_victory: number; change_previews: number; change_history: number;
+  // JSON list of the task games the organiser switched off, so a newly added game starts on.
+  task_games_off: string;
   // The win the app detected while waiting for the organiser to confirm it (pause_reason 'victory').
   proposed_winner: 'crew' | 'impostor' | null; proposed_reason: RoundResult['reason'] | null;
 };
@@ -29,7 +31,10 @@ export type ChangeRow = { id: number; at: number; action: HistoryEntry['action']
 export type TaskRow = { id: string; player_id: string; station_id: string; fake: number; puzzle: string; done_at: number | null };
 export const MAX_STATIONS = 8;
 // The task games handed out in this room: all of them, minus those the organiser switched off.
-export const taskKindsFor = (game: Game): TaskKind[] => taskKinds.filter(kind => kind !== 'simon' || game.simon_tasks);
+export const taskKindsFor = (game: Game): TaskKind[] => {
+  const off = JSON.parse(game.task_games_off) as string[];
+  return taskKinds.filter(kind => !off.includes(kind));
+};
 export const DEFAULT_STATIONS = {
   en: ['Kitchen', 'Living room', 'Hallway', 'Study'],
   nl: ['Keuken', 'Woonkamer', 'Gang', 'Werkkamer'],

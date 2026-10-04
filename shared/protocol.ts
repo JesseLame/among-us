@@ -9,6 +9,13 @@ export const joinGame = z.object({ name: playerName, code: gameCode });
 
 export const errors = ['INVALID_INPUT', 'GAME_NOT_FOUND', 'GAME_FULL', 'NAME_TAKEN', 'NO_SESSION', 'SERVER_ERROR', 'CONNECTION_ERROR', 'ALREADY_JOINED', 'FORBIDDEN', 'NOT_ENOUGH_PLAYERS', 'ROUND_IN_PROGRESS', 'STALE_COMMAND', 'INVALID_PHASE', 'PLAYER_NOT_FOUND', 'CANNOT_REMOVE_ORGANISER', 'NO_STATIONS', 'TOO_MANY_STATIONS', 'STATION_EXISTS', 'TASK_NOT_FOUND', 'WRONG_ANSWER', 'NOT_PLAYING', 'NOT_READY', 'NOT_ALIVE', 'ELIMINATIONS_OFF', 'REPORTS_OFF', 'EMERGENCY_OFF', 'NO_EMERGENCY_LEFT', 'VOTING_CLOSED', 'PHONE_VOTING_OFF', 'REJOIN_EXPIRED', 'UNDO_UNAVAILABLE', 'PREVIEWS_OFF'] as const;
 export type ErrorCode = typeof errors[number];
+// Every task game. Adding a game: its puzzle type below, its rules in server/tasks/<kind>.ts
+// (registered in server/tasks/index.ts), its game in src/features/tasks/games/<kind>/
+// (registered in registry.tsx, built on TaskFrame) and its EN/NL texts.
+// The practice page (/practice) lists every kind automatically. A new game also needs an
+// organiser on/off choice, which `taskGames` gives every kind automatically (on by default).
+export const taskKinds = ['codebook', 'order', 'wires', 'simon', 'maze'] as const;
+export type TaskKind = typeof taskKinds[number];
 export type Role = 'crewmate' | 'impostor';
 export type Phase = 'lobby' | 'active' | 'paused' | 'meeting' | 'ended';
 export const roundCommand = z.object({
@@ -55,17 +62,19 @@ export const settingsCommand = roundCommand.omit({ action: true }).extend({
   // Organiser help: confirm a detected win before it ends the round, preview a change's
   // effect before applying it, and keep a change history with undo.
   confirmVictory: z.boolean().optional(), changePreviews: z.boolean().optional(), changeHistory: z.boolean().optional(),
-  // Task games: used whenever tasks are handed out or replaced.
-  simonTasks: z.boolean().optional(),
+  // The task games handed out whenever tasks are handed out or replaced: at least one, each once.
+  taskGames: z.array(z.enum(taskKinds)).min(1).refine(games => new Set(games).size === games.length).optional(),
 });
 export type SettingsCommand = z.infer<typeof settingsCommand>;
 
 // Order: numbers in the tapped order. Wires: for each left wire, the index of
 // its right-hand match. Codebook: the digits read from the printed station sheet.
+// Maze: the moves from start to exit (0 up, 1 right, 2 down, 3 left).
+const MAX_ANSWER = 64;
 export const completeTask = z.object({
   roundId: z.uuid(),
   taskId: z.uuid(),
-  answer: z.union([z.array(z.number().int().min(0).max(99)).max(8), z.string().regex(/^\d{1,8}$/)]),
+  answer: z.union([z.array(z.number().int().min(0).max(99)).max(MAX_ANSWER), z.string().regex(/^\d{1,8}$/)]),
 });
 export type CompleteTask = z.infer<typeof completeTask>;
 // Practice: try any task game outside a round, checked by the same server code.
@@ -81,19 +90,23 @@ export const symbolGlyphs: Record<SymbolId, string> = {
 };
 export const wireColours = ['red', 'blue', 'yellow', 'green', 'purple', 'orange'] as const;
 export type WireColour = typeof wireColours[number];
-// Every task game. Adding a game: its puzzle type below, its rules in server/tasks/<kind>.ts
-// (registered in server/tasks/index.ts), its game in src/features/tasks/games/<kind>/
-// (registered in registry.tsx, built on TaskFrame) and its EN/NL texts.
-// The practice page (/practice) lists every kind automatically. A new game also needs an
-// organiser on/off setting (see simonTasks).
-export const taskKinds = ['codebook', 'order', 'wires', 'simon'] as const;
-export type TaskKind = typeof taskKinds[number];
 export type TaskPuzzle =
   | { kind: 'order'; numbers: number[] }
   | { kind: 'wires'; left: WireColour[]; right: WireColour[] }
   | { kind: 'codebook'; symbols: SymbolId[] }
   // Four coloured pads (0–3); repeat a growing part of the sequence until it is complete.
-  | { kind: 'simon'; sequence: number[] };
+  | { kind: 'simon'; sequence: number[] }
+  // A size × size grid, row by row. Each cell lists its open sides: 1 up, 2 right, 4 down, 8 left.
+  | { kind: 'maze'; size: number; open: number[]; start: number; exit: number };
+// Maze moves, shared by the server check and the phone: the cell one move away
+// (0 up, 1 right, 2 down, 3 left), or null when a wall or the edge is in the way.
+const mazeSides = [[1, 0, -1], [2, 1, 0], [4, 0, 1], [8, -1, 0]] as const;
+export function mazeStep(size: number, open: number[], cell: number, move: number): number | null {
+  const side = mazeSides[move];
+  if (!side || !(open[cell] & side[0])) return null;
+  const x = cell % size + side[1], y = Math.floor(cell / size) + side[2];
+  return x < 0 || y < 0 || x >= size || y >= size ? null : y * size + x;
+}
 export type Task = { id: string; stationId: string; done: boolean; puzzle: TaskPuzzle };
 export type Station = { id: string; name: string };
 export type PrintableStation = Station & { codebook: Record<SymbolId, number> };
@@ -167,7 +180,7 @@ export type Lobby = {
     stationAccess: StationAccess; eliminations: boolean; bodyReports: boolean; emergencyMeetings: boolean; phoneVoting: boolean;
     openingProtection: number; killCooldown: number; discussionTime: number;
     emergencyAllowance: number; progressInterval: number; tasksPerPlayer: number; taskGoalPercent: number;
-    confirmVictory: boolean; changePreviews: boolean; changeHistory: boolean; simonTasks: boolean;
+    confirmVictory: boolean; changePreviews: boolean; changeHistory: boolean; taskGames: TaskKind[];
   };
   // Organiser only: the result the app detected, waiting for confirmation (pauseReason 'victory').
   proposedResult?: { winner: 'crew' | 'impostor'; reason: RoundResult['reason'] };

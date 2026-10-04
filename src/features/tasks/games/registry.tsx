@@ -6,6 +6,7 @@ import OrderGame from './order/OrderGame';
 import WiresGame from './wires/WiresGame';
 import CodebookGame from './codebook/CodebookGame';
 import SimonGame from './simon/SimonGame';
+import MazeGame from './maze/MazeGame';
 
 // Every task game on the phone. The type makes the build fail when a kind in
 // `taskKinds` (shared/protocol.ts) has no game here.
@@ -14,6 +15,7 @@ export const taskGames: { [K in TaskKind]: TaskGame<K> } = {
   wires: { label: 'kindWires', Game: WiresGame },
   codebook: { label: 'kindCodebook', Game: CodebookGame },
   simon: { label: 'kindSimon', Game: SimonGame },
+  maze: { label: 'kindMaze', Game: MazeGame },
 };
 
 export const kindLabel = (t: Copy, kind: TaskKind) => t[taskGames[kind].label];
