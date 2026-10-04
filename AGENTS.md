@@ -8,6 +8,7 @@ This is the shared project instruction file. `CLAUDE.md` imports it; keep shared
 - Read `README.md` for implemented features and commands. Consult the relevant file in `docs/` for game rules or requirements; the build plan also contains features that are not implemented yet.
 - Confirmed stack: React + TypeScript + Vite, React Aria, CSS Modules, Express, Socket.IO, SQLite (`better-sqlite3`), Zod, Vitest and Playwright + axe. Use npm and preserve `package-lock.json`.
 - `src/` owns UI and translations; `shared/protocol.ts` owns input schemas and public types; `server/` owns authoritative state, permissions, persistence and private data.
+- Every new game feature or mechanic must have an organiser on/off setting (in `settings`, `shared/protocol.ts` `settingsCommand`, the grouped organiser settings panels and both dictionaries). With it off, the game behaves as before the feature existed. Choose a sensible default per feature and say which one you chose.
 - The organiser can be host-only (`playing = 0`: no role, tasks or player place, typically a laptop on the home Wi-Fi) or also play. The normal recommendation is 6–8 players. Starting with 1–5 is intentionally allowed for testing, including a solo organiser. Keep exactly one Impostor.
 
 ## Visual changes
