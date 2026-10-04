@@ -102,7 +102,7 @@ The built app is served by Express at `http://localhost:3001`. Set `NODE_ENV=pro
 2. The terminal prints `Test on your phone (same Wi-Fi): http://<computer address>:5173/practice` with a QR code. Scan it with the phone camera.
 3. Saved code changes reload on the phone automatically.
 
-`npm run play` prints the same practice link for the built app. New task games appear on the practice page automatically once they are in `taskKinds` (`shared/protocol.ts`), `server/puzzles.ts` and `PuzzleView` (`src/Tasks.tsx`).
+`npm run play` prints the same practice link for the built app. New task games appear on the practice page automatically once they are in `taskKinds` (`shared/protocol.ts`), the server rules registry (`server/tasks/index.ts`) and the game registry (`src/features/tasks/games/registry.tsx`).
 
 ### Try the round flow
 
@@ -118,9 +118,9 @@ For an automated multiplayer check without six phones, `npm run test:e2e` create
 
 Source layout:
 
-- `src/`: React screens, CSS Modules and typed EN/NL translations. `Tasks.tsx` holds the task list and puzzles, `Stations.tsx` the lobby station editor and `PrintSheets.tsx` the printable `/print` page.
+- `src/`: React screens, CSS Modules and typed EN/NL translations. `Tasks.tsx` holds the task list, `features/tasks/games/` one folder per task game (component and CSS) on a shared `TaskFrame`, `Stations.tsx` the lobby station editor and `PrintSheets.tsx` the printable `/print` page.
 - `src/styles/theme.css`: central visual theme; `ui.module.css` contains shared controls and card surfaces, and `fonts.css` handles font loading.
-- `server/`: Express API, authenticated Socket.IO updates and SQLite store. `puzzles.ts` generates and checks puzzles.
+- `server/`: Express API, authenticated Socket.IO updates and SQLite store. `tasks/` generates and checks puzzles, one module per task game.
 - `shared/`: shared protocol types and Zod input schemas.
 - `tests/`: browser flows and axe accessibility checks; server integration tests live alongside the server.
 - `docs/`: game rules, requirements and remaining implementation plan.

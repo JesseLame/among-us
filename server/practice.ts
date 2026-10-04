@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import { practiceCheck, taskKinds, type PracticePuzzle, type TaskKind } from '../shared/protocol.js';
-import { codebook, puzzle, solved, type Codebook } from './puzzles.js';
+import { newCodebook, puzzle, solved, type Codebook } from './tasks/index.js';
 import { GameError } from './store.js';
 
 // Practice puzzles live only in memory: no session, room or database involved.
@@ -18,7 +18,7 @@ export function practiceRoutes() {
     const id = randomUUID();
     const task = puzzle(kind);
     // The codebook stands in for the printed station sheet.
-    const book = kind === 'codebook' ? codebook() : undefined;
+    const book = kind === 'codebook' ? newCodebook() : undefined;
     open.set(id, { task, book });
     if (open.size > LIMIT) open.delete(open.keys().next().value!);
     res.json({ id, puzzle: task, codebook: book } satisfies PracticePuzzle);

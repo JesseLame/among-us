@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button } from 'react-aria-components';
 import { symbolGlyphs, symbols, taskKinds, type CompleteTask, type ErrorCode, type PracticePuzzle, type TaskKind } from '../shared/protocol';
 import { codeFor, request } from './api';
-import { kindLabel, PuzzleView } from './Tasks';
+import { kindLabel, PuzzleView } from './features/tasks/games/registry';
 import { errorMessages, translations, type Language } from './i18n';
 import styles from './App.module.css';
 import ui from './styles/ui.module.css';

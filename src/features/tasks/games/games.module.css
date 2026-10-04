@@ -1,0 +1,12 @@
+/* Shared by every task game: the dark panel a game is played on, lit up once solved.
+   Each game adds its own layout and its own wrong-answer animation. */
+.board {
+  width: 100%;
+  margin: 0 auto;
+  border-radius: var(--radius-card);
+  background: var(--color-puzzle-board);
+}
+
+.board[data-complete] {
+  box-shadow: 0 0 0 3px var(--color-puzzle-lit);
+}

@@ -1,0 +1,107 @@
+/* Codebook: a safe with one display slot per symbol and a keypad */
+.safe {
+  padding: var(--space-4);
+  display: grid;
+  gap: var(--space-3);
+  max-width: 360px;
+}
+
+.safeSlots {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-control);
+  background: var(--color-puzzle-display);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-2);
+  text-align: center;
+  color: var(--color-on-primary);
+}
+
+.safe[data-wrong] .safeSlots {
+  box-shadow: 0 0 0 2px var(--color-danger);
+  animation: safe-shake 280ms ease-in-out 2;
+}
+
+.safe[data-complete] .safeSlots {
+  box-shadow: 0 0 0 2px var(--color-puzzle-lit);
+  animation: none;
+}
+
+.safeSlots li {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.safeSlots li > span {
+  font-size: 30px;
+  line-height: 1.1;
+}
+
+.safeSlots small {
+  font-size: var(--text-caption);
+  opacity: .8;
+  overflow-wrap: anywhere;
+}
+
+.safeSlots b {
+  margin-top: var(--space-1);
+  font: 700 28px/1.2 var(--font-heading);
+  border-top: 2px solid var(--color-puzzle-panel-border);
+  padding-top: var(--space-1);
+  color: var(--color-puzzle-highlight);
+}
+
+.safe[data-complete] .safeSlots b {
+  color: var(--color-puzzle-lit);
+}
+
+.safeDisplay {
+  margin: 0;
+  text-align: center;
+  font: 600 var(--text-sm) var(--font-heading);
+  letter-spacing: 2px;
+  color: var(--color-on-primary);
+}
+
+.safe[data-complete] .safeDisplay {
+  color: var(--color-puzzle-lit);
+  font-size: var(--text-xl);
+}
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+}
+
+.keypad button {
+  min-height: 52px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--color-puzzle-panel-border);
+  background: var(--color-puzzle-panel);
+  color: var(--color-on-primary);
+  font: 600 var(--text-xl) var(--font-heading);
+  box-shadow: 0 3px 0 var(--color-puzzle-shadow);
+}
+
+.keypad button:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--color-puzzle-shadow);
+}
+
+.keypad button:disabled {
+  cursor: default;
+}
+
+.keypad [data-key='enter'] {
+  background: var(--color-puzzle-lit);
+  color: var(--color-puzzle-on-lit);
+}
+
+@keyframes safe-shake {
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}

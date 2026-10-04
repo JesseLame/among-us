@@ -3,8 +3,8 @@ import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { dirname } from 'node:path';
 import { mkdirSync } from 'node:fs';
 import type { CallMeeting, CastVote, ChangePreview, Correction, HistoryEntry, CompleteTask, Eliminate, MeetingCommand, MeetingKind, MeetingStage, ErrorCode, Lobby, PlayerStatus, RoleInfo, Phase, PrintableStation, Role, RoundCommand, RoomCommand, RoundResult, SettingsCommand, StationAccess, StationCommand, Task, TaskPuzzle } from '../shared/protocol.js';
-import { taskKinds } from '../shared/protocol.js';
-import { codebook, puzzle, shuffle, solved, type Codebook, type TaskKind } from './puzzles.js';
+import { taskKinds, type TaskKind } from '../shared/protocol.js';
+import { newCodebook, puzzle, shuffle, solved, type Codebook } from './tasks/index.js';
 
 export class GameError extends Error {
   constructor(public code: ErrorCode, public status = 400) { super(code); }
@@ -188,7 +188,7 @@ export function createStore(path: string, now: () => number = Date.now) {
   });
   function addStations(code: string, names: string[]) {
     const insert = db.prepare('INSERT INTO stations (id, game_code, name, position, codebook) VALUES (?, ?, ?, (SELECT COALESCE(MAX(position), -1) + 1 FROM stations WHERE game_code = ?), ?)');
-    for (const name of names) insert.run(randomUUID(), code, name, code, JSON.stringify(codebook()));
+    for (const name of names) insert.run(randomUUID(), code, name, code, JSON.stringify(newCodebook()));
   }
   migrate();
   db.prepare("UPDATE games SET phase = 'paused', pause_reason = 'restart', revision = revision + 1 WHERE phase = 'active'").run();

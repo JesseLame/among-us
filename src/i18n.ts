@@ -173,7 +173,7 @@ const en = {
   symbol_star: 'Star', symbol_circle: 'Circle', symbol_triangle: 'Triangle', symbol_square: 'Square', symbol_diamond: 'Diamond', symbol_heart: 'Heart',
   symbol_club: 'Club', symbol_spade: 'Spade', symbol_sun: 'Sun', symbol_moon: 'Moon', symbol_cross: 'Cross', symbol_note: 'Note',
 };
-type Copy = { [Key in keyof typeof en]: string };
+export type Copy = { [Key in keyof typeof en]: string };
 const nl: Copy = {
   home: 'thuis', language: 'Taal', edition: 'DE HUISKAMEREDITIE',
   eyebrow: 'JOUW HUIS. JOUW TEAM. ÉÉN BEDRIEGER.', title: 'Er klopt hier', titleAccent: 'iets niet.',

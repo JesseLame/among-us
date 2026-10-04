@@ -1,0 +1,66 @@
+/* Number order: lights scattered over a panel, joined by a line as they switch on */
+.lightBoard {
+  position: relative;
+  aspect-ratio: 1;
+  max-width: 360px;
+}
+
+.lightBoard svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.lightBoard polyline {
+  fill: none;
+  stroke: var(--color-puzzle-highlight);
+  stroke-width: 4;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.light {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 3px solid var(--color-puzzle-panel-border);
+  background: var(--color-puzzle-panel);
+  color: var(--color-on-primary);
+  font: 600 var(--text-xl) var(--font-heading);
+  transition: background var(--motion-fast), box-shadow var(--motion-fast);
+}
+
+.light:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.light[data-lit] {
+  background: var(--color-puzzle-highlight);
+  border-color: var(--color-puzzle-highlight);
+  color: var(--color-puzzle-on-lit);
+  box-shadow: 0 0 18px var(--color-puzzle-highlight);
+}
+
+.lightBoard[data-wrong] .light {
+  animation: lights-flicker 160ms steps(2) 3;
+}
+
+.lightBoard[data-complete] .light {
+  background: var(--color-puzzle-lit);
+  border-color: var(--color-puzzle-lit);
+  box-shadow: 0 0 18px var(--color-puzzle-lit);
+}
+
+.lightBoard[data-complete] polyline {
+  stroke: var(--color-puzzle-lit);
+}
+
+@keyframes lights-flicker {
+  50% { border-color: var(--color-danger); background: var(--color-puzzle-display); }
+}

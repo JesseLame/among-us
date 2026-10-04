@@ -1,0 +1,132 @@
+/* Wiring: plugs on the left, sockets on the right, cables drawn between them */
+.wireBoard {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr minmax(36px, .5fr) 1fr;
+  padding: var(--space-4) var(--space-2);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.wireBoard > .wireColumn:last-of-type {
+  grid-column: 3;
+}
+
+.wireColumn {
+  display: grid;
+  gap: var(--space-4);
+  position: relative;
+  z-index: 1;
+}
+
+.wireLayer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.wireLayer path {
+  fill: none;
+  stroke-width: 10;
+  stroke-linecap: round;
+  filter: drop-shadow(0 2px 0 var(--color-puzzle-shadow));
+}
+
+.wireLayer path[data-live] {
+  stroke-width: 12;
+  opacity: .9;
+}
+
+.wireEnd, .wireSocket {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border-radius: var(--radius-control);
+  border: 1px solid var(--color-puzzle-panel-border);
+  background: var(--color-puzzle-panel);
+  color: var(--color-on-primary);
+  font: 600 var(--text-sm) var(--font-heading);
+  padding: var(--space-1) 10px;
+  min-width: 0;
+}
+
+.wireEnd span, .wireSocket span {
+  min-width: 0;
+  hyphens: auto;
+}
+
+.wireEnd {
+  justify-content: space-between;
+  cursor: grab;
+  touch-action: none;
+}
+
+.wireEnd[data-dragging] {
+  cursor: grabbing;
+}
+
+.wireEnd[aria-pressed='true'] {
+  outline: var(--focus-width) solid var(--color-puzzle-highlight);
+  outline-offset: 2px;
+}
+
+.wireSocket {
+  justify-content: flex-start;
+}
+
+.wireEnd:disabled, .wireSocket:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.wireEnd i, .wireSocket i {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Plug: a solid coloured end. Socket: a coloured ring that fills when connected. */
+.wireEnd i {
+  background: var(--wire);
+  box-shadow: 0 0 0 3px var(--color-puzzle-panel-border);
+}
+
+.wireSocket i {
+  border: 5px solid var(--wire);
+  background: var(--color-puzzle-board);
+}
+
+.wireSocket[data-connected] i {
+  background: var(--wire);
+}
+
+.wireSocket[data-over] {
+  border-color: var(--color-puzzle-highlight);
+  box-shadow: 0 0 0 2px var(--color-puzzle-highlight);
+}
+
+.wireSocket[data-wrong] {
+  border-color: var(--color-danger);
+  animation: wire-shake 280ms ease-in-out 2;
+}
+
+.wireEnd[data-connected], .wireSocket[data-connected] {
+  border-color: var(--color-puzzle-lit);
+}
+
+[data-wire='red'] { --wire: var(--color-wire-red); }
+[data-wire='blue'] { --wire: var(--color-wire-blue); }
+[data-wire='yellow'] { --wire: var(--color-wire-yellow); }
+[data-wire='green'] { --wire: var(--color-wire-green); }
+[data-wire='purple'] { --wire: var(--color-wire-purple); }
+[data-wire='orange'] { --wire: var(--color-wire-orange); }
+
+@keyframes wire-shake {
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}

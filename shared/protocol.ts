@@ -81,8 +81,9 @@ export const symbolGlyphs: Record<SymbolId, string> = {
 };
 export const wireColours = ['red', 'blue', 'yellow', 'green', 'purple', 'orange'] as const;
 export type WireColour = typeof wireColours[number];
-// Every task game. Adding a game: its puzzle type below, generation and checking in
-// server/puzzles.ts, a component in src/Tasks.tsx (PuzzleView) and its EN/NL texts.
+// Every task game. Adding a game: its puzzle type below, its rules in server/tasks/<kind>.ts
+// (registered in server/tasks/index.ts), its game in src/features/tasks/games/<kind>/
+// (registered in registry.tsx, built on TaskFrame) and its EN/NL texts.
 // The practice page (/practice) lists every kind automatically. A new game also needs an
 // organiser on/off setting (see simonTasks).
 export const taskKinds = ['codebook', 'order', 'wires', 'simon'] as const;
