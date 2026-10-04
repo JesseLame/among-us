@@ -666,7 +666,8 @@ describe('test players', () => {
 
 describe('game settings', () => {
   it('changes numbers within limits, keeps task settings for the lobby, and applies them to the next round or meeting', async () => {
-    const app = await start();
+    const clock = 3_000_000;
+    const app = await start(':memory:', () => clock);
     const game = await crew(app);
     const change = async (lobby: Lobby, settings: object) => (await app.post('/api/settings/commands', { commandId: randomUUID(), expectedRevision: lobby.revision, roundId: lobby.roundId, ...settings }, game.cookies[0])).json();
     expect((await app.post('/api/settings/commands', { commandId: randomUUID(), expectedRevision: game.lobby.revision, roundId: null, tasksPerPlayer: 9 }, game.cookies[0])).status).toBe(400);
