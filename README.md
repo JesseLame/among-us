@@ -89,11 +89,7 @@ Source layout:
 
 The language initially follows the browser (Dutch for `nl`, English otherwise), can be changed at any time, and is saved locally. Server errors use stable codes translated on the phone. New UI text must be added to both dictionaries; TypeScript enforces matching keys. Player names and game codes are never translated.
 
-This copy has no Git metadata. To initialise version control, use:
-
-```sh
-git init -b main
-```
+Source is on GitHub at `https://github.com/JesseLame/among-us`. Work on feature branches, merge to `main` when `npm test` and `npm run test:e2e` pass, and tag completed build stages (for example `stage-2`) as rollback points. Local databases in `data/` are not versioned; copy `data/game.sqlite` before trying schema changes.
 
 ## Design priorities
 
