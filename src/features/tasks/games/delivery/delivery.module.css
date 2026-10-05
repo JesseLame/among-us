@@ -27,7 +27,7 @@
   display: grid;
   gap: 2px;
   margin: 0;
-  color: var(--color-on-primary);
+  color: var(--color-on-puzzle);
   font: 600 var(--text-xl) var(--font-heading);
   overflow-wrap: anywhere;
 }
@@ -46,7 +46,7 @@
   border: 3px solid var(--color-puzzle-highlight);
   border-radius: var(--radius-control);
   background: linear-gradient(to right, var(--color-puzzle-highlight) calc(var(--held) * 100%), var(--color-puzzle-panel) 0);
-  color: var(--color-on-primary);
+  color: var(--color-on-puzzle);
   font: 600 var(--text-lg) var(--font-heading);
   cursor: pointer;
   touch-action: none;

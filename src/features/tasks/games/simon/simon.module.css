@@ -33,7 +33,7 @@
   border: 3px solid var(--pad);
   border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--pad) 35%, var(--color-puzzle-panel));
-  color: var(--color-on-primary);
+  color: var(--color-on-puzzle);
   font-size: 36px;
   cursor: pointer;
   transition: background var(--motion-fast), box-shadow var(--motion-fast), transform var(--motion-fast);
@@ -82,7 +82,7 @@
 .simonBoard .simonRound {
   margin: 0;
   text-align: center;
-  color: var(--color-on-primary);
+  color: var(--color-on-puzzle);
   font: 600 var(--text-sm) var(--font-heading);
   letter-spacing: 1px;
 }

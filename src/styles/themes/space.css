@@ -1,0 +1,105 @@
+/* Space: a dark spaceship look. Overrides only the tokens that differ from Classic
+   (theme.css); everything else is inherited. Cyan is the crew, red the Impostor. */
+[data-theme='space'] {
+  color-scheme: dark;
+
+  /* Surfaces, text and borders */
+  --color-page: #0b1026;
+  --color-surface: #131a38;
+  --color-surface-soft: #1a2349;
+  --color-text: #e6ecff;
+  --color-text-muted: #a1acd2;
+  --color-accent: #ff5d6c;
+  --color-border: #28335f;
+  --color-border-card: #34427c;
+  --color-border-dashed: #46548e;
+  --color-label-decorative: #8d99c6;
+  --color-role-title: #4fd6e8;
+
+  /* Controls and feedback */
+  --color-primary: #4fd6e8;
+  --color-primary-hover: #86e6f2;
+  --color-on-primary: #061325;
+  --color-secondary: #1d2752;
+  --color-secondary-hover: #273365;
+  --color-secondary-border: #3a4884;
+  --color-on-secondary: var(--color-text);
+  --color-danger: #cf3448;
+  --color-danger-hover: #b8283b;
+  --color-on-danger: #ffffff;
+  --color-danger-outline: #ff7b87;
+  --color-danger-border: #8f3a4f;
+  --color-danger-subtle-hover: #2c1a35;
+  --color-input: #0e1430;
+  --color-input-border: #3f4d88;
+  --color-input-placeholder: #8792bb;
+  --color-error-surface: #3a1729;
+  --color-error-text: #ffa3ad;
+  --color-notice-surface: #17214a;
+  --color-success: #5fd892;
+  --color-overlay: #02040fe0;
+  --color-focus: #ffd34d;
+  --color-selection: #2f4c8f;
+
+  /* Typography: a squared-off console face for headings; body stays DM Sans */
+  --font-heading: 'Chakra Petch', 'Space Grotesk', system-ui, sans-serif;
+  --tracking-display: -1.5px;
+  --tracking-display-mobile: -1px;
+
+  /* Shape, elevation: soft cyan glows instead of paper shadows */
+  --radius-card: 14px;
+  --radius-control: 8px;
+  --color-shadow-card: #4fd6e81f;
+  --shadow-card: 0 0 0 1px #4fd6e81f, 0 10px 28px #00000073;
+  --shadow-symbol: 0 0 22px #4fd6e859;
+  --shadow-dialog: 0 0 0 1px #4fd6e833, 0 0 48px #4fd6e826;
+  --shadow-map: 0 0 0 1px #4fd6e833, 0 12px 30px #00000080;
+  --shadow-pawn: 0 0 14px #ff5d6c80;
+
+  /* Starfield: three tiled star layers over a faint nebula glow. Static, so it
+     needs no reduced-motion variant. */
+  --page-backdrop:
+    radial-gradient(1.5px 1.5px at 23px 41px, #ffffffd9 50%, transparent 55%),
+    radial-gradient(1px 1px at 97px 13px, #c8d6ffb3 50%, transparent 55%),
+    radial-gradient(1px 1px at 151px 119px, #ffffff99 50%, transparent 55%),
+    radial-gradient(2px 2px at 61px 173px, #9ff0ffb3 50%, transparent 55%),
+    radial-gradient(ellipse 70% 50% at 85% 0%, #2a2f7a66, transparent),
+    radial-gradient(ellipse 60% 45% at 0% 100%, #4b1d5c4d, transparent);
+  --page-backdrop-size: 180px 200px, 130px 150px, 210px 230px, 260px 240px, 100% 100%, 100% 100%;
+
+  /* Puzzle control panels */
+  --color-puzzle-board: #0a0f26;
+  --color-on-puzzle: #e6ecff;
+  --color-puzzle-panel: #151e42;
+  --color-puzzle-panel-border: #33427e;
+  --color-puzzle-shadow: #02040c;
+  --color-puzzle-highlight: #ffd34d;
+  --color-puzzle-lit: #5fd892;
+  --color-puzzle-on-lit: #04140c;
+  --color-puzzle-display: #050818;
+  --color-puzzle-wall: #8fa2e6;
+  --color-puzzle-water: #4fb8ff;
+
+  /* Avatars in crew suit colours; the house diagram as ship decks */
+  --color-avatar-1: #a3303f;
+  --color-avatar-2: #1f5f93;
+  --color-avatar-3: #23714a;
+  --color-avatar-4: #6b3e98;
+  --color-map-wall: #4fd6e8;
+  --color-map-floor: #121a3c;
+  --color-map-shadow: #050818;
+  --color-map-label: #8d99c6;
+  --color-map-counter-border: #3f4d88;
+  --color-map-counter: #1d2752;
+  --color-map-furniture-border: #46548e;
+  --color-map-furniture: #222d5c;
+  --color-map-path: #4fd6e8;
+  --color-map-pawn-text: #ffffff;
+  --color-map-pawn-shadow: #ff5d6c;
+
+  /* Space art only (src/themes/space): helmet visors */
+  --color-visor: #8fe7f5;
+  --color-visor-deep: #3a9fc0;
+  --color-visor-shine: #ffffff;
+  --color-on-visor: #061325;
+}

@@ -2,11 +2,12 @@ import type { ErrorCode } from '../../shared/protocol';
 
 // English: the reference dictionary. Every key here must also exist in nl.ts.
 export const en = {
-  home: 'at home', language: 'Language', edition: 'THE LIVING ROOM EDITION',
+  home: 'at home', language: 'Language', theme: 'Look', themeClassic: 'Classic', themeSpace: 'Space', edition: 'THE LIVING ROOM EDITION',
   eyebrow: 'YOUR HOUSE. YOUR CREW. ONE IMPOSTOR.', title: 'Something’s a little', titleAccent: 'suspicious.',
   intro: 'Turn your home into a mystery. Complete tasks, follow your hunches, and find out who’s only pretending to help.',
   players: '6–8 players', duration: '15–25 minutes', devices: 'One phone each',
   mapTitle: 'An ordinary house. Almost.', mapCaption: 'The rooms are familiar. The alibis? Less so.',
+  spaceMapTitle: 'Your house, cleared for launch.', spaceMapLabel: 'DECK 01 / HOME STATION', spaceMapCaption: 'Same rooms. Thinner air. Shakier alibis.',
   kitchen: 'Kitchen', living: 'Living room', hallway: 'Hallway', study: 'Study', youAreHere: 'YOU ARE HERE',
   entryTitle: 'Get the crew together.', entryIntro: 'No accounts. Just your people and a little suspicion.',
   join: 'Join a game', create: 'Host a game', name: 'Your name', namePlaceholder: 'What should we call you?',

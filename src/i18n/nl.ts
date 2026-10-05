@@ -3,11 +3,12 @@ import type { Copy } from './en';
 
 // Dutch. Typed against the English dictionary, so a missing key fails the build.
 export const nl: Copy = {
-  home: 'thuis', language: 'Taal', edition: 'DE HUISKAMEREDITIE',
+  home: 'thuis', language: 'Taal', theme: 'Uiterlijk', themeClassic: 'Klassiek', themeSpace: 'Ruimte', edition: 'DE HUISKAMEREDITIE',
   eyebrow: 'JOUW HUIS. JOUW TEAM. ÉÉN BEDRIEGER.', title: 'Er klopt hier', titleAccent: 'iets niet.',
   intro: 'Maak van je huis een mysterie. Voer taken uit, volg je gevoel en ontdek wie alleen maar doet alsof die helpt.',
   players: '6–8 spelers', duration: '15–25 minuten', devices: 'Ieder een telefoon',
   mapTitle: 'Een heel gewoon huis. Bijna.', mapCaption: 'De kamers ken je. De alibi’s? Die wat minder.',
+  spaceMapTitle: 'Je huis, klaar voor lancering.', spaceMapLabel: 'DEK 01 / THUISSTATION', spaceMapCaption: 'Dezelfde kamers. IJlere lucht. Wankelere alibi’s.',
   kitchen: 'Keuken', living: 'Woonkamer', hallway: 'Gang', study: 'Werkkamer', youAreHere: 'JE BENT HIER',
   entryTitle: 'Verzamel je team.', entryIntro: 'Geen accounts. Alleen jullie en een beetje achterdocht.',
   join: 'Meedoen', create: 'Spel organiseren', name: 'Je naam', namePlaceholder: 'Hoe mogen we je noemen?',

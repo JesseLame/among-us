@@ -5,6 +5,7 @@ import { translations, type Language } from '../../i18n';
 import shared from '../../App.module.css';
 import styles from './lobby.module.css';
 import ui from '../../styles/ui.module.css';
+import { Avatar } from '../../themes/art';
 import { PhoneAddressNote, QrCode, usableOrigin, usePhoneOrigin } from '../../components/Qr';
 import RoundControls from '../round/RoundControls';
 import GameSettings from './Settings';
@@ -52,7 +53,7 @@ export default function Lobby({ lobby, language, connected, onUpdate, onExit }: 
       <div className={shared.cardTop}><h2 id="roster">{t.roster}</h2><span>{playingCount} / 8</span></div>
       <p className={shared.connection} role="status"><i data-connected={connected} />{connected ? t.connected : t.reconnecting}</p>
       <ul className={shared.roster}>{lobby.players.map((player, i) => <li key={player.id}>
-        <span className={shared.avatar} data-color={i % 4} aria-hidden="true">{player.name.charAt(0).toUpperCase()}</span>
+        <Avatar color={i % 4} initial={player.name.charAt(0).toUpperCase()}/>
         <span className={shared.playerName}>{player.name}{player.id === lobby.you.id && <small> · {t.you}</small>}</span>
         {player.organiser && <span className={ui.badge}>{player.playing ? t.organiser : t.hostBadge}</span>}
         {player.test && <span className={ui.badge}>{t.testBadge}</span>}

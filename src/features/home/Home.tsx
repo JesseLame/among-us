@@ -6,6 +6,7 @@ import { errorMessages, translations, type Language } from '../../i18n';
 import shared from '../../App.module.css';
 import styles from './home.module.css';
 import ui from '../../styles/ui.module.css';
+import { HomeMap } from '../../themes/art';
 
 type Props = {
   language: Language;
@@ -46,17 +47,7 @@ export default function Home({ language, sessionNotice, initialError, name, onNa
         <h1>{t.title}<br/><em>{t.titleAccent}</em></h1>
         <p className={shared.intro}>{t.intro}</p>
         <ul className={styles.facts}><li>{t.players}</li><li>{t.duration}</li><li>{t.devices}</li></ul>
-        <div className={styles.house} role="img" aria-label={`${t.mapTitle} ${t.kitchen}, ${t.living}, ${t.hallway}, ${t.study}.`}>
-          <span className={styles.mapNumber} aria-hidden="true">{t.mapLabel}</span>
-          <div className={styles.floorplan} aria-hidden="true">
-            <div className={styles.kitchen}><span>01</span>{t.kitchen}<i className={styles.counter}/></div>
-            <div className={styles.living}><span>02</span>{t.living}<i className={styles.sofa}/><b className={styles.pawn}>?</b></div>
-            <div className={styles.hallway}>{t.hallway}<i className={styles.path}/></div>
-            <div className={styles.study}><span>03</span>{t.study}<i className={styles.desk}/></div>
-            <div className={styles.here}>{t.youAreHere}<span>↑</span></div>
-          </div>
-          <p aria-hidden="true">{t.mapCaption}</p>
-        </div>
+        <HomeMap t={t}/>
       </section>
       <section className={`${ui.card} ${styles.entry}`} aria-labelledby="entry-title">
         <span className={styles.cardIndex} aria-hidden="true">01 — {t.checkIn}</span>

@@ -12,6 +12,10 @@ import RoundView from './features/round/RoundView';
 import type { Scan } from './features/tasks/Tasks';
 import PrintSheets from './features/print/PrintSheets';
 import Practice from './features/practice/Practice';
+import { applyTheme, initialTheme, storeTheme, type ThemeId } from './themes';
+import { ThemeContext } from './themes/context';
+import { BrandMark } from './themes/art';
+import ThemeControl from './themes/ThemeControl';
 import { playMeetingAlarm, playReactorAlarm, unlockAudio } from './lib/sound';
 
 // Started once per page load (React may run start-up effects twice in development), and
@@ -30,6 +34,9 @@ const rejoinRequest = (() => {
 export default function App() {
   const [language, setLanguage] = useState<Language>(initialLanguage);
   const t = translations[language];
+  const [theme, setTheme] = useState<ThemeId>(initialTheme);
+  // Printed sheets are always plain paper, whatever the device's chosen look.
+  const activeTheme: ThemeId = location.pathname === '/print' ? 'classic' : theme;
   const [lobby, setLobby] = useState<LobbyState | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<ErrorCode | null>(null);
@@ -106,6 +113,9 @@ export default function App() {
     try { localStorage.setItem('home-language', language); } catch { /* Optional preference storage. */ }
   }, [language, t.home]);
 
+  useEffect(() => applyTheme(activeTheme), [activeTheme]);
+  const chooseTheme = (next: ThemeId) => { setTheme(next); storeTheme(next); };
+
   async function restore() {
     const current = ++sessionRequest.current;
     setLoading(true); setLoadError(null);
@@ -141,15 +151,16 @@ export default function App() {
   const languageControl = <RadioGroup className={ui.languages} aria-label={t.language} value={language} onChange={value => setLanguage(value as Language)} orientation="horizontal">
     <Radio value="en" lang="en" aria-label="English">EN</Radio><Radio value="nl" lang="nl" aria-label="Nederlands">NL</Radio>
   </RadioGroup>;
+  const displayControls = <div className={ui.displayControls}>{languageControl}<ThemeControl t={t} value={theme} onChange={chooseTheme}/></div>;
 
-  if (location.pathname === '/practice') return <div className={styles.shell}><Practice language={language} languageControl={languageControl}/></div>;
+  if (location.pathname === '/practice') return <ThemeContext value={activeTheme}><div className={styles.shell}><Practice language={language} displayControls={displayControls}/></div></ThemeContext>;
   if (location.pathname === '/print') return <div className={styles.shell}><PrintSheets language={language} languageControl={languageControl}/></div>;
 
-  return <div className={styles.shell}>
+  return <ThemeContext value={activeTheme}><div className={styles.shell}>
     {!privatePlayerScreen && <>
     <header className={styles.header}>
-      <a className={styles.brand} href="/" aria-label={`Among Us ${t.home}`}><span className={styles.brandMark} aria-hidden="true">⌂</span><span>AMONG US <em>{t.home}</em></span></a>
-      {languageControl}
+      <a className={styles.brand} href="/" aria-label={`Among Us ${t.home}`}><BrandMark/><span>AMONG US <em>{t.home}</em></span></a>
+      {displayControls}
     </header>
     </>}
 
@@ -160,8 +171,8 @@ export default function App() {
     : !lobby ? <Home language={language} sessionNotice={sessionNotice} initialError={rejoinError} name={name} onNameChange={setName} onEntered={entered}/>
     : lobby.phase === 'lobby' ? <Lobby lobby={lobby} language={language} connected={connected} onUpdate={updateLobby} onExit={exitLobby}/>
     : <RoundView lobby={lobby} language={language} connected={connected} onUpdate={updateLobby} onExit={exitLobby}
-      languageControl={privatePlayerScreen ? languageControl : undefined} scan={scan}
+      displayControls={privatePlayerScreen ? displayControls : undefined} scan={scan}
       onScanHandled={() => setScan(current => current && { ...current, fresh: false })} onStationScanned={stationId => setScan({ stationId, fresh: true })}/>}
     {!privatePlayerScreen && <footer className={styles.footer}><span>{t.footer}</span><span>{t.scaffold}</span></footer>}
-  </div>;
+  </div></ThemeContext>;
 }

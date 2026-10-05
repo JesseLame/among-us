@@ -30,7 +30,7 @@
   border-radius: 50%;
   border: 3px solid var(--color-puzzle-panel-border);
   background: var(--color-puzzle-panel);
-  color: var(--color-on-primary);
+  color: var(--color-on-puzzle);
   font: 600 var(--text-xl) var(--font-heading);
   transition: background var(--motion-fast), box-shadow var(--motion-fast);
 }

@@ -6,6 +6,7 @@ import { errorMessages, translations, type Language } from '../../i18n';
 import shared from '../../App.module.css';
 import styles from './meeting.module.css';
 import ui from '../../styles/ui.module.css';
+import { MeetingBanner } from '../../themes/art';
 
 type Props = { lobby: Lobby; language: Language; connected: boolean; onUpdate: (lobby: Lobby) => void };
 const clock = (ms: number) => {
@@ -37,6 +38,7 @@ export function MeetingCard({ lobby, language, connected = true, onUpdate, class
   const ghosts = meeting.newGhosts.map(name).filter(Boolean);
   const ghost = lobby.you.status !== 'alive' && lobby.you.playing;
   return <section className={`${ui.card} ${styles.meetingCard} ${className ?? ''}`} aria-labelledby="meeting-title">
+    <MeetingBanner/>
     <p className={shared.eyebrow}>{t.meetingEyebrow}</p>
     <h2 id="meeting-title">{title}</h2>
     {caller && <p>{meeting.kind === 'report' ? t.reportedBy : t.calledBy} <strong>{caller}</strong></p>}

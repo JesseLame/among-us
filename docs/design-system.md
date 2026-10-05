@@ -2,13 +2,15 @@
 
 [Project overview](../README.md)
 
-The UI uses a small CSS-based design system. A new colour palette, type treatment, corner style or shared control design can be applied without changing game logic. The current warm house-map appearance is the default theme, not a requirement of the game engine. There is no runtime theme picker or second theme yet.
+The UI uses a small CSS-based design system. A new colour palette, type treatment, corner style or shared control design can be applied without changing game logic. Two themes exist: **Classic** (the warm house-map look, the default) and **Space** (a dark spaceship look). Each device picks its own with the theme switch beside the language switch; see [Themes](#themes).
 
 ## Where to make a change
 
 | Change | File | Purpose |
 | --- | --- | --- |
-| Colours, fonts, type sizes, shared spacing, corners, shadows, page/card sizing | [`src/styles/theme.css`](../src/styles/theme.css) | The editable visual theme, using semantic CSS custom properties. |
+| Colours, fonts, type sizes, shared spacing, corners, shadows, page/card sizing | [`src/styles/theme.css`](../src/styles/theme.css) | Every token, with the Classic values, using semantic CSS custom properties. |
+| Another theme's look | `src/styles/themes/<id>.css` | Overrides only the tokens that differ from Classic. |
+| Theme list, switch and decorative art | [`src/themes/`](../src/themes) | `index.ts` lists themes; `art.tsx` holds the art slots; `classic.tsx` and `space/` draw them. |
 | Downloaded fonts | [`src/styles/fonts.css`](../src/styles/fonts.css) | Optional Google Fonts import. Change or remove it alongside the font-family tokens; fallbacks keep the app usable. |
 | Buttons, form fields, tabs, language switch, cards, feedback and dialogs | [`src/styles/ui.module.css`](../src/styles/ui.module.css) | Shared control styling, including hover/selected states. |
 | Page shell, header/footer, lobby and round layout, roster and connection line | [`src/App.module.css`](../src/App.module.css) | Layout that several screens share. |
@@ -18,13 +20,13 @@ The UI uses a small CSS-based design system. A new colour palette, type treatmen
 | Visible wording | [`src/i18n/en.ts`](../src/i18n/en.ts), [`src/i18n/nl.ts`](../src/i18n/nl.ts) | Matched English/Dutch dictionaries, one file per language. |
 | Structure and interaction | `src/App.tsx` and the screen folders in `src/features/` (`home`, `lobby`, `round`, `meeting`, `tasks`, `practice`, `print`) | React markup and behaviour. Edit for a structural redesign, not merely to change colours. |
 
-The browser toolbar colour is the `theme-color` meta tag in `index.html`. When changing the page background, update that colour too. It is static HTML rather than a second app palette.
+The browser toolbar colour starts as the `theme-color` meta tag in `index.html` (Classic's page colour) and then follows the active theme's `--color-page`. An inline script in `index.html` applies the saved theme before the app loads, so the page does not flash.
 
 ## Common changes
 
 ### A different palette
 
-Edit the values inside `:root` in `theme.css`. Begin with:
+For Classic, edit the values in `theme.css`; for another theme, its file in `src/styles/themes/`. Begin with:
 
 ```css
 --color-page: #f5f3e9;
@@ -93,4 +95,22 @@ Keep the joined-player view minimal during active/paused rounds: the private rol
 5. Check normal/hover/selected/disabled/error/disconnected states and text contrast. Automated axe checks are useful but do not prove accessibility or real-phone usability.
 6. Update this guide if the styling structure changes. Do not edit or reset saved games just to preview a new style; browser tests use their own database and ports.
 
-For a future second theme, add an explicit token override selector in `theme.css` and a deliberate way to select it. Do not build a separate copy of each screen. No theme-switching JavaScript or persisted theme preference is currently implemented.
+## Themes
+
+A theme is a set of token overrides plus optional art. It never changes game rules, server data, sounds or wording, and it never gets its own copy of a screen.
+
+- **Choosing.** Each device chooses its look (`ThemeControl`, saved in `localStorage` as `home-theme`, default `classic`). It is a personal display preference, so it has no organiser setting and never reaches the server. `/print` always uses Classic: printed sheets are plain paper.
+- **Tokens.** `theme.css` declares every token on `:root, [data-theme='classic']`; `themes/<id>.css` overrides on `[data-theme='<id>']`. Because the selector is an attribute, an element can preview another theme (the switch's swatches carry `data-theme`). When a theme needs a new knob, add the token to `theme.css` with the value Classic already uses, so Classic does not change. Tokens used only by one theme's art (such as Space's `--color-visor`) may live in that theme's file.
+- **Art.** `src/themes/art.tsx` lists the decorative slots: `BrandMark`, `HomeMap`, `Avatar`, `RoleSymbol`, `RoleCardDecor` and `MeetingBanner`. A theme may draw any of them; missing slots fall back to Classic. Art is decoration only: hide it from assistive technology or keep the same accessible label, and never let it depend on hidden game state. The role symbol and role name look the same for every role in a theme.
+- **Fonts.** A theme can name a Google Fonts stylesheet in `themeMeta`; it loads only while that theme is active. Font stacks keep the UI usable without it.
+- **Kept fixed.** QR codes keep a white background, wire colours stay distinct and named, and controls keep their sizes and focus styles.
+
+### Adding a theme
+
+1. Add its id to `themes` in `src/themes/index.ts` and fill in `themeMeta` (its name key and optional fonts).
+2. Add the name to both dictionaries (`theme<Name>` in `en.ts` and `nl.ts`).
+3. Write `src/styles/themes/<id>.css` with token overrides and import it in `src/global.css`.
+4. Optionally draw art in `src/themes/<id>/` and register it in `art.tsx`.
+5. Add a Playwright project for it in `playwright.config.ts` (as `space` does), so every spec's axe checks also cover it, then check text contrast, both languages, mobile and desktop.
+
+TypeScript fails the build when a theme lacks metadata, a name or an art entry.

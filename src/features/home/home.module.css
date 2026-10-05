@@ -58,7 +58,7 @@
   transform: rotate(-3deg);
   border-radius: 3px;
   background: var(--color-map-floor);
-  box-shadow: 7px 7px 0 var(--color-map-shadow);
+  box-shadow: var(--shadow-map);
   font: var(--text-caption) var(--font-heading);
 }
 
@@ -143,7 +143,7 @@
   top: 64px;
   font-size: 23px;
   transform: rotate(9deg);
-  box-shadow: 3px 3px 0 var(--color-map-pawn-shadow);
+  box-shadow: var(--shadow-pawn);
 }
 
 .path {

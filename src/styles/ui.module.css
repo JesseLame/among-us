@@ -29,6 +29,23 @@
   color: var(--color-page);
 }
 
+/* Language and theme controls side by side */
+.displayControls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* A theme preview: its page colour with its accent, drawn in that theme's own tokens */
+.swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  background: linear-gradient(135deg, var(--color-page) 50%, var(--color-accent) 50%);
+}
+
 .tabs {
   display: flex;
   border-bottom: 1px solid var(--color-border);
@@ -204,6 +221,7 @@ a.secondary:hover {
   background: var(--color-page);
   color: var(--color-text);
   border-radius: var(--radius-card);
+  box-shadow: var(--shadow-dialog);
   padding: 30px;
   width: 100%;
   max-width: var(--layout-dialog-width);

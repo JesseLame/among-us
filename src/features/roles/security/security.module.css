@@ -11,7 +11,7 @@
 .security h3 {
   margin: 0;
   font: 600 var(--text-lg) var(--font-heading);
-  color: var(--color-accent);
+  color: var(--color-role-title);
 }
 
 .security p {

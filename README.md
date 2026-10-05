@@ -123,7 +123,8 @@ For an automated multiplayer check without six phones, `npm run test:e2e` create
 Source layout:
 
 - `src/`: React screens, CSS Modules and typed EN/NL translations. `App.tsx` holds the session, live updates and routing; each screen lives in a folder under `features/` (`home`, `lobby`, `round`, `meeting`, `tasks`, `practice`, `print`). `features/tasks/games/` has one folder per task game (component and CSS) on a shared `TaskFrame`. Shared helpers are in `lib/` (API, sound) and `components/` (QR codes); translations are in `i18n/`, one file per language.
-- `src/styles/theme.css`: central visual theme; `ui.module.css` contains shared controls and card surfaces, and `fonts.css` handles font loading.
+- `src/styles/theme.css`: central visual tokens (the Classic look); `themes/<id>.css` overrides them per theme, `ui.module.css` contains shared controls and card surfaces, and `fonts.css` handles font loading.
+- `src/themes/`: the selectable looks (Classic and Space), the theme switch, and per-theme decorative art (brand mark, home map, avatars, role helmet, meeting banner).
 - `server/`: Express API, authenticated Socket.IO updates and SQLite store. `app.ts` sets up the server and live updates; `routes/` holds the API handlers by area; `store/` holds the game state (`db.ts` opens and migrates the database, then one module each for rooms, rounds, meetings, corrections, win rules and the per-player lobby view); `tasks/` generates and checks puzzles, one module per task game; `test/` holds the integration tests by area.
 - `shared/`: shared protocol types and Zod input schemas.
 - `tests/`: browser flows and axe accessibility checks; server integration tests are in `server/test/`.
@@ -131,6 +132,8 @@ Source layout:
 - `AGENTS.md`: shared coding-agent guidance; `CLAUDE.md` imports it for Claude Code.
 
 The language initially follows the browser (Dutch for `nl`, English otherwise), can be changed at any time, and is saved locally. Server errors use stable codes translated on the phone. New UI text must be added to both dictionaries; TypeScript enforces matching keys. Player names and game codes are never translated.
+
+Each device also chooses its own look, **Classic** (the default warm house style) or **Space** (a dark spaceship style), next to the language switch and on the private role card. The choice is saved locally, never sent to the server, and printed sheets always use Classic.
 
 Source is on GitHub at `https://github.com/JesseLame/among-us`. Work on feature branches, merge to `main` when `npm test` and `npm run test:e2e` pass, and tag completed build stages (for example `stage-2`) as rollback points. Local databases in `data/` are not versioned; copy `data/game.sqlite` before trying schema changes.
 

@@ -10,6 +10,7 @@ import styles from './practice.module.css';
 import print from '../print/print.module.css';
 import tasks from '../tasks/tasks.module.css';
 import ui from '../../styles/ui.module.css';
+import { BrandMark } from '../../themes/art';
 
 const kindFromUrl = (): TaskKind => {
   const game = new URLSearchParams(location.search).get('game');
@@ -18,7 +19,7 @@ const kindFromUrl = (): TaskKind => {
 
 // /practice: try every task game on any phone, without a room or round. Puzzles come from
 // and are checked by the server, exactly like real tasks; nothing here affects a game.
-export default function Practice({ language, languageControl }: { language: Language; languageControl: ReactNode }) {
+export default function Practice({ language, displayControls }: { language: Language; displayControls: ReactNode }) {
   const t = translations[language];
   const [kind, setKind] = useState<TaskKind>(kindFromUrl);
   const [current, setCurrent] = useState<PracticePuzzle | null>(null);
@@ -64,8 +65,8 @@ export default function Practice({ language, languageControl }: { language: Lang
 
   return <>
     <header className={shared.header}>
-      <a className={shared.brand} href="/" aria-label={`Among Us ${t.home}`}><span className={shared.brandMark} aria-hidden="true">⌂</span><span>AMONG US <em>{t.home}</em></span></a>
-      {languageControl}
+      <a className={shared.brand} href="/" aria-label={`Among Us ${t.home}`}><BrandMark/><span>AMONG US <em>{t.home}</em></span></a>
+      {displayControls}
     </header>
     <main className={styles.practice}>
       <div className={styles.practiceIntro}>

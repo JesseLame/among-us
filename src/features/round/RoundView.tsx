@@ -4,6 +4,7 @@ import { translations, type Language } from '../../i18n';
 import shared from '../../App.module.css';
 import styles from './round.module.css';
 import ui from '../../styles/ui.module.css';
+import { Avatar } from '../../themes/art';
 import Tasks, { type Scan } from '../tasks/Tasks';
 import SharedProgress from '../tasks/SharedProgress';
 import GameSettings from '../lobby/Settings';
@@ -15,7 +16,7 @@ import { roleCards } from '../roles/registry';
 
 type Props = {
   lobby: Lobby; language: Language; connected: boolean; onUpdate: (lobby: Lobby) => void; onExit: (reason: SessionEndReason) => void;
-  languageControl?: ReactNode; scan?: Scan | null; onScanHandled?: () => void; onStationScanned?: (stationId: string) => void;
+  displayControls?: ReactNode; scan?: Scan | null; onScanHandled?: () => void; onStationScanned?: (stationId: string) => void;
 };
 
 export default function RoundView(props: Props) {
@@ -41,7 +42,7 @@ export default function RoundView(props: Props) {
     {meeting}
     {reactor}
     {body && tasks}
-    <PrivateRole key={`${lobby.roundId}:${lobby.phase}`} lobby={lobby} language={language} connected={connected} onUpdate={props.onUpdate} languageControl={props.languageControl}/>
+    <PrivateRole key={`${lobby.roundId}:${lobby.phase}`} lobby={lobby} language={language} connected={connected} onUpdate={props.onUpdate} displayControls={props.displayControls}/>
     <SharedProgress lobby={lobby} language={language} className={styles.progress}/>
     {calls}
     {!body && tasks}
@@ -62,7 +63,7 @@ export default function RoundView(props: Props) {
     {lobby.phase === 'ended' ? <section className={`${ui.card} ${shared.lobbyCard}`} aria-labelledby="revealed-title">
       <p className={shared.eyebrow}>{t.allRevealed}</p><h2 id="revealed-title">{t.whoWasWho}</h2>
       <ul className={shared.roster}>{lobby.players.map((player, index) => <li key={player.id}>
-        <span className={shared.avatar} data-color={index % 4} aria-hidden="true">{player.name.charAt(0).toUpperCase()}</span>
+        <Avatar color={index % 4} initial={player.name.charAt(0).toUpperCase()}/>
         <span className={shared.playerName}>{player.name}{player.id === lobby.you.id && <small> · {t.you}</small>}{player.removed && <small> · {t.removedPlayer}</small>}</span>
         <span className={ui.badge}>{!player.playing ? t.hostBadge : roleCards[lobby.revealedRoles?.find(role => role.id === player.id)?.role ?? 'crewmate'].name(t)}</span>
       </li>)}</ul>
@@ -71,7 +72,7 @@ export default function RoundView(props: Props) {
     </section> : !lobby.you.playing ? <section className={`${ui.card} ${shared.lobbyCard} ${styles.hostRoster}`} aria-labelledby="playing-title">
       <div className={shared.cardTop}><h2 id="playing-title">{t.playingNow}</h2><span>{lobby.players.filter(player => player.playing).length}</span></div>
       <ul className={shared.roster}>{lobby.players.filter(player => player.playing).map((player, index) => <li key={player.id}>
-        <span className={shared.avatar} data-color={index % 4} aria-hidden="true">{player.name.charAt(0).toUpperCase()}</span>
+        <Avatar color={index % 4} initial={player.name.charAt(0).toUpperCase()}/>
         <span className={shared.playerName}>{player.name}</span>
         {player.test && <span className={ui.badge}>{t.testBadge}</span>}
         {player.out && <span className={ui.badge}>{t.ghostBadge}</span>}

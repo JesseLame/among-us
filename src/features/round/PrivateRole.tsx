@@ -6,15 +6,16 @@ import { errorMessages, translations, type Language } from '../../i18n';
 import shared from '../../App.module.css';
 import styles from './round.module.css';
 import ui from '../../styles/ui.module.css';
+import { RoleCardDecor, RoleSymbol } from '../../themes/art';
 import EliminatePanel from './Eliminate';
 import SabotagePanel from '../sabotage/SabotagePanel';
 import SecurityPanel from '../roles/security/SecurityPanel';
 import { roleCards } from '../roles/registry';
 
-type Props = { lobby: Lobby; language: Language; connected: boolean; onUpdate: (lobby: Lobby) => void; languageControl?: ReactNode };
+type Props = { lobby: Lobby; language: Language; connected: boolean; onUpdate: (lobby: Lobby) => void; displayControls?: ReactNode };
 
 // The player's own role, fetched only on request and hidden again when the phone is put away.
-export default function PrivateRole({ lobby, language, connected, onUpdate, languageControl }: Props) {
+export default function PrivateRole({ lobby, language, connected, onUpdate, displayControls }: Props) {
   const t = translations[language];
   const [info, setInfo] = useState<RoleInfo | null>(null);
   const role = info?.role ?? null;
@@ -57,7 +58,8 @@ export default function PrivateRole({ lobby, language, connected, onUpdate, lang
   return <section className={`${ui.card} ${styles.roleCard}`} aria-labelledby="private-role-title">
     <p className={shared.eyebrow}>{t.onlyYou}</p>
     {!lobby.you.organiser && (lobby.phase === 'paused' || !connected) && <p className={ui.note} role="status">{!connected ? t.reconnecting : lobby.pauseReason === 'victory' ? t.checkingResult : t.roundPaused}</p>}
-    <div className={styles.roleSymbol} aria-hidden="true">{role ? roleCards[role].symbol : '◇'}</div>
+    <RoleCardDecor/>
+    <RoleSymbol symbol={role ? roleCards[role].symbol : '◇'}/>
     <RoleHeading id="private-role-title" ref={heading} tabIndex={-1} className={styles.roleHeading}>{t.yourRole}</RoleHeading>
     <div role="status" className={styles.roleContent}>
       {role ? <><RevealedHeading>{roleCards[role].name(t)}</RevealedHeading><p>{roleCards[role].brief(t)}</p></> : <p>{t.roleHidden}</p>}
@@ -69,6 +71,6 @@ export default function PrivateRole({ lobby, language, connected, onUpdate, lang
     <Button className={ui.primary} isDisabled={!connected || busy} onPress={() => { if (role) hide(); else void reveal(); }}>{busy ? t.working : role ? t.hideRole : t.revealRole}<span aria-hidden="true">{role ? '×' : '→'}</span></Button>
     {error && <p className={ui.error} role="alert">{errorMessages[language][error]}</p>}
     <p className={ui.note}>{t.autoHide}</p>
-    {languageControl && <div className={styles.roleLanguage}>{languageControl}</div>}
+    {displayControls && <div className={styles.roleLanguage}>{displayControls}</div>}
   </section>;
 }

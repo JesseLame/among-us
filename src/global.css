@@ -1,10 +1,14 @@
 @import "./styles/fonts.css";
 @import "./styles/theme.css";
+@import "./styles/themes/space.css";
 
 :root {
   font-family: var(--font-body);
   color: var(--color-text);
   background: var(--color-page);
+  background-image: var(--page-backdrop);
+  background-size: var(--page-backdrop-size);
+  background-attachment: fixed;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
