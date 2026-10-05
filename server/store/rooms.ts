@@ -1,5 +1,5 @@
 import { randomBytes, randomInt, randomUUID } from 'node:crypto';
-import { taskKinds, type PrintableStation, type RoomCommand, type SettingsCommand, type StationCommand } from '../../shared/protocol.js';
+import { specialRoles, taskKinds, type PrintableStation, type RoomCommand, type SettingsCommand, type StationCommand } from '../../shared/protocol.js';
 import type { Codebook } from '../tasks/index.js';
 import type { Base } from './base.js';
 import { addStations } from './db.js';
@@ -146,13 +146,15 @@ export function createRooms({ db, now, gameFor, alreadyApplied, recordCommand, o
       task_goal_percent = COALESCE(?, task_goal_percent), confirm_victory = COALESCE(?, confirm_victory),
       change_previews = COALESCE(?, change_previews), change_history = COALESCE(?, change_history), task_games_off = COALESCE(?, task_games_off),
       delivery_mode = COALESCE(?, delivery_mode), delivery_object = COALESCE(?, delivery_object),
-      sabotage = COALESCE(?, sabotage), reactor_time = COALESCE(?, reactor_time), revision = revision + 1 WHERE code = ?`)
+      sabotage = COALESCE(?, sabotage), reactor_time = COALESCE(?, reactor_time),
+      roles_on = COALESCE(?, roles_on), security_time = COALESCE(?, security_time), revision = revision + 1 WHERE code = ?`)
       .run(input.stationAccess ?? null, flag(input.eliminations), flag(input.bodyReports), flag(input.emergencyMeetings), flag(input.phoneVoting),
         input.openingProtection ?? null, input.killCooldown ?? null, input.discussionTime ?? null, input.emergencyAllowance ?? null,
         input.progressInterval ?? null, input.tasksPerPlayer ?? null, input.taskGoalPercent ?? null,
         flag(input.confirmVictory), flag(input.changePreviews), flag(input.changeHistory),
         input.taskGames ? JSON.stringify(taskKinds.filter(kind => !input.taskGames!.includes(kind))) : null,
-        input.deliveryMode ?? null, input.deliveryObject ?? null, flag(input.sabotage), input.reactorTime ?? null, game.code);
+        input.deliveryMode ?? null, input.deliveryObject ?? null, flag(input.sabotage), input.reactorTime ?? null,
+        input.roles ? JSON.stringify(specialRoles.filter(role => input.roles!.includes(role))) : null, input.securityTime ?? null, game.code);
     // Switching sabotage off stops a meltdown without a loss; a task win that waited for it counts now.
     if (input.sabotage === false && game.reactor_ends_ms !== null) {
       db.prepare('UPDATE games SET reactor_ends_ms = NULL, reactor_panel = NULL WHERE code = ?').run(game.code);

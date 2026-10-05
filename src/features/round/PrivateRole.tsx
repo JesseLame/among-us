@@ -8,6 +8,8 @@ import styles from './round.module.css';
 import ui from '../../styles/ui.module.css';
 import EliminatePanel from './Eliminate';
 import SabotagePanel from '../sabotage/SabotagePanel';
+import SecurityPanel from '../roles/security/SecurityPanel';
+import { roleCards } from '../roles/registry';
 
 type Props = { lobby: Lobby; language: Language; connected: boolean; onUpdate: (lobby: Lobby) => void; languageControl?: ReactNode };
 
@@ -55,14 +57,15 @@ export default function PrivateRole({ lobby, language, connected, onUpdate, lang
   return <section className={`${ui.card} ${styles.roleCard}`} aria-labelledby="private-role-title">
     <p className={shared.eyebrow}>{t.onlyYou}</p>
     {!lobby.you.organiser && (lobby.phase === 'paused' || !connected) && <p className={ui.note} role="status">{!connected ? t.reconnecting : lobby.pauseReason === 'victory' ? t.checkingResult : t.roundPaused}</p>}
-    <div className={styles.roleSymbol} aria-hidden="true">{role ? role === 'impostor' ? '?' : '✳' : '◇'}</div>
+    <div className={styles.roleSymbol} aria-hidden="true">{role ? roleCards[role].symbol : '◇'}</div>
     <RoleHeading id="private-role-title" ref={heading} tabIndex={-1} className={styles.roleHeading}>{t.yourRole}</RoleHeading>
     <div role="status" className={styles.roleContent}>
-      {role ? <><RevealedHeading>{role === 'impostor' ? t.impostor : t.crewmate}</RevealedHeading><p>{role === 'impostor' ? t.impostorBrief : t.crewmateBrief}</p></> : <p>{t.roleHidden}</p>}
+      {role ? <><RevealedHeading>{roleCards[role].name(t)}</RevealedHeading><p>{roleCards[role].brief(t)}</p></> : <p>{t.roleHidden}</p>}
     </div>
     {role === 'impostor' && !lobby.settings.eliminations && <p className={`${ui.note} ${styles.eliminationsOff}`}>{t.eliminationsOffImpostor}</p>}
     {info?.elimination && lobby.roundId && <EliminatePanel roundId={lobby.roundId} elimination={info.elimination} language={language} connected={connected} onInfo={setInfo}/>}
     {info?.sabotage && lobby.roundId && <SabotagePanel roundId={lobby.roundId} sabotage={info.sabotage} language={language} connected={connected} onInfo={setInfo} onUpdate={onUpdate}/>}
+    {info?.security && lobby.roundId && <SecurityPanel lobby={lobby} roundId={lobby.roundId} security={info.security} language={language} connected={connected} onInfo={setInfo}/>}
     <Button className={ui.primary} isDisabled={!connected || busy} onPress={() => { if (role) hide(); else void reveal(); }}>{busy ? t.working : role ? t.hideRole : t.revealRole}<span aria-hidden="true">{role ? '×' : '→'}</span></Button>
     {error && <p className={ui.error} role="alert">{errorMessages[language][error]}</p>}
     <p className={ui.note}>{t.autoHide}</p>

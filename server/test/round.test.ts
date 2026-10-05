@@ -128,7 +128,7 @@ describe('private roles and round lifecycle', () => {
     expect(lobby.roundId).toBeNull();
     const originalSession = (await (await fetch(`${app.url}/api/session`, { headers: { Cookie: 'home_session=old-session' } })).json()).lobby;
     expect(originalSession.you).toEqual({ id: 'original', organiser: true, playing: true, status: 'alive', emergencyLeft: 1, tasks: [] });
-    expect(originalSession.settings).toEqual({ stationAccess: 'qr', eliminations: true, bodyReports: true, emergencyMeetings: true, phoneVoting: false, openingProtection: 60, killCooldown: 60, discussionTime: 90, emergencyAllowance: 1, progressInterval: 30, tasksPerPlayer: 4, taskGoalPercent: 80, confirmVictory: false, changePreviews: true, changeHistory: true, taskGames: ['codebook', 'order', 'wires', 'simon', 'maze', 'waterways', 'delivery', 'twokeys'], deliveryMode: 'app', deliveryObject: '', sabotage: true, reactorTime: 90 });
+    expect(originalSession.settings).toEqual({ stationAccess: 'qr', eliminations: true, bodyReports: true, emergencyMeetings: true, phoneVoting: false, openingProtection: 60, killCooldown: 60, discussionTime: 90, emergencyAllowance: 1, progressInterval: 30, tasksPerPlayer: 4, taskGoalPercent: 80, confirmVictory: false, changePreviews: true, changeHistory: true, taskGames: ['codebook', 'order', 'wires', 'simon', 'maze', 'waterways', 'delivery', 'twokeys'], deliveryMode: 'app', deliveryObject: '', sabotage: true, reactorTime: 90, roles: [], securityTime: 15 });
     expect(originalSession.stations.map((station: { name: string }) => station.name)).toEqual(['Kitchen', 'Living room', 'Hallway', 'Study']);
   });
 
@@ -146,6 +146,8 @@ describe('private roles and round lifecycle', () => {
     old.exec(`ALTER TABLE games DROP COLUMN task_games_off; ALTER TABLE games DROP COLUMN delivery_mode; ALTER TABLE games DROP COLUMN delivery_object; ALTER TABLE games ADD COLUMN simon_tasks INTEGER NOT NULL DEFAULT 1;
       ALTER TABLE games DROP COLUMN sabotage; ALTER TABLE games DROP COLUMN reactor_time; ALTER TABLE games DROP COLUMN reactor_used;
       ALTER TABLE games DROP COLUMN reactor_ends_ms; ALTER TABLE games DROP COLUMN reactor_panel;
+      ALTER TABLE games DROP COLUMN roles_on; ALTER TABLE games DROP COLUMN security_time; ALTER TABLE games DROP COLUMN security_ends_ms; ALTER TABLE games DROP COLUMN jester_out;
+      ALTER TABLE players DROP COLUMN ability_used; ALTER TABLE players DROP COLUMN station_id; ALTER TABLE players DROP COLUMN station_at;
       UPDATE games SET simon_tasks = 0; PRAGMA user_version = 14;`);
     old.close();
     const reopened = await start(path);

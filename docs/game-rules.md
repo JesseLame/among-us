@@ -61,12 +61,25 @@ The organiser records the physical result and resumes play if nobody has won. *(
 
 | Team | Default win condition |
 | --- | --- |
-| Crewmates | The Impostor is ejected, or the shared task target is reached. |
-| Impostor | At most one living Crewmate remains alongside them. |
+| Crewmates (including Security) | The Impostor is ejected, or the shared task target is reached. |
+| Impostor (and the Accomplice) | At most one living crew or Jester player remains. The Accomplice counts for neither side. |
+| Jester (extra role) | Everyone else votes them out in a phone vote. The round ends with the Jester as sole winner. |
 
 With six players, five Crewmates receive 20 tasks and need to complete 16 at the default target. Ghost completions count; fake tasks do not. Check wins after recorded game events. Automatic announcements are the default; organiser-confirmed mode pauses at a win condition for confirmation or correction.
 
 The organiser can adjust the goal or end the round manually, including without a winner. Task removal, departures and corrections follow [organiser controls](organiser-controls.md), so the goal stays reachable. A temporary disconnect never counts as death or departure.
+
+## Extra roles
+
+**Built, each off by default** (organiser checklist **Extra roles**). Each switched-on role goes to one random real Crewmate at the round start, but only with enough real players, and only while at least two crew players stay on the crew. A role that does not fit is left out without telling anyone. Test players stay Crewmates. Roles stay private until the round ends, like the Impostor's.
+
+| Role | From | Plays |
+| --- | --- | --- |
+| Security | 4 players | A Crewmate with real tasks. Once per round, outside meetings, opens a live view (15 s of active play by default, organiser 5–60) of the station where each other player last scanned, and how long ago. A meeting closes it; a pause stops it. Undiscovered bodies show like anyone else. |
+| Jester | 5 players, phone voting on | Wins alone if every other living voter votes them out on their phone (their own vote does not matter). A split vote or a physically recorded vote just makes them a ghost. Fake tasks. Can be eliminated. |
+| Accomplice | 6 players | Wins with the Impostor, even as a ghost. Neither knows who the other is; the Impostor can eliminate them. Fake tasks, no abilities. Ejecting them does not end the round. |
+
+The live view uses the last QR scan (or, with tasks opening without scanning, the station of the last task opened), so it shows where someone *was*, not where they are now. Locations are stored only while a Security player is in the round and are never part of shared updates.
 
 ## Sabotage
 

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button, Group, Input, Label, NumberField, Switch, Text, TextField } from 'react-aria-components';
-import { taskKinds, type ErrorCode, type Lobby, type SettingsCommand } from '../../../shared/protocol';
+import { specialRoles, taskKinds, type ErrorCode, type Lobby, type SettingsCommand } from '../../../shared/protocol';
 import { codeFor, commandId, request } from '../../lib/api';
 import { errorMessages, translations, type Language } from '../../i18n';
 import { kindLabel } from '../tasks/games/registry';
+import { roleCards, roleHelp } from '../roles/registry';
 import styles from './lobby.module.css';
 import ui from '../../styles/ui.module.css';
 
@@ -29,7 +30,7 @@ export default function GameSettings({ lobby, language, connected, onUpdate }: P
     finally { inFlight.current = false; setBusy(false); }
   }
 
-  const { stationAccess, eliminations, bodyReports, emergencyMeetings, phoneVoting, confirmVictory, changePreviews, changeHistory, taskGames, deliveryMode, deliveryObject, sabotage } = lobby.settings;
+  const { stationAccess, eliminations, bodyReports, emergencyMeetings, phoneVoting, confirmVictory, changePreviews, changeHistory, taskGames, deliveryMode, deliveryObject, sabotage, roles } = lobby.settings;
   // The object name saves when the field is left (or Enter), not on every keystroke.
   const [objectDraft, setObjectDraft] = useState<string | null>(null);
   const saveObject = () => {
@@ -43,7 +44,7 @@ export default function GameSettings({ lobby, language, connected, onUpdate }: P
     <p className={ui.note}>{help}</p>
   </div>;
   // Number fields save shortly after the last change, so tapping + several times sends one update.
-  type NumberKey = 'openingProtection' | 'killCooldown' | 'discussionTime' | 'emergencyAllowance' | 'tasksPerPlayer' | 'taskGoalPercent' | 'progressInterval' | 'reactorTime';
+  type NumberKey = 'openingProtection' | 'killCooldown' | 'discussionTime' | 'emergencyAllowance' | 'tasksPerPlayer' | 'taskGoalPercent' | 'progressInterval' | 'reactorTime' | 'securityTime';
   const [draft, setDraft] = useState<Partial<Record<NumberKey, number>>>({});
   // Always save with the latest room revision, not the one from when the timer started.
   const latestChange = useRef(change);
@@ -124,6 +125,20 @@ export default function GameSettings({ lobby, language, connected, onUpdate }: P
       {group('settings-sabotage', t.groupSabotage, <>
         {setting(t.sabotageSetting, sabotage, sabotage ? t.sabotageOn : t.sabotageOff, on => void change({ sabotage: on }))}
         {sabotage && number('reactorTime', t.settingReactor, t.settingReactorHelp, 30, 600, 15)}
+      </>)}
+      {group('settings-roles', t.groupRoles, <>
+        <div className={styles.setting}>
+          <fieldset className={`${ui.choices} ${styles.gameChoices}`}>
+            <legend>{t.rolesLegend}</legend>
+            {specialRoles.map(role => <label key={role}>
+              <input type="checkbox" checked={roles.includes(role)} disabled={busy || !connected}
+                onChange={event => void change({ roles: specialRoles.filter(other => other === role ? event.target.checked : roles.includes(other)) })}/>
+              <span>{roleCards[role].name(t)}<small>{roleHelp[role](t)}</small></span>
+            </label>)}
+          </fieldset>
+          <p className={ui.note}>{t.rolesHelp}</p>
+        </div>
+        {roles.includes('security') && number('securityTime', t.settingSecurity, t.settingSecurityHelp, 5, 60, 5)}
       </>)}
       {group('settings-organiser', t.groupOrganiser, <>
         {setting(t.confirmVictorySetting, confirmVictory, confirmVictory ? t.confirmVictoryOn : t.confirmVictoryOff, on => void change({ confirmVictory: on }))}

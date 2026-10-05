@@ -18,7 +18,7 @@ describe('durable bilingual-lobby foundation', () => {
     expect(cookie).toContain('SameSite=Lax');
     const { lobby } = await created.json() as { lobby: Lobby };
     expect(lobby.you.organiser).toBe(true);
-    expect(JSON.stringify(lobby)).not.toMatch(/session_hash|token|role/);
+    expect(JSON.stringify(lobby)).not.toMatch(/session_hash|token|"role"/);
     expect((await app.post('/api/games', { name: 'Again' }, cookie)).status).toBe(409);
     expect((await app.post('/api/games/join', { name: 'jesse', code: lobby.code })).status).toBe(400);
     expect((await app.post('/api/games/join', { name: '', code: lobby.code })).status).toBe(400);

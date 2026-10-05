@@ -213,6 +213,23 @@ export const nl: Copy = {
   sabotageOn: 'Aan: één keer per ronde kan de Bedrieger een kernsmelting starten die twee spelers op tijd bij twee stations moeten repareren.',
   sabotageOff: 'Uit: geen sabotage. Uitzetten tijdens een kernsmelting stopt hem zonder verlies.',
   settingReactor: 'Aftellen kernsmelting (seconden)', settingReactorHelp: 'Telt alleen actief spel. Geldt vanaf de volgende kernsmelting.',
+  security: 'Beveiliging', jester: 'Nar', accomplice: 'Handlanger',
+  securityBrief: 'Je hoort bij de bemanning. Voer je taken uit. Eén keer per ronde kun je live zien waar iedereen voor het laatst een station scande.',
+  jesterBrief: 'Je speelt voor jezelf. Je wint alleen als alle anderen je wegstemmen met hun telefoon. Doe verdacht, maar niet te opvallend. Je taken zijn nep.',
+  accompliceBrief: 'Je helpt de Bedrieger in het geheim, maar jullie weten niet wie de ander is. Je wint als de Bedrieger wint, ook als je zelf uit bent. Je taken zijn nep.',
+  securityTitle: 'Live beeld', securityHelp: 'Eén keer per ronde, niet tijdens een overleg. {seconds} seconden lang zie je bij welk station iedere speler voor het laatst scande.',
+  securityOpen: 'Open live beeld', securityUsed: 'Je hebt je live beeld deze ronde gebruikt.', securityMeeting: 'Niet tijdens een overleg.',
+  securityPaused: 'De ronde is gepauzeerd, dus het live beeld staat stil.', securityCloses: 'Sluit over',
+  securityNever: 'Nog niet gezien', securityAgo: '{seconds} s geleden', securityLastSeen: 'Laatst gezien', securityPlayer: 'Speler',
+  securityConfirmTitle: 'Live beeld openen?', securityConfirmText: 'Dit kan maar één keer per ronde. Niemand anders krijgt het te horen.', securityConfirm: 'Openen',
+  jesterWins: 'De Nar wint', jesterWonTitle: 'De Nar heeft iedereen voor de gek gehouden.',
+  jesterWonMessage: 'Iedereen stemde de Nar weg, dus de Nar wint. Jullie mogen nu over jullie rollen praten.',
+  proposedJester: 'Iedereen heeft de Nar weggestemd.', accompliceWonNote: 'De Handlanger wint met de Bedrieger mee.',
+  groupRoles: 'Extra rollen', rolesLegend: 'Rollen in de volgende ronde', rolesHelp: 'Bij de volgende start elk aan één speler gegeven, als er genoeg spelers zijn. Niemand hoort het als een rol is weggelaten.',
+  roleSecurityHelp: 'Vanaf 4 spelers. Ziet één keer per ronde, buiten een overleg, waar iedereen voor het laatst een station scande.',
+  roleJesterHelp: 'Vanaf 5 spelers. Wint alleen als alle anderen de Nar met hun telefoon wegstemmen. Werkt alleen met stemmen op de telefoon.',
+  roleAccompliceHelp: 'Vanaf 6 spelers. Wint met de Bedrieger mee, maar ze weten niet wie de ander is. Telt niet mee voor de meerderheid van de Bedrieger.',
+  settingSecurity: 'Duur live beeld (seconden)', settingSecurityHelp: 'Hoe lang het live beeld van de Beveiliging open blijft.',
 };
 
 export const nlErrors: Record<ErrorCode, string> = {
@@ -236,4 +253,5 @@ export const nlErrors: Record<ErrorCode, string> = {
   HELP_CODE_NOT_FOUND: 'Geen open taak heeft die koppelcode. Controleer de letters op hun scherm.', OWN_TASK: 'Dat is je eigen taak. Iemand anders moet je helpen.',
   SABOTAGE_OFF: 'De organisator heeft sabotage uitgezet.', SABOTAGE_USED: 'Je hebt je sabotage deze ronde al gebruikt.',
   REACTOR_ACTIVE: 'Geen noodoverleg tijdens een kernsmelting. Repareer eerst de reactor.',
+  SECURITY_USED: 'Je hebt je live beeld deze ronde al gebruikt.',
 };

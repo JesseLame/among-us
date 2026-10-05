@@ -1,12 +1,13 @@
 import { randomInt, randomUUID } from 'node:crypto';
-import { REPAIR_WINDOW_MS, type CompleteTask, type Eliminate, type HelpTask, type Lobby, type RepairReactor, type Role, type RoleInfo, type RoundCommand, type RoundResult, type Sabotage, type TaskPuzzle } from '../../shared/protocol.js';
+import { REPAIR_WINDOW_MS, type CompleteTask, type Eliminate, type HelpTask, type Lobby, type RepairReactor, type ReportLocation, type Role, type RoleInfo, type RoundCommand, type RoundResult, type Sabotage, type SecurityView, type TaskPuzzle, type UseSecurity } from '../../shared/protocol.js';
+import { chooseRoles, roleRules } from '../roles.js';
 import { advance, puzzle, shuffle, solved, type Codebook } from '../tasks/index.js';
 import type { Base } from './base.js';
 import type { Rules } from './rules.js';
 import { GameError, taskContext, taskKindsFor, type Game, type Player, type ReactorPanel, type TaskRow } from './shared.js';
 import type { View } from './view.js';
 
-// A round: starting and running it, private roles, eliminations, sabotage, tasks and the progress tick.
+// A round: starting and running it, private roles, eliminations, sabotage, Security, tasks and the progress tick.
 export function createRound({ db, now, playerFor, gameFor, alreadyApplied, recordCommand, organiserFor }: Base, { progress, elapsed, settle }: Rules, { lobby }: View) {
   function assignTasks(game: Game, roundId: string, players: { id: string; role: Role }[]) {
     const stations = shuffle(db.prepare('SELECT id FROM stations WHERE game_code = ?').all(game.code) as { id: string }[]);
@@ -20,7 +21,7 @@ export function createRound({ db, now, playerFor, gameFor, alreadyApplied, recor
       const kinds = shuffle(Array.from({ length: game.tasks_per_player }, (_, index) => available[index % available.length]));
       kinds.forEach((kind, index) => insert.run(
         randomUUID(), game.code, roundId, player.id, stations[(offset + index) % stations.length].id,
-        Number(player.role === 'impostor'), JSON.stringify(puzzle(kind, taskContext(game, stations[(offset + index) % stations.length].id, stations.map(entry => entry.id), pairCodes))), index,
+        Number(roleRules[player.role].fakeTasks), JSON.stringify(puzzle(kind, taskContext(game, stations[(offset + index) % stations.length].id, stations.map(entry => entry.id), pairCodes))), index,
       ));
     }
   }
@@ -43,7 +44,58 @@ export function createRound({ db, now, playerFor, gameFor, alreadyApplied, recor
     if (player.role === 'impostor' && game.sabotage) {
       info.sabotage = { used: Boolean(game.reactor_used), readyInMs: Math.max(0, game.opening_protection * 1000 - elapsed(game)), running: game.phase === 'active' };
     }
+    if (player.role === 'security') info.security = { used: Boolean(player.ability_used), msLeft: securityLeft(game), running: game.phase === 'active' };
     return info;
+  }
+  // The time left in an open Security live view. It runs on the play clock, so a pause stops it.
+  const securityLeft = (game: Game) => game.security_ends_ms === null ? 0 : Math.max(0, game.security_ends_ms - elapsed(game));
+  // A player's phone reports the station they scanned or opened a task at. Kept only while a
+  // Security player is in the round; nothing else changes and nobody is told.
+  function reportLocation(token: string | undefined, input: ReportLocation) {
+    const player = playerFor(token);
+    if (!player) throw new GameError('NO_SESSION', 401);
+    const game = gameFor(player.game_code)!;
+    if (game.round_id !== input.roundId) throw new GameError('STALE_COMMAND', 409);
+    if (game.phase !== 'active' && game.phase !== 'paused' && game.phase !== 'meeting') throw new GameError('INVALID_PHASE', 409);
+    if (!player.playing) return;
+    if (!db.prepare('SELECT 1 FROM stations WHERE id = ? AND game_code = ?').get(input.stationId, game.code)) throw new GameError('INVALID_INPUT');
+    if (!db.prepare("SELECT 1 FROM players WHERE game_code = ? AND role = 'security' AND removed = 0 AND playing = 1").get(game.code)) return;
+    db.prepare('UPDATE players SET station_id = ?, station_at = ? WHERE id = ?').run(input.stationId, elapsed(game), player.id);
+  }
+  // Security opens their live view: once per round, while alive, in active play (never in a
+  // meeting). Only their own phone changes, so no revision bump.
+  const startSecurity = db.transaction((token: string | undefined, input: UseSecurity) => {
+    const player = playerFor(token);
+    if (!player) throw new GameError('NO_SESSION', 401);
+    const game = gameFor(player.game_code)!;
+    if (game.round_id !== input.roundId) throw new GameError('STALE_COMMAND', 409);
+    if (player.role !== 'security' || !player.playing) throw new GameError('FORBIDDEN', 403);
+    const payload = JSON.stringify(input);
+    if (alreadyApplied(input.commandId, player.id, payload)) return;
+    if (game.phase !== 'active') throw new GameError('INVALID_PHASE', 409);
+    if (player.status !== 'alive') throw new GameError('NOT_ALIVE', 409);
+    if (player.ability_used) throw new GameError('SECURITY_USED', 409);
+    db.prepare('UPDATE players SET ability_used = 1 WHERE id = ?').run(player.id);
+    db.prepare('UPDATE games SET security_ends_ms = ? WHERE code = ?').run(elapsed(game) + game.security_time * 1000, game.code);
+    recordCommand(input.commandId, game.code, player.id, payload);
+  });
+  // The open live view, for Security only: every other player not publicly out, with their last
+  // reported station. Undiscovered bodies look like anyone else. Paused, it shows nobody.
+  function securityView(token: string | undefined, roundId: string): SecurityView {
+    const player = playerFor(token);
+    if (!player) throw new GameError('NO_SESSION', 401);
+    const game = gameFor(player.game_code)!;
+    if (game.round_id !== roundId) throw new GameError('STALE_COMMAND', 409);
+    if (player.role !== 'security' || !player.playing) throw new GameError('FORBIDDEN', 403);
+    const msLeft = securityLeft(game);
+    const running = game.phase === 'active';
+    if (!msLeft || !running) return { msLeft, running, players: [] };
+    const at = elapsed(game);
+    const others = db.prepare("SELECT id, station_id, station_at FROM players WHERE game_code = ? AND playing = 1 AND removed = 0 AND status != 'ghost' AND id != ? ORDER BY joined_at, rowid")
+      .all(game.code, player.id) as { id: string; station_id: string | null; station_at: number | null }[];
+    return { msLeft, running, players: others.map(other => ({
+      id: other.id, stationId: other.station_id, secondsAgo: other.station_at === null ? null : Math.floor(Math.max(0, at - other.station_at) / 1000),
+    })) };
   }
   // The Impostor records an elimination after the physical signal. Only the victim's
   // phone changes (to the body screen); nobody else is told, so no revision bump.
@@ -132,16 +184,16 @@ export function createRound({ db, now, playerFor, gameFor, alreadyApplied, recor
         const real = players.filter(p => !p.test);
         if (real.length < 1) throw new GameError('NOT_ENOUGH_PLAYERS');
         if (!db.prepare('SELECT 1 FROM stations WHERE game_code = ?').get(game.code)) throw new GameError('NO_STATIONS');
-        const impostor = real[randomInt(real.length)].id;
+        const chosen = chooseRoles(game, players, randomInt);
         const assign = db.prepare('UPDATE players SET role = ? WHERE id = ?');
-        const roles = players.map(p => ({ id: p.id, role: (p.id === impostor ? 'impostor' : 'crewmate') as Role }));
+        const roles = players.map(p => ({ id: p.id, role: chosen.get(p.id)! }));
         roles.forEach(p => assign.run(p.role, p.id));
         roundId = randomUUID(); phase = 'active';
         // Test players get no tasks, so the shared goal depends only on real players.
         assignTasks(game, roundId, roles.filter(p => !players.find(other => other.id === p.id)!.test));
-        db.prepare("UPDATE players SET status = 'alive', emergency_used = 0 WHERE game_code = ?").run(game.code);
+        db.prepare("UPDATE players SET status = 'alive', emergency_used = 0, ability_used = 0, station_id = NULL, station_at = NULL WHERE game_code = ?").run(game.code);
         db.prepare(`UPDATE games SET winner = NULL, progress_shown = 0, progress_shown_at = ?, clock_ms = 0, clock_at = ?, eliminate_ready_ms = opening_protection * 1000,
-          reactor_used = 0, reactor_ends_ms = NULL, reactor_panel = NULL WHERE code = ?`)
+          reactor_used = 0, reactor_ends_ms = NULL, reactor_panel = NULL, security_ends_ms = NULL, jester_out = NULL WHERE code = ?`)
           .run(now(), now(), game.code);
         break;
       }
@@ -174,6 +226,8 @@ export function createRound({ db, now, playerFor, gameFor, alreadyApplied, recor
       case 'rejectResult':
         if (phase !== 'paused' || game.pause_reason !== 'victory') throw new GameError('INVALID_PHASE', 409);
         if (game.proposed_reason === 'reactor') db.prepare('UPDATE games SET reactor_ends_ms = NULL, reactor_panel = NULL WHERE code = ?').run(game.code);
+        // A rejected Jester win is withdrawn, so resuming does not detect it again.
+        if (game.proposed_reason === 'jester') db.prepare('UPDATE games SET jester_out = NULL WHERE code = ?').run(game.code);
         pauseReason = 'organiser'; break;
       case 'reset':
         if (phase !== 'ended') throw new GameError('INVALID_PHASE', 409);
@@ -254,5 +308,5 @@ export function createRound({ db, now, playerFor, gameFor, alreadyApplied, recor
     return changed;
   }
 
-  return { command, role, eliminatePlayer, startSabotage, repairReactor, completeTask, help, tick };
+  return { command, role, eliminatePlayer, startSabotage, reportLocation, startSecurity, securityView, repairReactor, completeTask, help, tick };
 }

@@ -51,6 +51,8 @@ In the lobby, **Room management → Add test player** adds "Test 1", "Test 2"…
 
 **Two keys** is skipped automatically when fewer than two real players play (test players cannot help). If it was the only game on, all other games are used instead. The **Help someone** button appears on player task screens while Two keys is on.
 
+**Extra roles** (a checklist, all off): Security, Jester and Accomplice, each with its minimum player count. Applies at the next round start. The Jester is only handed out while **Vote on phones** is on. With Security on, **Live view length** (15 s, 5–60) applies to the next live view opened. See [game rules](game-rules.md#extra-roles). A detected Jester win waits for confirmation like any other when **Confirm victories** is on; rejecting it withdraws it.
+
 Task count and goal can only change in the lobby, so a change cannot end a running round. Timer changes never alter a timer already running.
 
 ## Station access — implemented

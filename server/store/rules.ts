@@ -1,4 +1,5 @@
 import type { RoundResult } from '../../shared/protocol.js';
+import { rolesOn, sqlRoles } from '../roles.js';
 import type { Base } from './base.js';
 import type { Game, Win } from './shared.js';
 
@@ -18,18 +19,21 @@ export function createRules({ db, now, gameFor }: Base) {
     .all(game.code) as { id: string }[];
   // Active play time in this round, excluding pauses and meetings.
   const elapsed = (game: Game) => game.clock_ms + (game.phase === 'active' ? Math.max(0, now() - game.clock_at) : 0);
-  // The Impostor wins when at most one living Crewmate remains.
-  const impostorWon = (game: Game) => (db.prepare("SELECT COUNT(*) AS living FROM players WHERE game_code = ? AND playing = 1 AND removed = 0 AND role = 'crewmate' AND status = 'alive'")
+  // The Impostor wins when at most one living player outside the Impostor's team remains
+  // (crew and Jester). The Accomplice counts for neither side.
+  const impostorWon = (game: Game) => (db.prepare(`SELECT COUNT(*) AS living FROM players WHERE game_code = ? AND playing = 1 AND removed = 0 AND role IN (${sqlRoles([...rolesOn('crew'), ...rolesOn('jester')])}) AND status = 'alive'`)
     .get(game.code) as { living: number }).living <= 1;
   function endRound(code: string, winner: RoundResult['winner'], reason: RoundResult['reason']) {
     db.prepare("UPDATE games SET phase = 'ended', pause_reason = NULL, proposed_winner = NULL, proposed_reason = NULL, winner = ?, end_reason = ?, revision = revision + 1 WHERE code = ?").run(winner, reason, code);
   }
   // A reactor meltdown whose countdown ran out in active play.
   const meltedDown = (game: Game) => game.reactor_ends_ms !== null && elapsed(game) >= game.reactor_ends_ms;
-  // A caught Impostor (a ghost after an ejection or correction) wins for the crew first.
+  // A caught Impostor (a ghost after an ejection or correction) wins for the crew first; a Jester
+  // voted out unanimously wins alone. Ejecting the Accomplice does not end the round.
   // During a meltdown a task win waits until the reactor is repaired.
   function winFor(game: Game): Win | null {
     if (db.prepare("SELECT 1 FROM players WHERE game_code = ? AND playing = 1 AND removed = 0 AND role = 'impostor' AND status = 'ghost'").get(game.code)) return { winner: 'crew', reason: 'ejected' };
+    if (game.jester_out) return { winner: 'jester', reason: 'jester' };
     if (meltedDown(game)) return { winner: 'impostor', reason: 'reactor' };
     if (game.reactor_ends_ms === null && tasksWon(game)) return { winner: 'crew', reason: 'tasks' };
     // With eliminations played only physically, the organiser ends the round for an Impostor win.

@@ -1,10 +1,13 @@
 import { createHash } from 'node:crypto';
-import { taskKinds, type ErrorCode, type HistoryEntry, type Lobby, type MeetingKind, type MeetingStage, type Phase, type PlayerStatus, type Role, type RoundResult, type StationAccess, type TaskKind, type DeliveryMode } from '../../shared/protocol.js';
+import { specialRoles, taskKinds, type ErrorCode, type HistoryEntry, type Lobby, type MeetingKind, type MeetingStage, type Phase, type PlayerStatus, type Role, type RoundResult, type SpecialRole, type StationAccess, type TaskKind, type DeliveryMode, type Winner } from '../../shared/protocol.js';
 
 export class GameError extends Error {
   constructor(public code: ErrorCode, public status = 400) { super(code); }
 }
-export type Player = { id: string; game_code: string; name: string; organiser: number; playing: number; role: Role | null; removed: number; status: PlayerStatus; emergency_used: number; test: number };
+export type Player = { id: string; game_code: string; name: string; organiser: number; playing: number; role: Role | null; removed: number; status: PlayerStatus; emergency_used: number; test: number;
+  // Security's one live view; the station this player last reported and when (play clock).
+  ability_used: number; station_id: string | null; station_at: number | null;
+};
 export type Game = {
   code: string; phase: Phase; round_id: string | null; revision: number; pause_reason: Lobby['pauseReason'];
   winner: RoundResult['winner']; end_reason: RoundResult['reason'] | null;
@@ -25,13 +28,16 @@ export type Game = {
   // Delivery tasks: carried in the app, or the named real object.
   delivery_mode: DeliveryMode; delivery_object: string;
   // The win the app detected while waiting for the organiser to confirm it (pause_reason 'victory').
-  proposed_winner: 'crew' | 'impostor' | null; proposed_reason: RoundResult['reason'] | null;
+  proposed_winner: Winner | null; proposed_reason: RoundResult['reason'] | null;
   // Reactor meltdown: the setting and countdown length, whether this round's one meltdown was
   // used, the play-clock time it melts down (null when none is on) and the latest repair activation.
   sabotage: number; reactor_time: number; reactor_used: number; reactor_ends_ms: number | null; reactor_panel: string | null;
+  // Extra roles: a JSON list of those switched on, the Security live view length and the
+  // play-clock time an open view closes, and the Jester voted out unanimously (a player id).
+  roles_on: string; security_time: number; security_ends_ms: number | null; jester_out: string | null;
 };
 export type ReactorPanel = { player: string; station: string; at: number };
-export type Win = { winner: 'crew' | 'impostor'; reason: RoundResult['reason'] };
+export type Win = { winner: Winner; reason: RoundResult['reason'] };
 // `undo` holds what is needed to revert a correction; it never leaves the server.
 export type ChangeRow = { id: number; at: number; action: HistoryEntry['action']; detail: string; undo: string | null; undone: number };
 export type TaskRow = { id: string; player_id: string; station_id: string; fake: number; puzzle: string; done_at: number | null };
@@ -40,6 +46,10 @@ export const MAX_STATIONS = 8;
 export const enabledKinds = (game: Game): TaskKind[] => {
   const off = JSON.parse(game.task_games_off) as string[];
   return taskKinds.filter(kind => !off.includes(kind));
+};
+export const enabledRoles = (game: Game): SpecialRole[] => {
+  const on = JSON.parse(game.roles_on) as string[];
+  return specialRoles.filter(role => on.includes(role));
 };
 // The task games handed out in this room. Two keys needs a second real player to help; if it
 // was the only game on, every other game stands in for it.

@@ -2,7 +2,7 @@ import { REPAIR_WINDOW_MS, type HistoryEntry, type Lobby, type Task, type TaskPu
 import { reveal } from '../tasks/index.js';
 import type { Base } from './base.js';
 import type { Rules } from './rules.js';
-import { enabledKinds, type ChangeRow, type Game, type Player, type ReactorPanel, type TaskRow } from './shared.js';
+import { enabledKinds, enabledRoles, type ChangeRow, type Game, type Player, type ReactorPanel, type TaskRow } from './shared.js';
 
 // The lobby snapshot each player receives: only what that player may see.
 export function createView({ db, now, playerFor, gameFor }: Base, { progress, votesOf, voters, elapsed }: Rules) {
@@ -35,6 +35,7 @@ export function createView({ db, now, playerFor, gameFor }: Base, { progress, vo
         confirmVictory: Boolean(game.confirm_victory), changePreviews: Boolean(game.change_previews), changeHistory: Boolean(game.change_history), taskGames: enabledKinds(game),
         deliveryMode: game.delivery_mode, deliveryObject: game.delivery_object,
         sabotage: Boolean(game.sabotage), reactorTime: game.reactor_time,
+        roles: enabledRoles(game), securityTime: game.security_time,
       },
       // The proposed winning team and the change history are for the organiser only.
       ...(player.organiser && game.pause_reason === 'victory' && game.proposed_winner ? { proposedResult: { winner: game.proposed_winner, reason: game.proposed_reason ?? 'organiser' } } : {}),

@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import { completeTask, eliminate, helpTask, repairReactor, roundCommand, sabotage } from '../../shared/protocol.js';
+import { completeTask, eliminate, helpTask, repairReactor, reportLocation, roundCommand, sabotage, useSecurity } from '../../shared/protocol.js';
 import { sessionToken } from '../session.js';
 import { GameError } from '../store/index.js';
 import type { RouteContext } from './context.js';
 
-// The round: private roles, organiser round commands, task answers, eliminations and sabotage.
+// The round: private roles, organiser round commands, task answers, eliminations, sabotage and Security.
 export function roundRoutes({ store, broadcast, syncPlayer }: RouteContext) {
   const router = Router();
   router.get('/api/role', (req, res, next) => {
@@ -66,6 +66,34 @@ export function roundRoutes({ store, broadcast, syncPlayer }: RouteContext) {
       const code = store.startSabotage(token, parsed.data);
       res.json({ lobby: store.lobby(token), role: store.role(token, parsed.data.roundId) });
       broadcast(code);
+    } catch (error) { next(error); }
+  });
+
+  // A scanned (or, with manual access, opened) station. Nothing is broadcast.
+  router.post('/api/round/location', (req, res, next) => {
+    try {
+      const parsed = reportLocation.safeParse(req.body);
+      if (!parsed.success) throw new GameError('INVALID_INPUT');
+      store.reportLocation(sessionToken(req.headers.cookie), parsed.data);
+      res.status(204).end();
+    } catch (error) { next(error); }
+  });
+
+  // Security opens their live view; only their own role card changes.
+  router.post('/api/security', (req, res, next) => {
+    try {
+      const parsed = useSecurity.safeParse(req.body);
+      if (!parsed.success) throw new GameError('INVALID_INPUT');
+      const token = sessionToken(req.headers.cookie);
+      store.startSecurity(token, parsed.data);
+      res.json({ role: store.role(token, parsed.data.roundId), view: store.securityView(token, parsed.data.roundId) });
+    } catch (error) { next(error); }
+  });
+
+  router.get('/api/security', (req, res, next) => {
+    try {
+      if (typeof req.query.roundId !== 'string') throw new GameError('INVALID_INPUT');
+      res.json(store.securityView(sessionToken(req.headers.cookie), req.query.roundId));
     } catch (error) { next(error); }
   });
 

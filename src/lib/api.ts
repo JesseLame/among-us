@@ -25,3 +25,11 @@ export function commandId(): string {
   const hex = Array.from(bytes, value => value.toString(16).padStart(2, '0')).join('');
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
+
+// Tells the server which station this phone is at (a scan, or opening a task there with manual
+// access). It is only kept for a Security player's live view; failures are ignored.
+export function reportLocation(roundId: string, stationId: string) {
+  fetch('/api/round/location', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roundId, stationId }), signal: AbortSignal.timeout(10000),
+  }).catch(() => undefined);
+}

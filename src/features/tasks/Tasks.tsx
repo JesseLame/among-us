@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from 'react-aria-components';
 import type { CompleteTask, ErrorCode, Lobby, Task } from '../../../shared/protocol';
-import { codeFor, request } from '../../lib/api';
+import { codeFor, request, reportLocation } from '../../lib/api';
 import StationScanner from './Scanner';
 import HelpPanel from './HelpPanel';
 import { kindLabel, PuzzleView, taskSummary } from './games/registry';
@@ -128,7 +128,11 @@ export default function Tasks({ lobby, language, connected, onUpdate, scan, onSc
           : qrOnly && task.stationId !== here
           ? <span className={styles.scanBadge}><span aria-hidden="true">⌗ </span>{t.scanToOpen}</span>
           : <Button className={ui.secondary} isDisabled={!active || !connected} aria-label={`${t.openTask}: ${kindLabel(t, task.puzzle.kind)}, ${stationName(task)}`}
-            onPress={() => { setOpenId(task.id); setNotice(null); setError(null); }}>{t.openTask}</Button>}
+            onPress={() => {
+              // With manual access, opening a task away from the scanned station counts as being there.
+              if (task.stationId !== here && lobby.roundId) reportLocation(lobby.roundId, task.stationId);
+              setOpenId(task.id); setNotice(null); setError(null);
+            }}>{t.openTask}</Button>}
       </li>)}
     </ul>
   </section>;

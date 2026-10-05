@@ -11,6 +11,7 @@ import { CallMeetingButtons, MeetingCard } from '../meeting/Meeting';
 import PrivateRole from './PrivateRole';
 import RoundControls from './RoundControls';
 import ReactorCard from '../sabotage/ReactorCard';
+import { roleCards } from '../roles/registry';
 
 type Props = {
   lobby: Lobby; language: Language; connected: boolean; onUpdate: (lobby: Lobby) => void; onExit: (reason: SessionEndReason) => void;
@@ -23,10 +24,10 @@ export default function RoundView(props: Props) {
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { heading.current?.focus(); }, [lobby.phase]);
   const winner = lobby.result?.winner;
-  const title = lobby.phase === 'meeting' ? t.meetingTitle : lobby.phase === 'paused' ? t.pausedTitle : lobby.phase === 'ended' ? winner === 'crew' ? t.crewWonTitle : winner === 'impostor' ? t.impostorWonTitle : t.endedTitle : t.roundTitle;
+  const title = lobby.phase === 'meeting' ? t.meetingTitle : lobby.phase === 'paused' ? t.pausedTitle : lobby.phase === 'ended' ? winner === 'crew' ? t.crewWonTitle : winner === 'impostor' ? t.impostorWonTitle : winner === 'jester' ? t.jesterWonTitle : t.endedTitle : t.roundTitle;
   const declared = lobby.result?.reason === 'organiser';
   const endedMessage = declared && winner ? winner === 'crew' ? t.declaredCrewMessage : t.declaredImpostorMessage
-    : winner === 'crew' ? lobby.result?.reason === 'ejected' ? t.crewWonEjectMessage : t.crewWonMessage : winner === 'impostor' ? lobby.result?.reason === 'reactor' ? t.impostorWonReactorMessage : t.impostorWonMessage : lobby.result?.reason === 'departure' ? t.departureMessage : t.endedMessage;
+    : winner === 'jester' ? t.jesterWonMessage : winner === 'crew' ? lobby.result?.reason === 'ejected' ? t.crewWonEjectMessage : t.crewWonMessage : winner === 'impostor' ? lobby.result?.reason === 'reactor' ? t.impostorWonReactorMessage : t.impostorWonMessage : lobby.result?.reason === 'departure' ? t.departureMessage : t.endedMessage;
   const tasks = <Tasks key={`tasks:${lobby.roundId}:${lobby.phase}`} lobby={lobby} language={language} connected={connected} onUpdate={props.onUpdate} scan={props.scan} onScanHandled={props.onScanHandled} onStationScanned={props.onStationScanned}/>;
 
   // An eliminated player sees that first; everyone else starts with their role card.
@@ -63,8 +64,10 @@ export default function RoundView(props: Props) {
       <ul className={shared.roster}>{lobby.players.map((player, index) => <li key={player.id}>
         <span className={shared.avatar} data-color={index % 4} aria-hidden="true">{player.name.charAt(0).toUpperCase()}</span>
         <span className={shared.playerName}>{player.name}{player.id === lobby.you.id && <small> · {t.you}</small>}{player.removed && <small> · {t.removedPlayer}</small>}</span>
-        <span className={ui.badge}>{!player.playing ? t.hostBadge : lobby.revealedRoles?.find(role => role.id === player.id)?.role === 'impostor' ? t.impostor : t.crewmate}</span>
-      </li>)}</ul><p className={ui.note}>{t.newRoundNote}</p>
+        <span className={ui.badge}>{!player.playing ? t.hostBadge : roleCards[lobby.revealedRoles?.find(role => role.id === player.id)?.role ?? 'crewmate'].name(t)}</span>
+      </li>)}</ul>
+      {winner === 'impostor' && lobby.revealedRoles?.some(entry => entry.role === 'accomplice') && <p className={ui.note}>{t.accompliceWonNote}</p>}
+      <p className={ui.note}>{t.newRoundNote}</p>
     </section> : !lobby.you.playing ? <section className={`${ui.card} ${shared.lobbyCard} ${styles.hostRoster}`} aria-labelledby="playing-title">
       <div className={shared.cardTop}><h2 id="playing-title">{t.playingNow}</h2><span>{lobby.players.filter(player => player.playing).length}</span></div>
       <ul className={shared.roster}>{lobby.players.filter(player => player.playing).map((player, index) => <li key={player.id}>

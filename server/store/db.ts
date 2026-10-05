@@ -175,6 +175,21 @@ export function openDatabase(path: string) {
         PRAGMA user_version = 17;
       `);
     }
+    if (version < 18) {
+      // Extra roles: the ones switched on (all off by default), the Security live view
+      // (its length, and the play-clock time it closes) and the Jester voted out unanimously.
+      // A player's last reported station is kept only while a Security player is in the round.
+      db.exec(`
+        ALTER TABLE games ADD COLUMN roles_on TEXT NOT NULL DEFAULT '[]';
+        ALTER TABLE games ADD COLUMN security_time INTEGER NOT NULL DEFAULT 15;
+        ALTER TABLE games ADD COLUMN security_ends_ms INTEGER;
+        ALTER TABLE games ADD COLUMN jester_out TEXT;
+        ALTER TABLE players ADD COLUMN ability_used INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE players ADD COLUMN station_id TEXT;
+        ALTER TABLE players ADD COLUMN station_at INTEGER;
+        PRAGMA user_version = 18;
+      `);
+    }
   });
   migrate();
   return db;

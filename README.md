@@ -26,6 +26,8 @@ Organisers can open **Room management / Kamerbeheer** in any phase to remove a p
 
 This is a personal home game, not a product being prepared for public release. The organiser should be able to change settings and fix problems during play, including choosing how much the app manages.
 
+**Extra roles (each off by default):** the organiser can add **Security** (once per round, outside meetings, a 15-second live view of where everyone last scanned a station), a **Jester** (wins alone when everyone else votes them out on their phones; needs phone voting) and an **Accomplice** (wins with the Impostor, but neither knows the other; not counted for the Impostor's majority). Each needs a minimum number of players (4, 5 and 6) and is left out quietly otherwise. Rules: [game rules](docs/game-rules.md#extra-roles).
+
 ## Documentation
 
 | File | Purpose |

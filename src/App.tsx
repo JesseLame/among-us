@@ -5,7 +5,7 @@ import type { ClientEvents, ErrorCode, Lobby as LobbyState, ServerEvents, Sessio
 import { errorMessages, initialLanguage, translations, type Language } from './i18n';
 import styles from './App.module.css';
 import ui from './styles/ui.module.css';
-import { codeFor, request } from './lib/api';
+import { codeFor, reportLocation, request } from './lib/api';
 import Home from './features/home/Home';
 import Lobby from './features/lobby/Lobby';
 import RoundView from './features/round/RoundView';
@@ -57,6 +57,12 @@ export default function App() {
     else if (scannedRound.current && scannedRound.current !== lobby.roundId) setScan(null);
     if (lobby.roundId) scannedRound.current = lobby.roundId;
   }, [lobby?.phase, lobby?.roundId]);
+  // Each scan in a round is reported once (kept only for a Security player's live view).
+  const roundOn = lobby?.phase === 'active' || lobby?.phase === 'paused' || lobby?.phase === 'meeting';
+  const playingRound = roundOn && lobby?.you.playing ? lobby.roundId : null;
+  useEffect(() => {
+    if (playingRound && scan?.stationId) reportLocation(playingRound, scan.stationId);
+  }, [playingRound, scan?.stationId]);
   // Sound needs a first tap before browsers allow it; then a meeting starting sounds the alarm.
   // Listen in the capture phase (React Aria stops press events from bubbling) and on the
   // events browsers accept as permission for sound: on touch screens that is lifting the finger.

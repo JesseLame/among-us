@@ -1,0 +1,59 @@
+/* Security: the live view panel inside Security's revealed role card. */
+.security {
+  text-align: left;
+  border-top: 1px dashed var(--color-border);
+  padding-top: var(--space-4);
+  margin-bottom: var(--space-5);
+  display: grid;
+  gap: var(--space-3);
+}
+
+.security h3 {
+  margin: 0;
+  font: 600 var(--text-lg) var(--font-heading);
+  color: var(--color-accent);
+}
+
+.security p {
+  margin: 0;
+}
+
+.timer strong {
+  font: 700 var(--text-xl) var(--font-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+.list {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.list th,
+.list td {
+  text-align: left;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.list thead th {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.list tbody th {
+  padding-right: var(--space-3);
+  font-weight: 600;
+}
+
+.list small {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.unknown {
+  color: var(--color-text-muted);
+}

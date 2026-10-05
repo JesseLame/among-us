@@ -70,8 +70,8 @@ export default function RoundControls({ lobby, language, connected, onUpdate, on
     {lobby.phase === 'active' && <Button className={ui.secondary} isDisabled={disabled} onPress={() => void callMeeting()}>{t.callMeeting}<span aria-hidden="true">◎</span></Button>}
     {lobby.phase === 'meeting' && lobby.meeting && <MeetingControls lobby={lobby} language={language} connected={connected} onUpdate={onUpdate} ending={busy} onEndMeeting={() => void act('endMeeting')}/>}
     {lobby.phase === 'paused' && lobby.pauseReason === 'victory' && lobby.proposedResult && <section className={styles.proposal} aria-labelledby="proposal-title">
-      <h3 id="proposal-title">{t.proposedTitle}: {lobby.proposedResult.winner === 'crew' ? t.crewWins : t.impostorWins}</h3>
-      <p>{lobby.proposedResult.winner === 'impostor' ? lobby.proposedResult.reason === 'reactor' ? t.proposedImpostorReactor : t.proposedImpostor : lobby.proposedResult.reason === 'tasks' ? t.proposedCrewTasks : t.proposedCrewEjected}</p>
+      <h3 id="proposal-title">{t.proposedTitle}: {lobby.proposedResult.winner === 'crew' ? t.crewWins : lobby.proposedResult.winner === 'jester' ? t.jesterWins : t.impostorWins}</h3>
+      <p>{lobby.proposedResult.winner === 'jester' ? t.proposedJester : lobby.proposedResult.winner === 'impostor' ? lobby.proposedResult.reason === 'reactor' ? t.proposedImpostorReactor : t.proposedImpostor : lobby.proposedResult.reason === 'tasks' ? t.proposedCrewTasks : t.proposedCrewEjected}</p>
       <p className={ui.note}>{t.proposedHelp}</p>
       <Button className={ui.primary} isDisabled={disabled} onPress={() => void act('confirmResult')}>{busy ? t.working : t.confirmResult}<span aria-hidden="true">→</span></Button>
       <Button className={ui.secondary} isDisabled={disabled} onPress={() => void act('rejectResult')}>{t.rejectResult}</Button>

@@ -212,6 +212,23 @@ export const en = {
   sabotageOn: 'On: once per round the Impostor can set off a meltdown that two players must repair at two stations in time.',
   sabotageOff: 'Off: no sabotage. Switching it off during a meltdown stops it without a loss.',
   settingReactor: 'Meltdown countdown (seconds)', settingReactorHelp: 'Counts active play only. Applies to the next meltdown.',
+  security: 'Security', jester: 'Jester', accomplice: 'Accomplice',
+  securityBrief: 'You’re on the crew. Complete your tasks. Once per round you can open a live view of where everyone last scanned a station.',
+  jesterBrief: 'You’re on your own. You win only if everyone else votes you out in a phone vote. Look suspicious, but not too obviously. Your tasks are fake.',
+  accompliceBrief: 'You secretly help the Impostor, but neither of you knows who the other is. You win if the Impostor wins, even when you are out. Your tasks are fake.',
+  securityTitle: 'Live view', securityHelp: 'Once per round, outside meetings. For {seconds} seconds you see the station where each player last scanned.',
+  securityOpen: 'Open live view', securityUsed: 'You have used your live view this round.', securityMeeting: 'Not during a meeting.',
+  securityPaused: 'The round is paused, so the live view is stopped.', securityCloses: 'Closes in',
+  securityNever: 'Not seen yet', securityAgo: '{seconds}s ago', securityLastSeen: 'Last seen', securityPlayer: 'Player',
+  securityConfirmTitle: 'Open the live view?', securityConfirmText: 'You can only do this once per round. Nobody else is told.', securityConfirm: 'Open it',
+  jesterWins: 'The Jester wins', jesterWonTitle: 'The Jester fooled everyone.',
+  jesterWonMessage: 'Everyone voted the Jester out, so the Jester wins. You can now talk about your roles.',
+  proposedJester: 'Everyone voted out the Jester.', accompliceWonNote: 'The Accomplice wins with the Impostor.',
+  groupRoles: 'Extra roles', rolesLegend: 'Roles in the next round', rolesHelp: 'Handed out at the next start, each to one player, when there are enough players. Nobody is told if a role was left out.',
+  roleSecurityHelp: 'From 4 players. Once per round, outside meetings, sees where everyone last scanned a station.',
+  roleJesterHelp: 'From 5 players. Wins alone when everyone else votes them out on their phones. Needs phone voting.',
+  roleAccompliceHelp: 'From 6 players. Wins with the Impostor, but neither knows who the other is. Does not count for the Impostor’s majority.',
+  settingSecurity: 'Live view length (seconds)', settingSecurityHelp: 'How long Security’s live view stays open.',
 };
 
 export type Copy = { [Key in keyof typeof en]: string };
@@ -237,4 +254,5 @@ export const enErrors: Record<ErrorCode, string> = {
   HELP_CODE_NOT_FOUND: 'No open task has that pairing code. Check the letters on their screen.', OWN_TASK: 'That’s your own task. Someone else has to help you.',
   SABOTAGE_OFF: 'The organiser has turned sabotage off.', SABOTAGE_USED: 'You have already used your sabotage this round.',
   REACTOR_ACTIVE: 'No emergency meetings during a reactor meltdown. Repair it first.',
+  SECURITY_USED: 'You have already used your live view this round.',
 };

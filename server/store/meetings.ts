@@ -8,7 +8,8 @@ export function createMeetings({ db, now, playerFor, gameFor, alreadyApplied, re
   // A living player reports a body or calls an emergency meeting; the organiser may
   // always call one. Play and its clock stop while everyone gathers; the organiser then
   // starts the meeting itself. A reactor meltdown's countdown stops with the clock, and
-  // its repair activation is cleared so players must return to the stations.
+  // its repair activation is cleared so players must return to the stations. An open
+  // Security live view closes.
   const startMeeting = db.transaction((token: string | undefined, input: CallMeeting) => {
     const player = playerFor(token);
     if (!player) throw new GameError('NO_SESSION', 401);
@@ -32,17 +33,22 @@ export function createMeetings({ db, now, playerFor, gameFor, alreadyApplied, re
       }
     }
     db.prepare(`UPDATE games SET phase = 'meeting', clock_ms = ?, meeting_kind = ?, meeting_by = ?, meeting_stage = 'gathering', meeting_at = NULL,
-      meeting_ghosts = '[]', meeting_discussion = NULL, meeting_votes = NULL, meeting_result = NULL, reactor_panel = NULL, revision = revision + 1 WHERE code = ?`)
+      meeting_ghosts = '[]', meeting_discussion = NULL, meeting_votes = NULL, meeting_result = NULL, reactor_panel = NULL, security_ends_ms = NULL, revision = revision + 1 WHERE code = ?`)
       .run(elapsed(game), input.kind, input.kind === 'organiser' ? null : player.id, game.code);
     recordCommand(input.commandId, game.code, player.id, payload);
     return game.code;
   });
   // The result of a vote: an ejected player becomes a ghost. Ejecting the Impostor wins
   // the round for the crew; otherwise the Impostor may now have enough eliminations.
-  function eject(game: Game, ejected: string | null, tally: { target: string; voters: string[] }[] | null) {
+  // `unanimous`: every other voter chose the ejected player on their phone, which wins
+  // the round for a Jester.
+  function eject(game: Game, ejected: string | null, tally: { target: string; voters: string[] }[] | null, unanimous = false) {
     db.prepare("UPDATE games SET meeting_stage = 'result', meeting_result = ? WHERE code = ?").run(JSON.stringify({ ejected, tally }), game.code);
     if (!ejected) return;
     db.prepare("UPDATE players SET status = 'ghost' WHERE id = ?").run(ejected);
+    if (unanimous && db.prepare("SELECT 1 FROM players WHERE id = ? AND role = 'jester'").get(ejected)) {
+      db.prepare('UPDATE games SET jester_out = ? WHERE code = ?').run(ejected, game.code);
+    }
     settle(game.code);
   }
   // The organiser starts the gathered meeting, opens and closes phone voting, or records
@@ -76,12 +82,16 @@ export function createMeetings({ db, now, playerFor, gameFor, alreadyApplied, re
         if (stage !== 'voting') throw new GameError('INVALID_PHASE', 409);
         // The unique highest total is ejected; a tie or a winning Skip ejects nobody.
         const votes = votesOf(game);
+        const eligible = voters(game).map(voter => voter.id);
         const groups = new Map<string, string[]>();
         for (const [voter, target] of Object.entries(votes)) groups.set(target, [...(groups.get(target) ?? []), voter]);
         const tally = [...groups].map(([target, voters]) => ({ target, voters })).sort((a, b) => b.voters.length - a.voters.length);
         const top = tally[0];
         const unique = top && (tally.length === 1 || tally[1].voters.length < top.voters.length);
-        eject(game, unique && top.target !== 'skip' ? top.target : null, tally);
+        const ejected = unique && top.target !== 'skip' ? top.target : null;
+        // Unanimous: every living voter besides the ejected player voted for them (their own vote does not matter).
+        const others = eligible.filter(id => id !== ejected);
+        eject(game, ejected, tally, ejected !== null && others.length > 0 && others.every(id => votes[id] === ejected));
         break;
       }
       case 'record':
